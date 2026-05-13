@@ -1,0 +1,1726 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bloc Notas Standalone</title>
+    <!-- Tailwind CSS para el diseño -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React y Babel para la lógica -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'Fira Code', monospace; }
+        
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        
+        @media print {
+            .no-print { display: none !important; }
+            .print-area { display: block !important; width: 100% !important; background: white !important; color: black !important; padding: 0 !important; }
+            pre { border: 1px solid #000; padding: 20px; white-space: pre-wrap; word-wrap: break-word; color: black !important; }
+            .bg-slate-950, .bg-black { background: white !important; }
+        }
+
+        input, select, textarea { transition: all 0.2s ease; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- Componentes de Iconos ---
+        const IconNetwork = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="9" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M12 8v4"/><path d="M12 12H5v4"/><path d="M12 12h7v4"/></svg>
+        );
+        const IconRouter = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="18" r="1"/><circle cx="10" cy="18" r="1"/><path d="M2 10a8.5 8.5 0 0 1 20 0"/><path d="M5 7a13.5 13.5 0 0 1 14 0"/></svg>
+        );
+        const IconSwitch = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="m21 8-4-4-4 4"/><path d="M17 4v16"/></svg>
+        );
+        const IconPC = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        );
+        const IconTrash = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        );
+        const IconFile = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+        );
+        const IconUpload = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        );
+        const IconRefresh = ({ size = 16, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+        );
+        const IconAlert = ({ size = 16, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        );
+        const IconShield = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        );
+        const IconServer = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        );
+        const IconMenu = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        );
+        const IconTerminal = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+        );
+        const IconX = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        );
+
+        const App = () => {
+            const [nodes, setNodes] = useState([]);
+            const [selectedNodeId, setSelectedNodeId] = useState(null);
+            
+            // Estados para control de paneles responsivos
+            const [showCli, setShowCli] = useState(window.innerWidth >= 1024);
+            const [showSidebar, setShowSidebar] = useState(false);
+
+            useEffect(() => {
+                const handleResize = () => {
+                    if (window.innerWidth >= 1024) {
+                        setShowSidebar(false);
+                    }
+                };
+                window.addEventListener('resize', handleResize);
+                return () => window.removeEventListener('resize', handleResize);
+            }, []);
+
+            const generateId = () => Math.random().toString(36).substr(2, 9);
+
+            // --- Helpers de Red ---
+            const calculateWildcard = (mask) => {
+                if (!mask) return "0.0.0.255";
+                return mask.split('.').map(octet => 255 - parseInt(octet)).join('.');
+            };
+
+            const getNetworkAddress = (ip, mask) => {
+                if (!ip || !mask) return "";
+                const ipOctets = ip.split('.');
+                const maskOctets = mask.split('.');
+                return ipOctets.map((octet, i) => parseInt(octet) & parseInt(maskOctets[i])).join('.');
+            };
+
+            const getRouterNetworks = (router) => {
+                if (!router) return [];
+                const nets = [];
+                router.properties.interfaces.forEach(i => {
+                    if (i.ip && i.mask && i.showInCli !== false) nets.push({ 
+                        ip: i.ip, 
+                        mask: i.mask, 
+                        network: getNetworkAddress(i.ip, i.mask),
+                        wildcard: calculateWildcard(i.mask),
+                        label: `${i.name} (Física)`,
+                        connectedTo: i.connectedTo 
+                    });
+                });
+                router.properties.subinterfaces.forEach(s => {
+                    const base = router.properties.interfaces.find(i => i.name === s.baseInterface);
+                    if (base && base.showInCli === false) return; 
+                    
+                    if (s.ip && s.mask) nets.push({ 
+                        ip: s.ip, 
+                        mask: s.mask, 
+                        network: getNetworkAddress(s.ip, s.mask),
+                        wildcard: calculateWildcard(s.mask),
+                        label: `${s.baseInterface}.${s.vlan} (Subinterfaz)`,
+                        connectedTo: base ? base.connectedTo : null 
+                    });
+                });
+                return nets;
+            };
+
+            // --- Lógica de Plantillas ---
+            const loadTemplate = (type) => {
+                let templateNodes = [];
+                if (type === 'subinterfaces') {
+                    const r0Id = generateId();
+                    const swId = generateId();
+                    templateNodes = [
+                        {
+                            id: r0Id,
+                            type: 'router',
+                            name: 'R0_Subint',
+                            properties: {
+                                interfaces: [{ id: generateId(), name: 'G0/0', ip: '192.168.10.1', mask: '255.255.255.0', connectedTo: swId }],
+                                subinterfaces: [
+                                    { id: generateId(), vlan: '100', ip: '192.168.50.1', mask: '255.255.255.0', baseInterface: 'G0/0' },
+                                    { id: generateId(), vlan: '200', ip: '192.168.60.1', mask: '255.255.255.0', baseInterface: 'G0/0' }
+                                ],
+                                protocol: 'none', protocolData: { staticRoutes: [], eigrpAsn: '100', eigrpNetworks: [], ospfProcessId: '1', ospfArea: '0', ospfNetworks: [], ripNetworks: [], ripVersion: '2', bgpAsn: '100', bgpNeighbors: [], bgpNetworks: [] },
+                                translators: [],
+                                dhcp: { pools: [], excludedAddresses: [] }
+                            }
+                        },
+                        {
+                            id: swId,
+                            type: 'switch',
+                            name: 'SW_Core',
+                            properties: {
+                                interfaces: [{ id: generateId(), name: 'G0/1', ip: '', mask: '', connectedTo: r0Id }],
+                                vlans: [
+                                    { id: '100', name: 'admin', portPrefix: 'Fa0/', startPort: '1', endPort: '10', isNative: true },
+                                    { id: '200', name: 'mercadeo', portPrefix: 'Fa0/', startPort: '11', endPort: '20', isNative: false }
+                                ],
+                                trunks: [{ id: generateId(), interface: 'G0/1', nativeVlan: '100', allowedVlans: '100,200,900' }],
+                                nativeVlan: '100',
+                                dhcp: { pools: [], excludedAddresses: [] }
+                            }
+                        }
+                    ];
+                } else if (type === 'static_rip') {
+                    const r1Id = generateId();
+                    const r2Id = generateId();
+                    templateNodes = [
+                        {
+                            id: r1Id,
+                            type: 'router',
+                            name: 'Router_A',
+                            properties: {
+                                interfaces: [
+                                    { id: generateId(), name: 'G0/0', ip: '50.1.15.1', mask: '255.255.255.0', connectedTo: r2Id },
+                                    { id: generateId(), name: 'G0/1', ip: '192.168.10.1', mask: '255.255.255.0', connectedTo: null }
+                                ],
+                                subinterfaces: [],
+                                protocol: 'rip',
+                                protocolData: { networks: '', staticRoutes: [], eigrpAsn: '1', eigrpNetworks: [], ospfProcessId: '1', ospfArea: '0', ospfNetworks: [], ripVersion: '2', ripNetworks: [{network: '50.1.15.0', label: 'G0/0 (Física)'}, {network: '192.168.10.0', label: 'G0/1 (Física)'}], bgpAsn: '100', bgpNeighbors: [], bgpNetworks: [] },
+                                translators: [],
+                                dhcp: { pools: [], excludedAddresses: [] }
+                            }
+                        },
+                        {
+                            id: r2Id,
+                            type: 'router',
+                            name: 'Router_B',
+                            properties: {
+                                interfaces: [
+                                    { id: generateId(), name: 'G0/0', ip: '50.1.15.2', mask: '255.255.255.0', connectedTo: r1Id },
+                                    { id: generateId(), name: 'G0/1', ip: '192.168.20.1', mask: '255.255.255.0', connectedTo: null }
+                                ],
+                                subinterfaces: [],
+                                protocol: 'rip',
+                                protocolData: { networks: '', staticRoutes: [], eigrpAsn: '1', eigrpNetworks: [], ospfProcessId: '1', ospfArea: '0', ospfNetworks: [], ripVersion: '2', ripNetworks: [{network: '50.1.15.0', label: 'G0/0 (Física)'}, {network: '192.168.20.0', label: 'G0/1 (Física)'}], bgpAsn: '200', bgpNeighbors: [], bgpNetworks: [] },
+                                translators: [],
+                                dhcp: { pools: [], excludedAddresses: [] }
+                            }
+                        }
+                    ];
+                }
+                setNodes(templateNodes);
+                setSelectedNodeId(templateNodes[0]?.id || null);
+                setShowSidebar(false);
+            };
+
+            const addNode = (type) => {
+                const defaultInt = type === 'router' ? 'G0/0' : (type === 'switch' ? 'G0/1' : 'Fa0/1');
+                const newNode = {
+                    id: generateId(),
+                    type,
+                    name: `${type.toUpperCase()}_${nodes.length + 1}`,
+                    properties: {
+                        gateway: '',
+                        interfaces: [
+                            { id: generateId(), name: defaultInt, ip: '', mask: '255.255.255.0', connectedTo: null }
+                        ],
+                        vlans: [], 
+                        trunks: [], 
+                        nativeVlan: '',
+                        protocol: 'none',
+                        protocolData: { networks: '', routes: '', processId: '1', area: '0', asn: '1', staticRoutes: [], eigrpAsn: '1', eigrpNetworks: [], ospfProcessId: '1', ospfArea: '0', ospfNetworks: [], ripVersion: '2', ripNetworks: [], bgpAsn: '100', bgpNeighbors: [], bgpNetworks: [] },
+                        translators: [], 
+                        subinterfaces: [],
+                        dhcp: { pools: [], excludedAddresses: [] },
+                        security: { enabled: false, enableSecret: '', consolePassword: '', vtyPassword: '', vtyLines: '0 2', adminVlan: { enabled: false, id: '900', ip: '', mask: '255.255.255.0' } }
+                    }
+                };
+                setNodes([...nodes, newNode]);
+                setSelectedNodeId(newNode.id);
+                setShowSidebar(false);
+            };
+
+            const deleteNode = (id) => {
+                setNodes(nodes.filter(n => n.id !== id));
+                if (selectedNodeId === id) setSelectedNodeId(null);
+            };
+
+            const updateNode = (id, updates) => {
+                setNodes(nodes.map(n => n.id === id ? { ...n, ...updates } : n));
+            };
+
+            const selectedNode = nodes.find(n => n.id === selectedNodeId);
+
+            // --- Lógica de Generación de Comandos Cisco ---
+            const generateConfig = (node) => {
+                if (!node) return "";
+                let config = `! --- Configuración para ${node.name} ---\n`;
+                config += `hostname ${node.name}\n`;
+                
+                if (node.type === 'pc') {
+                    const primary = node.properties.interfaces[0];
+                    config += `! Configuración en terminal de PC:\n`;
+                    config += `ip address ${primary?.ip || 'DHCP'} ${primary?.mask || '255.255.255.0'}\n`;
+                    config += `ip default-gateway ${node.properties.gateway || '0.0.0.0'}\n`;
+                    return config;
+                }
+
+                config += `enable\nconf t\n`;
+                
+                const sec = node.properties.security;
+                if (sec && sec.enabled) {
+                    config += `! --- Seguridad ---\n`;
+                    if (sec.enableSecret) config += `enable secret ${sec.enableSecret}\n`;
+                    config += `line console 0\n`;
+                    if (sec.consolePassword) config += ` password ${sec.consolePassword}\n`;
+                    config += ` login\nexit\n`;
+                    config += `line vty ${sec.vtyLines || '0 2'}\n`;
+                    if (sec.vtyPassword) config += ` password ${sec.vtyPassword}\n`;
+                    config += ` login\nexit\n`;
+                    
+                    if (node.type === 'switch' && sec.adminVlan && sec.adminVlan.enabled) {
+                        config += `interface Vlan${sec.adminVlan.id || '900'}\n ip address ${sec.adminVlan.ip || '192.168.70.2'} ${sec.adminVlan.mask || '255.255.255.0'}\n no shutdown\nexit\n`;
+                    }
+                }
+
+                if (node.type === 'switch') {
+                    // Creación de VLANs definidas por el usuario
+                    if (node.properties.vlans) {
+                        node.properties.vlans.forEach(v => {
+                            if (v.id) config += `vlan ${v.id}\n name ${v.name || 'VLAN'+v.id}\nexit\n`;
+                        });
+                    }
+
+                    // Creación de VLANs Nativas SOLO si el usuario no las declaró arriba explícitamente
+                    const definedVlans = new Set((node.properties.vlans || []).map(v => String(v.id)).filter(Boolean));
+                    const nativeVlansToCreate = new Set();
+                    
+                    if (node.properties.nativeVlan && !definedVlans.has(String(node.properties.nativeVlan))) {
+                        nativeVlansToCreate.add(node.properties.nativeVlan);
+                    }
+                    if (node.properties.trunks) {
+                        node.properties.trunks.forEach(t => { 
+                            if(t.nativeVlan && !definedVlans.has(String(t.nativeVlan))) nativeVlansToCreate.add(t.nativeVlan); 
+                        });
+                    }
+                    
+                    nativeVlansToCreate.forEach(vid => {
+                        config += `vlan ${vid}\n name NATIVA\nexit\n`;
+                    });
+
+                    // Puertos de Acceso (VLANs)
+                    if (node.properties.vlans) {
+                        node.properties.vlans.forEach(v => {
+                            let interfaceCmd = "";
+                            if (v.portPrefix || v.startPort) {
+                                if (v.endPort && v.endPort !== v.startPort) {
+                                    interfaceCmd = `interface range ${v.portPrefix || 'Fa0/'}${v.startPort}-${v.endPort}`;
+                                } else if (v.startPort) {
+                                    interfaceCmd = `interface ${v.portPrefix || 'Fa0/'}${v.startPort}`;
+                                }
+                            } else if (v.range) {
+                                interfaceCmd = `interface range ${v.range}`;
+                            }
+
+                            if (interfaceCmd && v.id) {
+                                config += `${interfaceCmd}\n`;
+                                config += ` switchport mode access\n`;
+                                config += ` switchport access vlan ${v.id}\nexit\n`;
+                            }
+                        });
+                    }
+
+                    // Puertos Troncales Explícitos
+                    if (node.properties.trunks && node.properties.trunks.length > 0) {
+                        node.properties.trunks.forEach(t => {
+                            if (t.interface) {
+                                config += `interface ${t.interface}\n`;
+                                config += ` switchport mode trunk\n`;
+                                if (t.nativeVlan) config += ` switchport trunk native vlan ${t.nativeVlan}\n`;
+                                if (t.allowedVlans) config += ` switchport trunk allowed vlan ${t.allowedVlans}\n`;
+                                config += `exit\n`;
+                            }
+                        });
+                    }
+
+                    // Configuración de Interfaces Restantes
+                    node.properties.interfaces.forEach(int => {
+                        if (int.showInCli === false) return;
+                        
+                        const targetNode = nodes.find(n => n.id === int.connectedTo);
+                        const isExplicitTrunk = node.properties.trunks && node.properties.trunks.find(t => t.interface === int.name);
+
+                        if (!isExplicitTrunk && targetNode && targetNode.type === 'router') {
+                            config += `interface ${int.name}\n`;
+                            config += ` switchport mode trunk\n`;
+                            if (node.properties.nativeVlan) config += ` switchport trunk native vlan ${node.properties.nativeVlan}\n`;
+                            const allowed = (node.properties.vlans || []).map(v => v.id).filter(Boolean);
+                            if (node.properties.nativeVlan) allowed.push(node.properties.nativeVlan);
+                            if (allowed.length > 0) config += ` switchport trunk allowed vlan ${allowed.join(',')}\n`;
+                            config += `exit\n`;
+                        } else if (int.ip) {
+                            config += `interface ${int.name}\n`;
+                            config += ` ip address ${int.ip} ${int.mask}\nno shut\nexit\n`;
+                        }
+                    });
+                }
+
+                if (node.type === 'router') {
+                    // Interfaces Base y Subinterfaces
+                    node.properties.interfaces.forEach(int => {
+                        if (int.showInCli === false) return;
+                        
+                        const subs = node.properties.subinterfaces.filter(s => s.baseInterface === int.name);
+                        if (subs.length > 0) {
+                            config += `interface ${int.name}\n no shutdown\nexit\n`;
+                            subs.forEach(sub => {
+                                config += `interface ${int.name}.${sub.vlan}\n`;
+                                config += ` encapsulation dot1Q ${sub.vlan}\n`;
+                                config += ` ip address ${sub.ip} ${sub.mask}\n`;
+                                config += ` no shutdown\nexit\n`;
+                            });
+                        } else if (int.ip) {
+                            config += `interface ${int.name}\n`;
+                            config += ` ip address ${int.ip} ${int.mask}\nno shutdown\nexit\n`;
+                        }
+                    });
+
+                    // 1. Protocolo Base (Configuración Simple)
+                    const p = node.properties.protocol;
+                    const pd = node.properties.protocolData;
+
+                    if (p === 'static' && pd.staticRoutes) {
+                        pd.staticRoutes.forEach(r => {
+                            config += `ip route ${r.network} ${r.mask} ${r.nextHop}\n`;
+                        });
+                    } else if (p === 'eigrp') {
+                        config += `router eigrp ${pd.eigrpAsn || '1'}\n`;
+                        if (pd.eigrpNetworks) pd.eigrpNetworks.forEach(n => config += ` network ${n.network} ${n.wildcard}\n`);
+                        config += ` no auto-summary\nexit\n`;
+                    } else if (p === 'ospf') {
+                        config += `router ospf ${pd.ospfProcessId || '1'}\n`;
+                        if (pd.ospfNetworks) pd.ospfNetworks.forEach(n => config += ` network ${n.network} ${n.wildcard} area ${n.area || '0'}\n`);
+                        config += `exit\n`;
+                    } else if (p === 'rip') {
+                        config += `router rip\n version ${pd.ripVersion || '2'}\n`;
+                        if (pd.ripNetworks && pd.ripNetworks.length > 0) {
+                            pd.ripNetworks.forEach(n => config += ` network ${n.network}\n`);
+                        } else if (pd.networks) {
+                            pd.networks.split(',').forEach(n => { if(n.trim()) config += ` network ${n.trim()}\n`; });
+                        }
+                        config += ` no auto-summary\nexit\n`;
+                    } else if (p === 'bgp') {
+                        config += `router bgp ${pd.bgpAsn || '100'}\n`;
+                        if (pd.bgpNeighbors) pd.bgpNeighbors.forEach(n => config += ` neighbor ${n.ip} remote-as ${n.remoteAs}\n`);
+                        if (pd.bgpNetworks) pd.bgpNetworks.forEach(n => config += ` network ${n.network} mask ${n.mask}\n`);
+                        config += `exit\n`;
+                    }
+
+                    // 2. Módulo Traductor de Protocolos (Multi-Protocolo con Redistribución)
+                    if (node.properties.translators && node.properties.translators.length > 0) {
+                        config += `\n! --- Traductor de Protocolos (Redistribución Avanzada) ---\n`;
+                        const allNets = getRouterNetworks(node);
+                        
+                        node.properties.translators.forEach(t => {
+                            if (t.protocol === 'rip') {
+                                config += `router rip\n version 2\n`;
+                                (t.networks || []).forEach(netAddr => config += ` network ${netAddr}\n`);
+                                (t.redistributions || []).forEach(r => {
+                                    config += ` redistribute ${r.source}`;
+                                    if (['ospf', 'eigrp', 'bgp'].includes(r.source) && r.sourceId) config += ` ${r.sourceId}`;
+                                    if (r.metric) config += ` metric ${r.metric}`;
+                                    config += `\n`;
+                                });
+                                config += ` no auto-summary\nexit\n`;
+                                
+                            } else if (t.protocol === 'ospf') {
+                                config += `router ospf ${t.processId || '1'}\n`;
+                                (t.networks || []).forEach(netAddr => {
+                                    const netObj = allNets.find(n => n.network === netAddr);
+                                    const wc = netObj ? netObj.wildcard : '0.0.0.255';
+                                    config += ` network ${netAddr} ${wc} area 0\n`;
+                                });
+                                (t.redistributions || []).forEach(r => {
+                                    config += ` redistribute ${r.source}`;
+                                    if (['ospf', 'eigrp', 'bgp'].includes(r.source) && r.sourceId) config += ` ${r.sourceId}`;
+                                    if (r.subnets) config += ` subnets`;
+                                    if (r.metric) config += ` metric ${r.metric}`;
+                                    config += `\n`;
+                                });
+                                config += `exit\n`;
+                                
+                            } else if (t.protocol === 'eigrp') {
+                                config += `router eigrp ${t.processId || '1'}\n`;
+                                (t.networks || []).forEach(netAddr => {
+                                    const netObj = allNets.find(n => n.network === netAddr);
+                                    const wc = netObj ? netObj.wildcard : '0.0.0.255';
+                                    config += ` network ${netAddr} ${wc}\n`;
+                                });
+                                (t.redistributions || []).forEach(r => {
+                                    config += ` redistribute ${r.source}`;
+                                    if (['ospf', 'eigrp', 'bgp'].includes(r.source) && r.sourceId) config += ` ${r.sourceId}`;
+                                    if (r.metric) config += ` metric ${r.metric}`;
+                                    config += `\n`;
+                                });
+                                config += ` no auto-summary\nexit\n`;
+                            }
+                        });
+                    }
+                }
+
+                // 3. Módulo de Servidor DHCP
+                if (node.properties.dhcp && (node.type === 'router' || node.type === 'switch')) {
+                    if (node.properties.dhcp.excludedAddresses && node.properties.dhcp.excludedAddresses.length > 0) {
+                        config += `\n! --- DHCP Exclusions ---\n`;
+                        node.properties.dhcp.excludedAddresses.forEach(ex => {
+                            if (ex.startIp) {
+                                config += `ip dhcp excluded-address ${ex.startIp}`;
+                                if (ex.endIp) config += ` ${ex.endIp}`;
+                                config += `\n`;
+                            }
+                        });
+                    }
+                    
+                    if (node.properties.dhcp.pools && node.properties.dhcp.pools.length > 0) {
+                        config += `\n! --- DHCP Pools ---\n`;
+                        node.properties.dhcp.pools.forEach(pool => {
+                            if (pool.name) {
+                                config += `ip dhcp pool ${pool.name}\n`;
+                                if (pool.networkIp) config += ` network ${pool.networkIp} ${pool.mask || '255.255.255.0'}\n`;
+                                if (pool.defaultRouter) config += ` default-router ${pool.defaultRouter}\n`;
+                                if (pool.dnsServer) config += ` dns-server ${pool.dnsServer}\n`;
+                                config += `exit\n`;
+                            }
+                        });
+                    }
+                }
+
+                config += `end\nwrite\n`;
+                return config;
+            };
+
+            const downloadJSON = () => {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(nodes, null, 2));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", "topologia_cisco.json");
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            };
+
+            const handleImport = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedNodes = JSON.parse(e.target.result);
+                        if (Array.isArray(importedNodes)) {
+                            setNodes(importedNodes);
+                            setSelectedNodeId(importedNodes.length > 0 ? importedNodes[0].id : null);
+                        }
+                    } catch (err) { alert("Error al leer JSON"); }
+                };
+                reader.readAsText(file);
+                event.target.value = null;
+            };
+
+            const copyToClipboard = () => {
+                const text = generateConfig(selectedNode);
+                navigator.clipboard.writeText(text);
+                alert("Configuración copiada");
+            };
+
+            return (
+                <div className="flex h-screen overflow-hidden relative w-full">
+                    {/* Overlay para móvil cuando el sidebar está abierto */}
+                    {showSidebar && (
+                        <div 
+                            className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm" 
+                            onClick={() => setShowSidebar(false)}
+                        />
+                    )}
+
+                    {/* SIDEBAR (Izquierdo) */}
+                    <div className={`fixed lg:relative z-50 h-full w-80 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 no-print transition-transform duration-300 ease-out ${showSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+                        <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+                            <h1 className="text-xl font-black flex items-center gap-2 text-blue-500">
+                                <IconNetwork size={28} /> CISCO PRO
+                            </h1>
+                            <button className="lg:hidden text-slate-400 hover:text-white" onClick={() => setShowSidebar(false)}>
+                                <IconX size={20} />
+                            </button>
+                        </div>
+
+                        <div className="p-4 flex flex-col gap-6 overflow-y-auto flex-1 scrollbar-hide">
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase px-2 mb-3 tracking-[0.2em]">Topologías / Plantillas</p>
+                                <div className="space-y-2">
+                                    <button onClick={() => loadTemplate('subinterfaces')} className="w-full flex items-center gap-3 p-3 bg-blue-600/10 border border-blue-500/30 rounded-xl hover:bg-blue-600/20 transition-all text-left">
+                                        <IconFile size={18} className="text-blue-400" />
+                                        <div>
+                                            <span className="text-[11px] font-bold block leading-tight">Subinterfaces (PDF 1)</span>
+                                            <span className="text-[9px] text-slate-500 uppercase">Dot1Q + VLANs</span>
+                                        </div>
+                                    </button>
+                                    <button onClick={() => loadTemplate('static_rip')} className="w-full flex items-center gap-3 p-3 bg-orange-600/10 border border-orange-500/30 rounded-xl hover:bg-orange-600/20 transition-all text-left">
+                                        <IconFile size={18} className="text-orange-400" />
+                                        <div>
+                                            <span className="text-[11px] font-bold block leading-tight">Enrutamiento (PDF 2)</span>
+                                            <span className="text-[9px] text-slate-500 uppercase">Rutas Estáticas / RIP</span>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase px-2 mb-2 tracking-[0.2em]">Componentes</p>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <button onClick={() => addNode('pc')} className="flex flex-col items-center p-3 bg-slate-800 rounded-xl hover:bg-blue-600/20 transition-all">
+                                        <IconPC size={20} />
+                                        <span className="text-[9px] mt-2 font-bold">PC</span>
+                                    </button>
+                                    <button onClick={() => addNode('switch')} className="flex flex-col items-center p-3 bg-slate-800 rounded-xl hover:bg-green-600/20 transition-all">
+                                        <IconSwitch size={20} />
+                                        <span className="text-[9px] mt-2 font-bold">SW</span>
+                                    </button>
+                                    <button onClick={() => addNode('router')} className="flex flex-col items-center p-3 bg-slate-800 rounded-xl hover:bg-orange-600/20 transition-all">
+                                        <IconRouter size={20} />
+                                        <span className="text-[9px] mt-2 font-bold">RT</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase px-2 mb-2 tracking-[0.2em]">Nodos en Red</p>
+                                <div className="space-y-2">
+                                    {nodes.map(node => (
+                                        <div 
+                                            key={node.id} 
+                                            onClick={() => { setSelectedNodeId(node.id); setShowSidebar(false); }}
+                                            className={`flex items-center justify-between p-3 rounded-xl cursor-pointer border transition-all ${selectedNodeId === node.id ? 'bg-blue-600/10 border-blue-500 shadow-lg shadow-blue-900/10' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'}`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={selectedNodeId === node.id ? 'text-blue-400' : 'text-slate-400'}>
+                                                    {node.type === 'pc' ? <IconPC size={16}/> : node.type === 'switch' ? <IconSwitch size={16}/> : <IconRouter size={16}/>}
+                                                </div>
+                                                <span className="text-xs font-bold">{node.name}</span>
+                                            </div>
+                                            <button onClick={(e) => { e.stopPropagation(); deleteNode(node.id); }} className="text-slate-600 hover:text-red-500 transition-colors">
+                                                <IconTrash size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-4 border-t border-slate-800 flex flex-col gap-2 bg-slate-900/50">
+                            <div className="flex gap-2">
+                                <button onClick={downloadJSON} className="flex-1 py-2.5 bg-slate-800 rounded-lg text-[10px] font-bold uppercase hover:bg-blue-600 transition-all">Guardar</button>
+                                <button onClick={() => document.getElementById('import-input').click()} className="flex-1 py-2.5 bg-slate-800 rounded-lg text-[10px] font-bold uppercase hover:bg-green-600 transition-all"><IconUpload size={12} className="inline mr-1" /> Importar</button>
+                            </div>
+                            <button onClick={() => window.print()} className="w-full py-2.5 bg-slate-800 rounded-lg text-[10px] font-bold uppercase hover:bg-slate-700 transition-all">Imprimir PDF</button>
+                            <input type="file" id="import-input" className="hidden" accept=".json" onChange={handleImport} />
+                        </div>
+                    </div>
+
+                    {/* MAIN AREA */}
+                    <div className="flex-1 flex flex-col overflow-hidden bg-slate-950 w-full relative">
+                        {/* Cabecera Móvil */}
+                        <div className="lg:hidden flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900 z-10 no-print">
+                            <button onClick={() => setShowSidebar(true)} className="p-2 -ml-2 text-slate-300 hover:text-white">
+                                <IconMenu size={24} />
+                            </button>
+                            <span className="font-black text-blue-500 text-sm tracking-widest uppercase">CISCO PRO</span>
+                            <button onClick={() => setShowCli(!showCli)} className={`p-2 -mr-2 rounded-lg transition-colors ${showCli ? 'text-green-500 bg-green-500/10' : 'text-slate-400 hover:text-white'}`}>
+                                <IconTerminal size={22} />
+                            </button>
+                        </div>
+
+                        {!selectedNode ? (
+                            <div className="flex-1 flex flex-col items-center justify-center text-slate-800 p-8 text-center">
+                                <IconNetwork size={80} className="opacity-10 mb-6" />
+                                <h2 className="text-xl font-black uppercase tracking-widest opacity-20 italic">Configuración Cisco</h2>
+                                <p className="text-xs opacity-20 mt-2">Selecciona un dispositivo del menú para editar su configuración.</p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-1 overflow-hidden relative">
+                                
+                                {/* EDITOR (Centro) */}
+                                <div className="flex-1 p-4 lg:p-8 overflow-y-auto print-area scrollbar-hide">
+                                    <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-8 lg:mb-10 no-print gap-4">
+                                        <div className="flex items-center gap-4 flex-1">
+                                            <div className="p-3 bg-blue-600/10 rounded-2xl border border-blue-500/30 shrink-0 hidden lg:block">
+                                                {selectedNode.type === 'router' ? <IconRouter className="text-orange-400" /> : selectedNode.type === 'switch' ? <IconSwitch className="text-green-400" /> : <IconPC className="text-blue-400" />}
+                                            </div>
+                                            <div className="flex flex-col w-full max-w-sm">
+                                                <label className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1">
+                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                                                    Hostname (Editable)
+                                                </label>
+                                                <input 
+                                                    type="text" 
+                                                    value={selectedNode.name} 
+                                                    onChange={(e) => updateNode(selectedNode.id, { name: e.target.value.replace(/\s+/g, '_') })}
+                                                    className="text-2xl lg:text-3xl font-black italic uppercase tracking-tighter bg-transparent border-b-2 border-transparent hover:border-slate-700 focus:border-blue-500 transition-colors outline-none text-slate-100 p-0 m-0 w-full"
+                                                    placeholder="NOMBRE_DISPOSITIVO"
+                                                />
+                                            </div>
+                                        </div>
+                                        <button onClick={() => setShowCli(!showCli)} className="hidden lg:flex items-center gap-2 bg-slate-800 border border-slate-700 px-4 py-2 rounded-xl text-[10px] font-bold uppercase hover:bg-slate-700 hover:text-white transition-all text-slate-400 shrink-0">
+                                            <IconTerminal size={16} className={showCli ? "text-green-500" : ""} />
+                                            {showCli ? 'Ocultar CLI' : 'Mostrar CLI'}
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-6 lg:space-y-10 max-w-4xl mx-auto lg:mx-0">
+                                        
+                                        {/* Interfaces Físicas */}
+                                        <section className="bg-slate-900/30 p-4 lg:p-6 rounded-3xl border border-slate-800/60 shadow-xl">
+                                            <div className="flex justify-between items-center mb-6">
+                                                <h3 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]"></div> Interfaces Físicas
+                                                </h3>
+                                                <button onClick={() => {
+                                                    let nextIntName;
+                                                    if (selectedNode.type === 'switch') {
+                                                        const faCount = selectedNode.properties.interfaces.filter(i => i.name.toLowerCase().startsWith('fa')).length;
+                                                        nextIntName = `Fa0/${faCount + 1}`;
+                                                    } else {
+                                                        nextIntName = `G0/${selectedNode.properties.interfaces.length}`;
+                                                    }
+                                                    const newInts = [...selectedNode.properties.interfaces, { id: generateId(), name: nextIntName, ip: '', mask: '255.255.255.0', connectedTo: null }];
+                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, interfaces: newInts }});
+                                                }} className="no-print text-[9px] font-bold bg-blue-600 px-3 py-1.5 rounded-full uppercase hover:scale-105 active:scale-95 transition-all">Añadir Puerto</button>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                {selectedNode.properties.interfaces.map((int, idx) => (
+                                                    <div key={int.id} className="flex flex-col lg:flex-row gap-3 bg-slate-950 p-4 rounded-2xl border border-slate-900 lg:items-end group hover:border-slate-700 transition-all">
+                                                        <div className="w-full lg:w-20 shrink-0">
+                                                            <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase">Puerto</label>
+                                                            <input type="text" value={int.name} onChange={(e) => {
+                                                                const n = [...selectedNode.properties.interfaces]; n[idx].name = e.target.value;
+                                                                updateNode(selectedNode.id, { properties: { ...selectedNode.properties, interfaces: n }});
+                                                            }} className="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono" />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase">IP</label>
+                                                            <input type="text" value={int.ip} onChange={(e) => {
+                                                                const n = [...selectedNode.properties.interfaces]; n[idx].ip = e.target.value;
+                                                                updateNode(selectedNode.id, { properties: { ...selectedNode.properties, interfaces: n }});
+                                                            }} className="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono" placeholder="192.168.1.1" />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase">Mask</label>
+                                                            <input type="text" value={int.mask} onChange={(e) => {
+                                                                const n = [...selectedNode.properties.interfaces]; n[idx].mask = e.target.value;
+                                                                updateNode(selectedNode.id, { properties: { ...selectedNode.properties, interfaces: n }});
+                                                            }} className="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono" placeholder="255.255.255.0" />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase tracking-tighter">Conectado a</label>
+                                                            <select value={int.connectedTo || ''} onChange={(e) => {
+                                                                const n = [...selectedNode.properties.interfaces]; n[idx].connectedTo = e.target.value;
+                                                                updateNode(selectedNode.id, { properties: { ...selectedNode.properties, interfaces: n }});
+                                                            }} className="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs focus:ring-1 focus:ring-blue-500">
+                                                                <option value="">(Desconectado)</option>
+                                                                {nodes.filter(n => n.id !== selectedNode.id).map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                                                            </select>
+                                                        </div>
+                                                        
+                                                        <div className="flex flex-row lg:flex-col items-center justify-between lg:justify-center w-full lg:w-10 mt-2 lg:mt-0 pt-2 lg:pt-0 border-t border-slate-800 lg:border-none shrink-0">
+                                                            <label className="text-[9px] lg:text-[6px] font-bold text-slate-500 lg:mb-1.5 uppercase tracking-tighter cursor-pointer text-center leading-none" title="Incluir en CLI">En CLI</label>
+                                                            <button 
+                                                                onClick={() => {
+                                                                    const n = [...selectedNode.properties.interfaces];
+                                                                    n[idx].showInCli = int.showInCli === false ? true : false;
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, interfaces: n }});
+                                                                }}
+                                                                className={`w-10 h-5 lg:w-7 lg:h-4 rounded-full relative transition-colors ${int.showInCli !== false ? 'bg-blue-500' : 'bg-slate-700'}`}
+                                                            >
+                                                                <div className={`w-3.5 h-3.5 lg:w-2.5 lg:h-2.5 bg-white rounded-full absolute top-[3px] transition-all ${int.showInCli !== false ? 'left-[22px] lg:left-[16px]' : 'left-1'}`}></div>
+                                                            </button>
+                                                        </div>
+
+                                                        <div className="w-full lg:w-6 flex justify-end lg:justify-center shrink-0 no-print mt-2 lg:mt-0 lg:pb-1">
+                                                            <button onClick={() => {
+                                                                const n = selectedNode.properties.interfaces.filter(i => i.id !== int.id);
+                                                                updateNode(selectedNode.id, { properties: { ...selectedNode.properties, interfaces: n }});
+                                                            }} className="text-slate-600 bg-slate-900 lg:bg-transparent p-2 lg:p-0 rounded lg:rounded-none hover:text-red-500 hover:bg-red-500/10 transition-colors"><IconTrash size={16} className="lg:w-[14px] lg:h-[14px]"/></button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </section>
+
+                                        {/* NUEVA SECCIÓN: Subinterfaces (Exclusivo Router) */}
+                                        {selectedNode.type === 'router' && (
+                                            <section className="bg-slate-900/30 p-4 lg:p-6 rounded-3xl border border-slate-800/60 shadow-xl">
+                                                <div className="flex justify-between items-center mb-6">
+                                                    <h3 className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_#06b6d4]"></div> Subinterfaces (802.1Q)
+                                                    </h3>
+                                                    <button onClick={() => {
+                                                        const baseInt = selectedNode.properties.interfaces.length > 0 ? selectedNode.properties.interfaces[0].name : '';
+                                                        const newSubints = [...(selectedNode.properties.subinterfaces || []), { id: generateId(), vlan: '', ip: '', mask: '255.255.255.0', baseInterface: baseInt }];
+                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, subinterfaces: newSubints }});
+                                                    }} className="no-print text-[9px] font-bold bg-cyan-600 px-3 py-1.5 rounded-full uppercase hover:scale-105 active:scale-95 transition-all shadow-[0_0_10px_rgba(6,182,212,0.3)]">Añadir Subint.</button>
+                                                </div>
+
+                                                <div className="space-y-3">
+                                                    {(selectedNode.properties.subinterfaces || []).map((sub, idx) => (
+                                                        <div key={sub.id || idx} className="grid grid-cols-1 lg:grid-cols-12 gap-3 bg-slate-950 p-4 rounded-2xl border border-slate-900 lg:items-end group hover:border-slate-700 transition-all">
+                                                            <div className="col-span-1 lg:col-span-3">
+                                                                <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase tracking-tighter">Int. Base</label>
+                                                                <select value={sub.baseInterface || ''} onChange={(e) => {
+                                                                    const n = [...selectedNode.properties.subinterfaces]; n[idx].baseInterface = e.target.value;
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, subinterfaces: n }});
+                                                                }} className="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs focus:ring-1 focus:ring-cyan-500 font-mono">
+                                                                    <option value="">Seleccione...</option>
+                                                                    {selectedNode.properties.interfaces.map(i => <option key={i.id} value={i.name}>{i.name}</option>)}
+                                                                </select>
+                                                            </div>
+                                                            <div className="col-span-1 lg:col-span-2">
+                                                                <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase">VLAN ID</label>
+                                                                <input type="text" value={sub.vlan} onChange={(e) => {
+                                                                    const n = [...selectedNode.properties.subinterfaces]; n[idx].vlan = e.target.value;
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, subinterfaces: n }});
+                                                                }} className="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono lg:text-center outline-none focus:ring-1 focus:ring-cyan-500" placeholder="100" />
+                                                            </div>
+                                                            <div className="col-span-1 lg:col-span-3">
+                                                                <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase">IP Address</label>
+                                                                <input type="text" value={sub.ip} onChange={(e) => {
+                                                                    const n = [...selectedNode.properties.subinterfaces]; n[idx].ip = e.target.value;
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, subinterfaces: n }});
+                                                                }} className="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono outline-none focus:ring-1 focus:ring-cyan-500" placeholder="192.168.50.1" />
+                                                            </div>
+                                                            <div className="col-span-1 lg:col-span-3">
+                                                                <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase">Mask</label>
+                                                                <input type="text" value={sub.mask} onChange={(e) => {
+                                                                    const n = [...selectedNode.properties.subinterfaces]; n[idx].mask = e.target.value;
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, subinterfaces: n }});
+                                                                }} className="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono outline-none focus:ring-1 focus:ring-cyan-500" placeholder="255.255.255.0" />
+                                                            </div>
+                                                            <div className="col-span-1 lg:col-span-1 flex justify-end lg:justify-center lg:pb-1 mt-2 lg:mt-0 pt-2 lg:pt-0 border-t border-slate-800 lg:border-none no-print">
+                                                                <button onClick={() => {
+                                                                    const n = selectedNode.properties.subinterfaces.filter((_, i) => i !== idx);
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, subinterfaces: n }});
+                                                                }} className="text-slate-600 bg-slate-900 lg:bg-transparent p-2 lg:p-0 rounded lg:rounded-none hover:text-red-500 hover:bg-red-500/10 transition-colors"><IconTrash size={16} className="lg:w-[14px] lg:h-[14px]"/></button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    {(!selectedNode.properties.subinterfaces || selectedNode.properties.subinterfaces.length === 0) && (
+                                                        <p className="text-xs text-slate-600 italic text-center py-4">No hay subinterfaces configuradas.</p>
+                                                    )}
+                                                </div>
+                                            </section>
+                                        )}
+
+                                        {/* VLANs (Exclusivo Switch) */}
+                                        {selectedNode.type === 'switch' && (
+                                            <section className="bg-slate-900/30 p-4 lg:p-6 rounded-3xl border border-slate-800/60 shadow-xl">
+                                                <div className="flex justify-between items-center mb-6">
+                                                    <h3 className="text-[10px] font-black text-green-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></div> VLANs de Acceso
+                                                    </h3>
+                                                    <button onClick={() => {
+                                                        const currentVlans = selectedNode.properties.vlans || [];
+                                                        let nextStart = '';
+                                                        let lastPrefix = 'Fa0/';
+                                                        
+                                                        if (currentVlans.length > 0) {
+                                                            const lastVlan = currentVlans[currentVlans.length - 1];
+                                                            lastPrefix = lastVlan.portPrefix !== undefined ? lastVlan.portPrefix : 'Fa0/';
+                                                            
+                                                            if (lastVlan.endPort) {
+                                                                const endNum = parseInt(lastVlan.endPort);
+                                                                if (!isNaN(endNum)) nextStart = (endNum + 1).toString();
+                                                            } else if (lastVlan.startPort) {
+                                                                const startNum = parseInt(lastVlan.startPort);
+                                                                if (!isNaN(startNum)) nextStart = (startNum + 1).toString();
+                                                            }
+                                                        }
+
+                                                        const isFirstVlan = currentVlans.length === 0;
+                                                        const newVlans = [...currentVlans, { id: '', name: '', portPrefix: lastPrefix, startPort: nextStart, endPort: '', isNative: isFirstVlan }];
+                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, vlans: newVlans }});
+                                                    }} className="no-print text-[9px] font-bold bg-green-600 px-3 py-1.5 rounded-full uppercase hover:scale-105 transition-all">Añadir VLAN</button>
+                                                </div>
+
+                                                <div className="space-y-3">
+                                                    {(selectedNode.properties.vlans || []).map((vlan, idx) => (
+                                                        <div key={idx} className="grid grid-cols-1 lg:grid-cols-12 gap-3 bg-slate-950 p-4 rounded-2xl border border-slate-900 lg:items-end group hover:border-slate-700 transition-all">
+                                                            <div className="col-span-1 lg:col-span-2">
+                                                                <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase">VLAN ID</label>
+                                                                <input type="text" placeholder="Ej: 100" value={vlan.id} onChange={(e) => {
+                                                                    const val = e.target.value;
+                                                                    const n = [...selectedNode.properties.vlans]; 
+                                                                    n[idx].id = val;
+                                                                    const updates = { vlans: n };
+                                                                    if (n[idx].isNative) updates.nativeVlan = val;
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, ...updates }});
+                                                                }} className="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono lg:text-center outline-none focus:ring-1 focus:ring-green-500" />
+                                                            </div>
+                                                            <div className="col-span-1 lg:col-span-4">
+                                                                <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase">Nombre</label>
+                                                                <input type="text" placeholder={vlan.isNative ? "Ej: Nativa" : "Ej: ventas"} value={vlan.name} onChange={(e) => {
+                                                                    const n = [...selectedNode.properties.vlans]; n[idx].name = e.target.value;
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, vlans: n }});
+                                                                }} className="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono outline-none focus:ring-1 focus:ring-green-500" />
+                                                            </div>
+                                                            <div className="col-span-1 lg:col-span-4">
+                                                                <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase">Rango Puertos</label>
+                                                                <div className="flex gap-1 items-center w-full">
+                                                                    <input type="text" placeholder="Fa0/" value={vlan.portPrefix !== undefined ? vlan.portPrefix : 'Fa0/'} onChange={(e) => {
+                                                                        const n = [...selectedNode.properties.vlans]; n[idx].portPrefix = e.target.value;
+                                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, vlans: n }});
+                                                                    }} className="flex-1 lg:w-12 lg:flex-none bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs lg:text-[11px] font-mono text-center outline-none focus:ring-1 focus:ring-green-500" />
+                                                                    
+                                                                    <input type="text" placeholder="1" value={vlan.startPort || ''} onChange={(e) => {
+                                                                        const n = [...selectedNode.properties.vlans]; n[idx].startPort = e.target.value;
+                                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, vlans: n }});
+                                                                    }} className="w-14 lg:w-10 bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs lg:text-[11px] font-mono text-center outline-none focus:ring-1 focus:ring-green-500" />
+                                                                    
+                                                                    <span className="text-slate-500 font-bold text-xs px-1">-</span>
+                                                                    
+                                                                    <input type="text" placeholder="10" value={vlan.endPort || ''} onChange={(e) => {
+                                                                        const n = [...selectedNode.properties.vlans]; n[idx].endPort = e.target.value;
+                                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, vlans: n }});
+                                                                    }} className="w-14 lg:w-10 bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs lg:text-[11px] font-mono text-center outline-none focus:ring-1 focus:ring-green-500" />
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <div className="col-span-1 lg:col-span-2 flex items-center justify-between lg:justify-center mt-2 lg:mt-0 pt-2 lg:pt-0 border-t border-slate-800 lg:border-none">
+                                                                <div className="flex items-center gap-2 lg:flex-col lg:gap-0 lg:mb-1.5">
+                                                                    <label className="text-[10px] lg:text-[7px] font-bold text-slate-500 lg:mb-1 uppercase tracking-tighter cursor-pointer">Nativa</label>
+                                                                    <input 
+                                                                        type="radio" 
+                                                                        name={`nativa_${selectedNode.id}`}
+                                                                        checked={!!vlan.isNative}
+                                                                        onChange={() => {
+                                                                            const n = selectedNode.properties.vlans.map((v, i) => ({...v, isNative: i === idx}));
+                                                                            updateNode(selectedNode.id, { properties: { ...selectedNode.properties, vlans: n, nativeVlan: vlan.id }});
+                                                                        }}
+                                                                        className="w-4 h-4 lg:w-3.5 lg:h-3.5 accent-green-500 cursor-pointer"
+                                                                    />
+                                                                </div>
+                                                                <button onClick={() => {
+                                                                    const n = selectedNode.properties.vlans.filter((_, i) => i !== idx);
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, vlans: n }});
+                                                                }} className="text-slate-600 bg-slate-900 lg:bg-transparent p-2 lg:p-0 rounded lg:rounded-none hover:text-red-500 hover:bg-red-500/10 transition-colors no-print"><IconTrash size={16} className="lg:w-[14px] lg:h-[14px]"/></button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    {(!selectedNode.properties.vlans || selectedNode.properties.vlans.length === 0) && (
+                                                        <p className="text-xs text-slate-600 italic text-center py-4">No hay VLANs configuradas.</p>
+                                                    )}
+                                                </div>
+                                            </section>
+                                        )}
+
+                                        {/* Troncales (Exclusivo Switch) */}
+                                        {selectedNode.type === 'switch' && (
+                                            <section className="bg-slate-900/30 p-4 lg:p-6 rounded-3xl border border-slate-800/60 shadow-xl">
+                                                <div className="flex justify-between items-center mb-6">
+                                                    <h3 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_#6366f1]"></div> Enlaces Troncales (Trunks)
+                                                    </h3>
+                                                    <button onClick={() => {
+                                                        const currentVlans = selectedNode.properties.vlans || [];
+                                                        const vlanIds = currentVlans.map(v => v.id).filter(Boolean);
+                                                        const nativeId = currentVlans.find(v => v.isNative)?.id || selectedNode.properties.nativeVlan || '';
+                                                        
+                                                        const allowedVlansStr = [...new Set([...vlanIds, nativeId].filter(Boolean))].join(',');
+
+                                                        const newTrunks = [...(selectedNode.properties.trunks || []), { 
+                                                            id: generateId(), 
+                                                            interface: 'G0/1', 
+                                                            nativeVlan: nativeId, 
+                                                            allowedVlans: allowedVlansStr 
+                                                        }];
+                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, trunks: newTrunks }});
+                                                    }} className="no-print text-[9px] font-bold bg-indigo-600 px-3 py-1.5 rounded-full uppercase hover:scale-105 transition-all">Añadir Troncal</button>
+                                                </div>
+
+                                                <div className="space-y-3">
+                                                    {(selectedNode.properties.trunks || []).map((trunk, idx) => (
+                                                        <div key={trunk.id} className="grid grid-cols-1 lg:grid-cols-12 gap-3 bg-slate-950 p-4 rounded-2xl border border-slate-900 lg:items-end group hover:border-slate-700 transition-all">
+                                                            <div className="col-span-1 lg:col-span-3">
+                                                                <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase">Interfaz</label>
+                                                                <input type="text" placeholder="Ej: G0/1" value={trunk.interface} onChange={(e) => {
+                                                                    const n = [...selectedNode.properties.trunks]; n[idx].interface = e.target.value;
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, trunks: n }});
+                                                                }} className="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono lg:text-center" />
+                                                            </div>
+                                                            <div className="col-span-1 lg:col-span-3">
+                                                                <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase">VLAN Nativa</label>
+                                                                <input type="text" placeholder="Ej: 700" value={trunk.nativeVlan} onChange={(e) => {
+                                                                    const n = [...selectedNode.properties.trunks]; n[idx].nativeVlan = e.target.value;
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, trunks: n }});
+                                                                }} className="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono lg:text-center" />
+                                                            </div>
+                                                            <div className="col-span-1 lg:col-span-5">
+                                                                <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase">VLANs Permitidas</label>
+                                                                <input type="text" placeholder="Ej: 100,200,700,900" value={trunk.allowedVlans} onChange={(e) => {
+                                                                    const n = [...selectedNode.properties.trunks]; n[idx].allowedVlans = e.target.value;
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, trunks: n }});
+                                                                }} className="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono" />
+                                                            </div>
+                                                            <div className="col-span-1 lg:col-span-1 flex justify-end lg:justify-center lg:pb-1 mt-2 lg:mt-0 pt-2 lg:pt-0 border-t border-slate-800 lg:border-none no-print">
+                                                                <button onClick={() => {
+                                                                    const n = selectedNode.properties.trunks.filter((_, i) => i !== idx);
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, trunks: n }});
+                                                                }} className="text-slate-600 bg-slate-900 lg:bg-transparent p-2 lg:p-0 rounded lg:rounded-none hover:text-red-500 hover:bg-red-500/10 transition-colors"><IconTrash size={16} className="lg:w-[14px] lg:h-[14px]"/></button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    {(!selectedNode.properties.trunks || selectedNode.properties.trunks.length === 0) && (
+                                                        <p className="text-xs text-slate-600 italic text-center py-4">No hay enlaces troncales definidos.</p>
+                                                    )}
+                                                </div>
+                                            </section>
+                                        )}
+
+                                        {/* Protocolo de Enrutamiento Básico */}
+                                        {selectedNode.type === 'router' && (
+                                            <section className="bg-slate-900/30 p-4 lg:p-6 rounded-3xl border border-slate-800 relative shadow-xl shadow-black/20">
+                                                <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-6 gap-4">
+                                                    <h3 className="text-[10px] font-black text-orange-400 uppercase tracking-widest flex items-center gap-2">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-orange-400"></div> Configuración Base (Single-Protocol)
+                                                    </h3>
+                                                    <select 
+                                                        value={selectedNode.properties.protocol} 
+                                                        onChange={(e) => updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocol: e.target.value }})}
+                                                        className="w-full lg:w-auto bg-slate-800 border border-slate-700 rounded-lg text-xs lg:text-[9px] font-bold px-3 py-2 lg:py-1 outline-none focus:border-orange-500"
+                                                    >
+                                                        <option value="none">Desactivado</option>
+                                                        <option value="static">Rutas Estáticas</option>
+                                                        <option value="ospf">OSPF (Multi-Área)</option>
+                                                        <option value="eigrp">EIGRP (Captura Local)</option>
+                                                        <option value="rip">RIP (Dinámico)</option>
+                                                        <option value="bgp">BGP (Exterior Gateway)</option>
+                                                    </select>
+                                                </div>
+
+                                                {selectedNode.properties.protocol === 'static' ? (
+                                                    <div className="space-y-4 animate-in fade-in duration-300">
+                                                        <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-xl mb-4 flex gap-3 items-start">
+                                                            <IconAlert size={16} className="text-blue-400 shrink-0 mt-0.5" />
+                                                            <p className="text-[9px] text-blue-200 leading-relaxed font-bold italic">RECORDATORIO IMPORTANTE: Las rutas estáticas requieren que el "Siguiente Salto" (Next Hop) sea una IP alcanzable.</p>
+                                                        </div>
+                                                        <div className="bg-slate-950 p-4 lg:p-5 rounded-2xl border border-slate-900 border-dashed">
+                                                            <p className="text-[10px] font-bold text-slate-500 uppercase mb-4 tracking-widest">Captura Automática de LANs Remotas</p>
+                                                            <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 lg:items-end">
+                                                                <div className="col-span-1">
+                                                                    <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase tracking-tighter">Router Remoto</label>
+                                                                    <select id="rt-dest" className="w-full bg-slate-900 border-none rounded p-2 text-xs outline-none focus:ring-1 focus:ring-orange-500">
+                                                                        <option value="">Selecciona...</option>
+                                                                        {nodes.filter(n => n.id !== selectedNode.id && n.type === 'router').map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                                                                    </select>
+                                                                </div>
+                                                                <div className="col-span-1">
+                                                                    <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase tracking-tighter">Next Hop (Via)</label>
+                                                                    <input id="rt-via" type="text" placeholder="50.1.15.2" className="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono outline-none" />
+                                                                </div>
+                                                                <div className="col-span-1 lg:col-span-2 mt-2 lg:mt-0">
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            const destId = document.getElementById('rt-dest').value;
+                                                                            const via = document.getElementById('rt-via').value;
+                                                                            const destNode = nodes.find(n => n.id === destId);
+                                                                            if (destNode && via) {
+                                                                                const sourceNets = getRouterNetworks(selectedNode).map(n => n.network);
+                                                                                const destNetsRaw = getRouterNetworks(destNode);
+                                                                                const newRoutes = [...(selectedNode.properties.protocolData.staticRoutes || [])];
+                                                                                let addedCount = 0;
+
+                                                                                destNetsRaw.forEach(n => {
+                                                                                    const connectedNode = nodes.find(node => node.id === n.connectedTo);
+                                                                                    const isTransitNetwork = connectedNode && connectedNode.type === 'router';
+                                                                                    if (!isTransitNetwork && !sourceNets.includes(n.network)) {
+                                                                                        newRoutes.push({ network: n.network, mask: n.mask, nextHop: via, label: `${destNode.name} | ${n.label}` });
+                                                                                        addedCount++;
+                                                                                    }
+                                                                                });
+                                                                                updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: { ...selectedNode.properties.protocolData, staticRoutes: newRoutes } } });
+                                                                                alert(`Añadidas ${addedCount} rutas.`);
+                                                                            }
+                                                                        }}
+                                                                        className="w-full bg-orange-600 py-3 lg:py-2 rounded-lg text-xs lg:text-[10px] font-black uppercase hover:bg-orange-500 transition-all shadow-lg"
+                                                                    >
+                                                                        Capturar LANs Remotas
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            {selectedNode.properties.protocolData.staticRoutes?.map((r, i) => (
+                                                                <div key={i} className="flex items-center justify-between bg-slate-900/50 p-3 rounded-xl border border-slate-800">
+                                                                    <div className="flex-1 overflow-x-auto scrollbar-hide">
+                                                                        {r.label && (
+                                                                            <div className="flex items-center gap-1.5 mb-1.5">
+                                                                                <span className="text-[8px] font-bold text-slate-500 uppercase">{r.label.split(' (')[0]}</span>
+                                                                                {r.label.includes('(Subinterfaz)') && <span className="text-[7px] font-black bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-500/30 uppercase whitespace-nowrap">Subinterfaz</span>}
+                                                                                {r.label.includes('(Física)') && <span className="text-[7px] font-black bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700 uppercase whitespace-nowrap">Física</span>}
+                                                                            </div>
+                                                                        )}
+                                                                        <div className="font-mono text-[11px] text-orange-400 whitespace-nowrap">
+                                                                            <span className="text-slate-600">ip route</span> {r.network} {r.mask} {r.nextHop}
+                                                                        </div>
+                                                                    </div>
+                                                                    <button onClick={() => {
+                                                                        const n = selectedNode.properties.protocolData.staticRoutes.filter((_, idx) => idx !== i);
+                                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: { ...selectedNode.properties.protocolData, staticRoutes: n } } });
+                                                                    }} className="text-slate-500 hover:text-red-500 transition-colors ml-4 shrink-0 bg-slate-950 lg:bg-transparent p-2 lg:p-0 rounded"><IconTrash size={16} className="lg:w-[14px] lg:h-[14px]"/></button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ) : selectedNode.properties.protocol === 'bgp' ? (
+                                                    <div className="space-y-4 animate-in fade-in duration-300">
+                                                        <div className="bg-purple-900/20 border border-purple-500/30 p-3 rounded-xl mb-4 flex gap-3 items-start">
+                                                            <IconAlert size={16} className="text-purple-400 shrink-0 mt-0.5" />
+                                                            <p className="text-[9px] text-purple-200 leading-relaxed font-bold italic">BGP es un protocolo exterior (EGP). Configura tu ASN y los vecinos (Neighbors) manualmente para establecer vecindad.</p>
+                                                        </div>
+                                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-slate-950 p-4 lg:p-5 rounded-2xl border border-slate-900 lg:items-end">
+                                                            <div>
+                                                                <label className="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">ASN Local</label>
+                                                                <input type="text" value={selectedNode.properties.protocolData.bgpAsn || '100'} onChange={(e) => updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: {...selectedNode.properties.protocolData, bgpAsn: e.target.value} } })} className="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono outline-none focus:ring-1 focus:ring-purple-500" />
+                                                            </div>
+                                                            <div className="lg:col-span-2">
+                                                                <button onClick={() => {
+                                                                    const formattedNets = getRouterNetworks(selectedNode).map(n => ({ network: n.network, mask: n.mask, label: n.label }));
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: { ...selectedNode.properties.protocolData, bgpNetworks: formattedNets } } });
+                                                                }} className="w-full bg-purple-600 py-3 lg:py-2 rounded-lg text-xs lg:text-[10px] font-black uppercase hover:bg-purple-500 transition-all shadow-lg flex items-center justify-center gap-2"><IconRefresh size={14} className="lg:w-[12px] lg:h-[12px]"/> Capturar Redes BGP</button>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div className="space-y-2">
+                                                            {selectedNode.properties.protocolData.bgpNetworks?.map((n, i) => (
+                                                                <div key={i} className="flex items-center justify-between bg-slate-900/30 p-3 rounded-xl border border-slate-800">
+                                                                    <div className="overflow-x-auto scrollbar-hide">
+                                                                        <div className="text-[8px] font-bold text-slate-500 uppercase mb-1">{n.label}</div>
+                                                                        <div className="font-mono text-[11px] text-purple-400 whitespace-nowrap"><span className="text-slate-600">network</span> {n.network} <span className="text-slate-600">mask</span> {n.mask}</div>
+                                                                    </div>
+                                                                    <button onClick={() => {
+                                                                        const updated = selectedNode.properties.protocolData.bgpNetworks.filter((_, idx) => idx !== i);
+                                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: { ...selectedNode.properties.protocolData, bgpNetworks: updated } } });
+                                                                    }} className="text-slate-600 hover:text-red-500 shrink-0 ml-4 bg-slate-950 lg:bg-transparent p-2 lg:p-0 rounded"><IconTrash size={16} className="lg:w-[14px] lg:h-[14px]"/></button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+
+                                                        {/* BGP Neighbors Section */}
+                                                        <div className="bg-slate-950 p-4 lg:p-5 rounded-2xl border border-slate-900 mt-6">
+                                                            <label className="text-[10px] font-bold text-slate-400 block mb-3 uppercase tracking-widest">Vecinos BGP (Neighbors)</label>
+                                                            <div className="flex flex-col lg:flex-row gap-3 lg:items-end mb-4">
+                                                                <div className="flex-1">
+                                                                    <label className="text-[8px] font-bold text-slate-500 block mb-1 uppercase">IP Vecino</label>
+                                                                    <input id="bgp-neigh-ip" type="text" placeholder="Ej: 50.1.15.2" className="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono outline-none focus:ring-1 focus:ring-purple-500" />
+                                                                </div>
+                                                                <div className="flex-1">
+                                                                    <label className="text-[8px] font-bold text-slate-500 block mb-1 uppercase">Remote AS</label>
+                                                                    <input id="bgp-neigh-as" type="text" placeholder="Ej: 200" className="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono outline-none focus:ring-1 focus:ring-purple-500" />
+                                                                </div>
+                                                                <button onClick={() => {
+                                                                    const ip = document.getElementById('bgp-neigh-ip').value;
+                                                                    const remoteAs = document.getElementById('bgp-neigh-as').value;
+                                                                    if(ip && remoteAs) {
+                                                                        const newNeighs = [...(selectedNode.properties.protocolData.bgpNeighbors || []), { id: generateId(), ip, remoteAs }];
+                                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: { ...selectedNode.properties.protocolData, bgpNeighbors: newNeighs } } });
+                                                                        document.getElementById('bgp-neigh-ip').value = '';
+                                                                        document.getElementById('bgp-neigh-as').value = '';
+                                                                    }
+                                                                }} className="bg-purple-600 py-3 lg:py-2 px-4 rounded-lg text-xs lg:text-[10px] font-black uppercase hover:bg-purple-500 transition-all w-full lg:w-auto">Añadir</button>
+                                                            </div>
+                                                            
+                                                            <div className="space-y-2">
+                                                                {selectedNode.properties.protocolData.bgpNeighbors?.map((n, i) => (
+                                                                    <div key={n.id || i} className="flex items-center justify-between bg-slate-900/50 p-3 lg:p-2 lg:px-3 rounded-lg border border-slate-800">
+                                                                        <div className="font-mono text-[10px] text-purple-300">
+                                                                            <span className="text-slate-500">neighbor</span> {n.ip} <span className="text-slate-500">remote-as</span> {n.remoteAs}
+                                                                        </div>
+                                                                        <button onClick={() => {
+                                                                            const updated = selectedNode.properties.protocolData.bgpNeighbors.filter((_, idx) => idx !== i);
+                                                                            updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: { ...selectedNode.properties.protocolData, bgpNeighbors: updated } } });
+                                                                        }} className="text-slate-600 hover:text-red-500"><IconTrash size={14} className="lg:w-[12px] lg:h-[12px]"/></button>
+                                                                    </div>
+                                                                ))}
+                                                                {(!selectedNode.properties.protocolData.bgpNeighbors || selectedNode.properties.protocolData.bgpNeighbors.length === 0) && (
+                                                                    <p className="text-[9px] text-slate-600 italic">No hay vecinos configurados. BGP requiere configuración manual.</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : selectedNode.properties.protocol === 'ospf' ? (
+                                                    <div className="space-y-4 animate-in fade-in duration-300">
+                                                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 bg-slate-950 p-4 lg:p-5 rounded-2xl border border-slate-900 lg:items-end">
+                                                            <div>
+                                                                <label className="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">Process ID</label>
+                                                                <input type="text" value={selectedNode.properties.protocolData.ospfProcessId || '1'} onChange={(e) => updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: {...selectedNode.properties.protocolData, ospfProcessId: e.target.value} } })} className="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono outline-none" />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest lg:text-center">Área x Defecto</label>
+                                                                <input type="text" value={selectedNode.properties.protocolData.ospfArea || '0'} onChange={(e) => updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: {...selectedNode.properties.protocolData, ospfArea: e.target.value} } })} className="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono outline-none lg:text-center" />
+                                                            </div>
+                                                            <div className="lg:col-span-2 mt-2 lg:mt-0">
+                                                                <button onClick={() => {
+                                                                    const formattedNets = getRouterNetworks(selectedNode).map(n => ({ network: n.network, wildcard: n.wildcard, label: n.label, area: selectedNode.properties.protocolData.ospfArea || '0' }));
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: { ...selectedNode.properties.protocolData, ospfNetworks: formattedNets } } });
+                                                                }} className="w-full bg-red-600 py-3 lg:py-2 rounded-lg text-xs lg:text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-red-500 transition-all"><IconRefresh size={14} className="lg:w-[12px] lg:h-[12px]"/> Capturar Redes Locales</button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            {selectedNode.properties.protocolData.ospfNetworks?.map((n, i) => (
+                                                                <div key={i} className="flex items-center justify-between bg-slate-900/30 p-3 rounded-xl border border-slate-800">
+                                                                    <div className="overflow-x-auto scrollbar-hide">
+                                                                        <div className="text-[8px] font-bold text-slate-500 uppercase mb-1">{n.label}</div>
+                                                                        <div className="font-mono text-[11px] text-red-400 flex items-center gap-3 whitespace-nowrap">
+                                                                            <span className="text-slate-600 shrink-0">network {n.network} {n.wildcard} area</span>
+                                                                            <input type="text" value={n.area} className="w-12 bg-slate-900 border border-slate-800 rounded p-1 text-[10px] text-white outline-none focus:border-red-500 text-center" onChange={(e) => { const updatedNets = [...selectedNode.properties.protocolData.ospfNetworks]; updatedNets[i].area = e.target.value; updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: { ...selectedNode.properties.protocolData, ospfNetworks: updatedNets } } }); }}/>
+                                                                        </div>
+                                                                    </div>
+                                                                    <button onClick={() => {
+                                                                        const updated = selectedNode.properties.protocolData.ospfNetworks.filter((_, idx) => idx !== i);
+                                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: { ...selectedNode.properties.protocolData, ospfNetworks: updated } } });
+                                                                    }} className="text-slate-600 hover:text-red-500 shrink-0 ml-4 bg-slate-950 lg:bg-transparent p-2 lg:p-0 rounded"><IconTrash size={16} className="lg:w-[14px] lg:h-[14px]"/></button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ) : selectedNode.properties.protocol === 'eigrp' ? (
+                                                    <div className="space-y-4 animate-in fade-in duration-300">
+                                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-slate-950 p-4 lg:p-5 rounded-2xl border border-slate-900 lg:items-end">
+                                                            <div>
+                                                                <label className="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">ASN</label>
+                                                                <input type="text" value={selectedNode.properties.protocolData.eigrpAsn || '1'} onChange={(e) => updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: {...selectedNode.properties.protocolData, eigrpAsn: e.target.value} } })} className="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono outline-none" />
+                                                            </div>
+                                                            <div className="lg:col-span-2 mt-2 lg:mt-0">
+                                                                <button onClick={() => {
+                                                                    const formattedNets = getRouterNetworks(selectedNode).map(n => ({ network: n.network, wildcard: n.wildcard, label: n.label }));
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: { ...selectedNode.properties.protocolData, eigrpNetworks: formattedNets } } });
+                                                                }} className="w-full bg-blue-600 py-3 lg:py-2 rounded-lg text-xs lg:text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-blue-500"><IconRefresh size={14} className="lg:w-[12px] lg:h-[12px]"/> Capturar Redes Locales</button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            {selectedNode.properties.protocolData.eigrpNetworks?.map((n, i) => (
+                                                                <div key={i} className="flex items-center justify-between bg-slate-900/30 p-3 rounded-xl border border-slate-800">
+                                                                    <div className="overflow-x-auto scrollbar-hide">
+                                                                        <div className="text-[8px] font-bold text-slate-500 uppercase mb-1">{n.label}</div>
+                                                                        <div className="font-mono text-[11px] text-blue-400 whitespace-nowrap"><span className="text-slate-600">network</span> {n.network} {n.wildcard}</div>
+                                                                    </div>
+                                                                    <button onClick={() => {
+                                                                        const updated = selectedNode.properties.protocolData.eigrpNetworks.filter((_, idx) => idx !== i);
+                                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: { ...selectedNode.properties.protocolData, eigrpNetworks: updated } } });
+                                                                    }} className="text-slate-600 hover:text-red-500 shrink-0 ml-4 bg-slate-950 lg:bg-transparent p-2 lg:p-0 rounded"><IconTrash size={16} className="lg:w-[14px] lg:h-[14px]"/></button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ) : selectedNode.properties.protocol === 'rip' ? (
+                                                    <div className="space-y-4 animate-in fade-in duration-300">
+                                                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 bg-slate-950 p-4 lg:p-5 rounded-2xl border border-slate-900 lg:items-end">
+                                                            <div className="col-span-1">
+                                                                <label className="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">Versión RIP</label>
+                                                                <select value={selectedNode.properties.protocolData.ripVersion || '2'} onChange={(e) => updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: {...selectedNode.properties.protocolData, ripVersion: e.target.value} } })} className="w-full bg-slate-900 border-none rounded p-2 text-xs lg:text-[10px] font-mono outline-none focus:ring-1 focus:ring-yellow-500">
+                                                                    <option value="1">Versión 1</option>
+                                                                    <option value="2">Versión 2</option>
+                                                                </select>
+                                                            </div>
+                                                            <div className="col-span-1 lg:col-span-3 mt-2 lg:mt-0">
+                                                                <button onClick={() => {
+                                                                    const formattedNets = getRouterNetworks(selectedNode).map(n => ({ network: n.network, label: n.label }));
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: { ...selectedNode.properties.protocolData, ripNetworks: formattedNets } } });
+                                                                }} className="w-full bg-yellow-600 py-3 lg:py-2 rounded-lg text-xs lg:text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-yellow-500"><IconRefresh size={14} className="lg:w-[12px] lg:h-[12px]"/> Capturar Redes para RIP</button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            {selectedNode.properties.protocolData.ripNetworks?.map((n, i) => (
+                                                                <div key={i} className="flex items-center justify-between bg-slate-900/30 p-3 rounded-xl border border-slate-800">
+                                                                    <div className="overflow-x-auto scrollbar-hide">
+                                                                        <div className="text-[8px] font-bold text-slate-500 uppercase mb-1">{n.label}</div>
+                                                                        <div className="font-mono text-[11px] text-yellow-400 whitespace-nowrap"><span className="text-slate-600">network</span> {n.network}</div>
+                                                                    </div>
+                                                                    <button onClick={() => {
+                                                                        const updated = selectedNode.properties.protocolData.ripNetworks.filter((_, idx) => idx !== i);
+                                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, protocolData: { ...selectedNode.properties.protocolData, ripNetworks: updated } } });
+                                                                    }} className="text-slate-600 hover:text-red-500 shrink-0 ml-4 bg-slate-950 lg:bg-transparent p-2 lg:p-0 rounded"><IconTrash size={16} className="lg:w-[14px] lg:h-[14px]"/></button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-xs text-slate-500 mt-4 italic">Selecciona un protocolo base o usa el módulo Traductor abajo.</p>
+                                                )}
+                                            </section>
+                                        )}
+
+                                        {/* TRADUCTOR MULTI-PROTOCOLO */}
+                                        {selectedNode.type === 'router' && (
+                                            <section className="bg-slate-900/40 p-4 lg:p-6 rounded-3xl border-2 border-pink-500/30 shadow-xl shadow-pink-900/10">
+                                                <div className="flex flex-col lg:flex-row justify-between lg:items-center mb-6 gap-4">
+                                                    <div>
+                                                        <h3 className="text-[12px] font-black text-pink-400 uppercase tracking-widest flex items-center gap-2">
+                                                            <IconRefresh size={18} className="text-pink-500" /> Traductor de Protocolos
+                                                        </h3>
+                                                        <p className="text-[9px] text-slate-400 mt-1 uppercase tracking-wider hidden lg:block">Permite correr OSPF, EIGRP y RIP en paralelo y redistribuir rutas entre ellos.</p>
+                                                    </div>
+                                                    <button onClick={() => {
+                                                        const newTranslator = { id: generateId(), protocol: 'rip', processId: '1', networks: [], redistributions: [] };
+                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, translators: [...(selectedNode.properties.translators || []), newTranslator] }});
+                                                    }} className="no-print text-[9px] font-black bg-pink-600 px-4 py-2.5 lg:py-2 rounded-xl lg:rounded-full uppercase hover:bg-pink-500 transition-all shadow-[0_0_15px_rgba(219,39,119,0.3)]">+ Añadir Proceso</button>
+                                                </div>
+
+                                                <div className="space-y-6">
+                                                    {(selectedNode.properties.translators || []).map((t, tIdx) => {
+                                                        const availableInterfaces = getRouterNetworks(selectedNode);
+                                                        
+                                                        let metricPlaceholder = "";
+                                                        let defaultMetricValue = "";
+                                                        if (t.protocol === 'rip') {
+                                                            metricPlaceholder = "5"; 
+                                                            defaultMetricValue = "5"; 
+                                                        }
+                                                        else if (t.protocol === 'eigrp') {
+                                                            metricPlaceholder = "1544 2000 255 1 1500"; 
+                                                            defaultMetricValue = "1544 2000 255 1 1500"; 
+                                                        }
+                                                        else if (t.protocol === 'ospf') {
+                                                            metricPlaceholder = "Opcional (Ej: 20)"; 
+                                                            defaultMetricValue = ""; 
+                                                        }
+
+                                                        return (
+                                                            <div key={t.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-5 relative mt-4 lg:mt-0">
+                                                                <button onClick={() => {
+                                                                    const updatedTranslators = selectedNode.properties.translators.filter((_, idx) => idx !== tIdx);
+                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, translators: updatedTranslators }});
+                                                                }} className="absolute top-4 right-4 text-slate-600 hover:text-red-500 transition-colors"><IconTrash size={16}/></button>
+                                                                
+                                                                {/* Cabecera del Proceso */}
+                                                                <div className="flex flex-col lg:flex-row lg:items-end gap-4 border-b border-slate-800 pb-4 mb-4 mt-8 lg:mt-0">
+                                                                    <div className="w-full lg:w-1/3">
+                                                                        <label className="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">Protocolo Destino</label>
+                                                                        <select 
+                                                                            value={t.protocol} 
+                                                                            onChange={(e) => {
+                                                                                const newProtocol = e.target.value;
+                                                                                const n = [...selectedNode.properties.translators]; 
+                                                                                n[tIdx].protocol = newProtocol;
+                                                                                updateNode(selectedNode.id, { properties: { ...selectedNode.properties, translators: n }});
+                                                                            }}
+                                                                            className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs font-bold text-pink-300 uppercase outline-none focus:border-pink-500"
+                                                                        >
+                                                                            <option value="rip">RIP v2</option>
+                                                                            <option value="ospf">OSPF</option>
+                                                                            <option value="eigrp">EIGRP</option>
+                                                                        </select>
+                                                                    </div>
+                                                                    {['ospf', 'eigrp'].includes(t.protocol) && (
+                                                                        <div className="w-full lg:w-1/4">
+                                                                            <label className="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">ID (Proceso/AS)</label>
+                                                                            <input type="text" value={t.processId} onChange={(e) => {
+                                                                                const n = [...selectedNode.properties.translators]; n[tIdx].processId = e.target.value;
+                                                                                updateNode(selectedNode.id, { properties: { ...selectedNode.properties, translators: n }});
+                                                                            }} className="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono outline-none" placeholder="1" />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Selección de Redes base */}
+                                                                <div className="mb-6">
+                                                                    <label className="text-[9px] font-black text-slate-400 block mb-3 uppercase tracking-widest">1. Interfaces Activas en {t.protocol.toUpperCase()}</label>
+                                                                    <div className="flex flex-col lg:flex-row flex-wrap gap-3">
+                                                                        {availableInterfaces.map(net => {
+                                                                            const isChecked = (t.networks || []).includes(net.network);
+                                                                            return (
+                                                                                <label key={net.label} className={`flex items-center gap-3 lg:gap-2 p-3 lg:p-2 rounded-lg border cursor-pointer transition-all w-full lg:w-auto ${isChecked ? 'bg-pink-900/20 border-pink-500/50 text-pink-200' : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-600'}`}>
+                                                                                    <input type="checkbox" className="hidden" checked={isChecked} onChange={() => {
+                                                                                        let newNets = [...(t.networks || [])];
+                                                                                        if (isChecked) newNets = newNets.filter(n => n !== net.network);
+                                                                                        else newNets.push(net.network);
+                                                                                        const n = [...selectedNode.properties.translators]; n[tIdx].networks = newNets;
+                                                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, translators: n }});
+                                                                                    }}/>
+                                                                                    <div className={`w-4 h-4 lg:w-3 lg:h-3 rounded flex items-center justify-center border ${isChecked ? 'bg-pink-500 border-pink-500' : 'border-slate-600'}`}>
+                                                                                        {isChecked && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                                                                                    </div>
+                                                                                    <div className="flex flex-col">
+                                                                                        <span className="text-[11px] lg:text-[10px] font-bold leading-none mb-1">{net.label.split(' (')[0]}</span>
+                                                                                        <span className="text-[9px] lg:text-[8px] font-mono opacity-70 leading-none">{net.network}</span>
+                                                                                    </div>
+                                                                                </label>
+                                                                            )
+                                                                        })}
+                                                                        {availableInterfaces.length === 0 && <span className="text-[10px] text-slate-600 italic">No hay IPs configuradas.</span>}
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Formulario de Redistribución */}
+                                                                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 border-dashed">
+                                                                    <label className="text-[9px] font-black text-slate-400 block mb-3 uppercase tracking-widest">2. Inyectar (Redistribuir) hacia {t.protocol.toUpperCase()}</label>
+                                                                    <div className="flex flex-col lg:flex-row flex-wrap items-stretch lg:items-end gap-3 mb-4">
+                                                                        <div className="flex-1 min-w-[120px]">
+                                                                            <label className="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-tighter">Origen</label>
+                                                                            <select id={`redist-source-${t.id}`} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs uppercase outline-none focus:border-pink-500">
+                                                                                <option value="ospf">OSPF</option>
+                                                                                <option value="eigrp">EIGRP</option>
+                                                                                <option value="rip">RIP</option>
+                                                                                <option value="static">Static</option>
+                                                                                <option value="connected">Connected</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div className="w-full lg:w-20">
+                                                                            <label className="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-tighter">ID Origen</label>
+                                                                            <input id={`redist-source-id-${t.id}`} type="text" placeholder="Ej: 1" className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs font-mono outline-none focus:border-pink-500" />
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-[150px]">
+                                                                            <label className="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-tighter">Métrica ({t.protocol.toUpperCase()})</label>
+                                                                            <input 
+                                                                                key={`metric-${t.protocol}`}
+                                                                                id={`redist-metric-${t.id}`} 
+                                                                                type="text" 
+                                                                                defaultValue={defaultMetricValue}
+                                                                                placeholder={metricPlaceholder} 
+                                                                                className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs font-mono outline-none focus:border-pink-500 text-pink-300" 
+                                                                            />
+                                                                        </div>
+                                                                        {t.protocol === 'ospf' && (
+                                                                            <div className="flex items-center gap-2 pb-2 lg:pb-2 pt-2 lg:pt-0">
+                                                                                <input id={`redist-subnets-${t.id}`} type="checkbox" defaultChecked className="w-5 h-5 lg:w-4 lg:h-4 accent-pink-500 cursor-pointer" />
+                                                                                <span className="text-[10px] lg:text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Subnets</span>
+                                                                            </div>
+                                                                        )}
+                                                                        <div className="mt-2 lg:mt-0">
+                                                                            <button onClick={() => {
+                                                                                const source = document.getElementById(`redist-source-${t.id}`).value;
+                                                                                const sourceId = document.getElementById(`redist-source-id-${t.id}`).value;
+                                                                                let metric = document.getElementById(`redist-metric-${t.id}`).value;
+                                                                                const subnets = document.getElementById(`redist-subnets-${t.id}`)?.checked || false;
+                                                                                
+                                                                                const newRedist = [...(t.redistributions || []), { id: generateId(), source, sourceId, metric, subnets }];
+                                                                                const n = [...selectedNode.properties.translators];
+                                                                                n[tIdx].redistributions = newRedist;
+                                                                                updateNode(selectedNode.id, { properties: { ...selectedNode.properties, translators: n } });
+                                                                                
+                                                                                document.getElementById(`redist-source-id-${t.id}`).value = '';
+                                                                                const metricInput = document.getElementById(`redist-metric-${t.id}`);
+                                                                                if (metricInput) {
+                                                                                    if (t.protocol === 'rip') metricInput.value = '5';
+                                                                                    else if (t.protocol === 'eigrp') metricInput.value = '1544 2000 255 1 1500';
+                                                                                    else metricInput.value = '';
+                                                                                }
+                                                                            }} className="w-full lg:w-auto bg-slate-700 hover:bg-pink-600 text-white p-3 lg:p-2 px-4 rounded font-black text-xs lg:text-[10px] uppercase transition-colors">Integrar</button>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Lista de redistribuciones de este proceso */}
+                                                                    <div className="space-y-2">
+                                                                        {(t.redistributions || []).map((r, rIdx) => (
+                                                                            <div key={r.id} className="flex items-center justify-between bg-black/40 p-3 lg:p-2 px-3 rounded-lg border border-slate-800">
+                                                                                <div className="font-mono text-[11px] lg:text-[10px] text-pink-300 flex flex-wrap items-center gap-1.5 overflow-x-auto scrollbar-hide">
+                                                                                    <span className="text-slate-500 shrink-0">redistribute</span>
+                                                                                    <span className="text-white font-bold uppercase shrink-0">{r.source} {r.sourceId}</span>
+                                                                                    {r.metric && <><span className="text-slate-500 ml-1 shrink-0">metric</span> <span className="text-orange-300 shrink-0">{r.metric}</span></>}
+                                                                                    {t.protocol === 'ospf' && r.subnets && <span className="text-emerald-400 bg-emerald-400/10 px-1 rounded shrink-0">subnets</span>}
+                                                                                </div>
+                                                                                <button onClick={() => {
+                                                                                    const updatedR = t.redistributions.filter((_, i) => i !== rIdx);
+                                                                                    const n = [...selectedNode.properties.translators]; n[tIdx].redistributions = updatedR;
+                                                                                    updateNode(selectedNode.id, { properties: { ...selectedNode.properties, translators: n } });
+                                                                                }} className="text-slate-600 hover:text-red-500 shrink-0 ml-4"><IconTrash size={16} className="lg:w-[12px] lg:h-[12px]"/></button>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    
+                                                    {(!selectedNode.properties.translators || selectedNode.properties.translators.length === 0) && (
+                                                        <p className="text-xs text-slate-500 italic text-center">No hay procesos configurados.</p>
+                                                    )}
+                                                </div>
+                                            </section>
+                                        )}
+
+                                        {/* Seguridad */}
+                                        {(selectedNode.type === 'router' || selectedNode.type === 'switch') && (
+                                            <section className="bg-slate-900/30 p-4 lg:p-6 rounded-3xl border border-slate-800 shadow-xl shadow-emerald-950/5">
+                                                <div className="flex justify-between items-center mb-6">
+                                                    <h3 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2">
+                                                        <IconShield size={16} className="text-emerald-500" />
+                                                        Seguridad y Administración
+                                                    </h3>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[9px] font-bold text-slate-500 uppercase">Activar</span>
+                                                        <button 
+                                                            onClick={() => {
+                                                                const sec = selectedNode.properties.security || { enabled: false, enableSecret: '', consolePassword: '', vtyPassword: '', vtyLines: '0 2', adminVlan: { enabled: false, id: '900', ip: '', mask: '255.255.255.0' } };
+                                                                updateNode(selectedNode.id, { properties: { ...selectedNode.properties, security: { ...sec, enabled: !sec.enabled } }});
+                                                            }}
+                                                            className={`w-10 h-5 rounded-full relative transition-colors ${selectedNode.properties.security?.enabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                                                        >
+                                                            <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-all ${selectedNode.properties.security?.enabled ? 'left-5' : 'left-1'}`}></div>
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {selectedNode.properties.security?.enabled && (
+                                                    <div className="space-y-4 animate-in fade-in duration-300">
+                                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-slate-950 p-4 lg:p-5 rounded-2xl border border-slate-900">
+                                                            <div>
+                                                                <label className="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">Enable Secret (Privilegiado)</label>
+                                                                <input 
+                                                                    type="text" 
+                                                                    placeholder="Ej: Cisco30"
+                                                                    value={selectedNode.properties.security.enableSecret || ''} 
+                                                                    onChange={(e) => updateNode(selectedNode.id, { properties: { ...selectedNode.properties, security: {...selectedNode.properties.security, enableSecret: e.target.value} } })}
+                                                                    className="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono outline-none focus:ring-1 focus:ring-emerald-500"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">Console Password (Usuario)</label>
+                                                                <input 
+                                                                    type="text" 
+                                                                    placeholder="Ej: User30"
+                                                                    value={selectedNode.properties.security.consolePassword || ''} 
+                                                                    onChange={(e) => updateNode(selectedNode.id, { properties: { ...selectedNode.properties, security: {...selectedNode.properties.security, consolePassword: e.target.value} } })}
+                                                                    className="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono outline-none focus:ring-1 focus:ring-emerald-500"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">VTY Password (Telnet/SSH)</label>
+                                                                <div className="flex gap-2">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        placeholder="Rango (Ej: 0 2)"
+                                                                        value={selectedNode.properties.security.vtyLines || ''} 
+                                                                        onChange={(e) => updateNode(selectedNode.id, { properties: { ...selectedNode.properties, security: {...selectedNode.properties.security, vtyLines: e.target.value} } })}
+                                                                        className="w-1/3 bg-slate-900 border-none rounded p-2 text-xs font-mono outline-none focus:ring-1 focus:ring-emerald-500 lg:text-center"
+                                                                    />
+                                                                    <input 
+                                                                        type="text" 
+                                                                        placeholder="Ej: Telnet30"
+                                                                        value={selectedNode.properties.security.vtyPassword || ''} 
+                                                                        onChange={(e) => updateNode(selectedNode.id, { properties: { ...selectedNode.properties, security: {...selectedNode.properties.security, vtyPassword: e.target.value} } })}
+                                                                        className="w-2/3 bg-slate-900 border-none rounded p-2 text-xs font-mono outline-none focus:ring-1 focus:ring-emerald-500"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {selectedNode.type === 'switch' && (
+                                                            <div className="bg-slate-950 p-4 lg:p-5 rounded-2xl border border-slate-900">
+                                                                <div className="flex flex-col lg:flex-row justify-between lg:items-center mb-4 gap-3">
+                                                                    <label className="text-[10px] font-bold text-slate-400 block uppercase tracking-widest">IP de Administración (SVI / VLAN)</label>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-[8px] font-bold text-slate-600 uppercase">Habilitar SVI</span>
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                const sec = selectedNode.properties.security;
+                                                                                updateNode(selectedNode.id, { properties: { ...selectedNode.properties, security: { ...sec, adminVlan: { ...sec.adminVlan, enabled: !sec.adminVlan.enabled } } }});
+                                                                            }}
+                                                                            className={`w-8 h-4 rounded-full relative transition-colors ${selectedNode.properties.security?.adminVlan?.enabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                                                                        >
+                                                                            <div className={`w-2.5 h-2.5 bg-white rounded-full absolute top-[3px] transition-all ${selectedNode.properties.security?.adminVlan?.enabled ? 'left-[18px]' : 'left-1'}`}></div>
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                {selectedNode.properties.security?.adminVlan?.enabled && (
+                                                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:items-end">
+                                                                        <div className="col-span-1 lg:col-span-2">
+                                                                            <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase tracking-tighter">VLAN ID</label>
+                                                                            <input 
+                                                                                type="text" 
+                                                                                placeholder="Ej: 900"
+                                                                                value={selectedNode.properties.security.adminVlan.id || ''} 
+                                                                                onChange={(e) => updateNode(selectedNode.id, { properties: { ...selectedNode.properties, security: {...selectedNode.properties.security, adminVlan: {...selectedNode.properties.security.adminVlan, id: e.target.value}} } })}
+                                                                                className="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono outline-none focus:ring-1 focus:ring-emerald-500 lg:text-center"
+                                                                            />
+                                                                        </div>
+                                                                        <div className="col-span-1 lg:col-span-5">
+                                                                            <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase tracking-tighter">IP Address</label>
+                                                                            <input 
+                                                                                type="text" 
+                                                                                placeholder="Ej: 192.168.70.2"
+                                                                                value={selectedNode.properties.security.adminVlan.ip || ''} 
+                                                                                onChange={(e) => updateNode(selectedNode.id, { properties: { ...selectedNode.properties, security: {...selectedNode.properties.security, adminVlan: {...selectedNode.properties.security.adminVlan, ip: e.target.value}} } })}
+                                                                                className="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono outline-none focus:ring-1 focus:ring-emerald-500"
+                                                                            />
+                                                                        </div>
+                                                                        <div className="col-span-1 lg:col-span-5">
+                                                                            <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase tracking-tighter">Subnet Mask</label>
+                                                                            <input 
+                                                                                type="text" 
+                                                                                placeholder="Ej: 255.255.255.0"
+                                                                                value={selectedNode.properties.security.adminVlan.mask || ''} 
+                                                                                onChange={(e) => updateNode(selectedNode.id, { properties: { ...selectedNode.properties, security: {...selectedNode.properties.security, adminVlan: {...selectedNode.properties.security.adminVlan, mask: e.target.value}} } })}
+                                                                                className="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono outline-none focus:ring-1 focus:ring-emerald-500"
+                                                                            />
+                                                                        </div>
+                                                                        <p className="col-span-1 lg:col-span-12 text-[9px] text-slate-500 italic mt-1">Nota: Asegúrese de que la VLAN {selectedNode.properties.security.adminVlan.id || '900'} esté añadida también en la lista general de VLANs del switch (arriba) para permitir su tráfico en el troncal.</p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </section>
+                                        )}
+
+                                        {/* Servidor DHCP */}
+                                        {(selectedNode.type === 'router' || selectedNode.type === 'switch') && (
+                                            <section className="bg-slate-900/30 p-4 lg:p-6 rounded-3xl border border-slate-800 shadow-xl shadow-yellow-950/5">
+                                                <div className="flex flex-col lg:flex-row justify-between lg:items-center mb-6 gap-4">
+                                                    <h3 className="text-[10px] font-black text-yellow-500 uppercase tracking-widest flex items-center gap-2">
+                                                        <IconServer size={16} className="text-yellow-500" />
+                                                        Servidor DHCP (IPv4)
+                                                    </h3>
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => {
+                                                            const dhcp = selectedNode.properties.dhcp || { pools: [], excludedAddresses: [] };
+                                                            updateNode(selectedNode.id, { properties: { ...selectedNode.properties, dhcp: { ...dhcp, excludedAddresses: [...dhcp.excludedAddresses, { id: generateId(), startIp: '', endIp: '' }] } }});
+                                                        }} className="no-print text-[9px] font-bold bg-slate-800 border border-slate-700 px-3 py-2 lg:py-1.5 rounded-xl lg:rounded-full uppercase hover:bg-slate-700 transition-all text-slate-300 w-full lg:w-auto text-center">+ Exclusión</button>
+
+                                                        <button onClick={() => {
+                                                            const dhcp = selectedNode.properties.dhcp || { pools: [], excludedAddresses: [] };
+                                                            updateNode(selectedNode.id, { properties: { ...selectedNode.properties, dhcp: { ...dhcp, pools: [...dhcp.pools, { id: generateId(), name: '', networkIp: '', mask: '255.255.255.0', defaultRouter: '', dnsServer: '' }] } }});
+                                                        }} className="no-print text-[9px] font-bold bg-yellow-600 px-3 py-2 lg:py-1.5 rounded-xl lg:rounded-full uppercase hover:scale-105 active:scale-95 transition-all text-white shadow-[0_0_10px_rgba(202,138,4,0.3)] w-full lg:w-auto text-center">+ Añadir Pool</button>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-6">
+                                                    {/* Lista de Exclusiones */}
+                                                    {selectedNode.properties.dhcp?.excludedAddresses?.length > 0 && (
+                                                        <div className="bg-slate-950 p-4 rounded-2xl border border-slate-900">
+                                                            <label className="text-[9px] font-black text-slate-400 block mb-3 uppercase tracking-widest">Direcciones Excluidas</label>
+                                                            <div className="space-y-2">
+                                                                {selectedNode.properties.dhcp.excludedAddresses.map((ex, idx) => (
+                                                                    <div key={ex.id} className="flex flex-col lg:flex-row gap-3 lg:items-center group border-b border-slate-800 pb-3 mb-3 lg:border-none lg:pb-0 lg:mb-0">
+                                                                        <input type="text" placeholder="IP Inicial (Ej: 192.168.70.1)" value={ex.startIp} onChange={(e) => {
+                                                                            const n = [...selectedNode.properties.dhcp.excludedAddresses]; n[idx].startIp = e.target.value;
+                                                                            updateNode(selectedNode.id, { properties: { ...selectedNode.properties, dhcp: { ...selectedNode.properties.dhcp, excludedAddresses: n } } });
+                                                                        }} className="w-full lg:w-1/2 bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono focus:ring-1 focus:ring-yellow-500" />
+                                                                        
+                                                                        <input type="text" placeholder="IP Final (Opcional) (Ej: 192.168.70.20)" value={ex.endIp} onChange={(e) => {
+                                                                            const n = [...selectedNode.properties.dhcp.excludedAddresses]; n[idx].endIp = e.target.value;
+                                                                            updateNode(selectedNode.id, { properties: { ...selectedNode.properties, dhcp: { ...selectedNode.properties.dhcp, excludedAddresses: n } } });
+                                                                        }} className="w-full lg:w-1/2 bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono focus:ring-1 focus:ring-yellow-500" />
+                                                                        
+                                                                        <button onClick={() => {
+                                                                            const n = selectedNode.properties.dhcp.excludedAddresses.filter((_, i) => i !== idx);
+                                                                            updateNode(selectedNode.id, { properties: { ...selectedNode.properties, dhcp: { ...selectedNode.properties.dhcp, excludedAddresses: n } } });
+                                                                        }} className="text-slate-600 bg-slate-900 lg:bg-transparent p-2 lg:p-0 rounded hover:text-red-500 shrink-0 self-end lg:self-auto"><IconTrash size={16} className="lg:w-[14px] lg:h-[14px]"/></button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Lista de Pools */}
+                                                    <div className="space-y-3">
+                                                        {selectedNode.properties.dhcp?.pools?.map((pool, idx) => (
+                                                            <div key={pool.id} className="grid grid-cols-1 lg:grid-cols-12 gap-3 bg-slate-950 p-4 rounded-2xl border border-slate-900 lg:items-end group hover:border-slate-700 transition-all">
+                                                                <div className="col-span-1 lg:col-span-3">
+                                                                    <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase">Nombre del Pool</label>
+                                                                    <input type="text" value={pool.name} placeholder="Ej: admin" onChange={(e) => {
+                                                                        const n = [...selectedNode.properties.dhcp.pools]; n[idx].name = e.target.value;
+                                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, dhcp: { ...selectedNode.properties.dhcp, pools: n } } });
+                                                                    }} className="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono outline-none focus:ring-1 focus:ring-yellow-500" />
+                                                                </div>
+                                                                <div className="col-span-1 lg:col-span-4">
+                                                                    <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase">Red (Network + Mask)</label>
+                                                                    <div className="flex flex-col lg:flex-row gap-2">
+                                                                        <input type="text" value={pool.networkIp} placeholder="192.168.70.0" onChange={(e) => {
+                                                                            const n = [...selectedNode.properties.dhcp.pools]; n[idx].networkIp = e.target.value;
+                                                                            updateNode(selectedNode.id, { properties: { ...selectedNode.properties, dhcp: { ...selectedNode.properties.dhcp, pools: n } } });
+                                                                        }} className="w-full lg:w-1/2 bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono outline-none focus:ring-1 focus:ring-yellow-500" />
+                                                                        <input type="text" value={pool.mask} placeholder="255.255.255.0" onChange={(e) => {
+                                                                            const n = [...selectedNode.properties.dhcp.pools]; n[idx].mask = e.target.value;
+                                                                            updateNode(selectedNode.id, { properties: { ...selectedNode.properties, dhcp: { ...selectedNode.properties.dhcp, pools: n } } });
+                                                                        }} className="w-full lg:w-1/2 bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono outline-none focus:ring-1 focus:ring-yellow-500" />
+                                                                    </div>
+                                                                </div>
+                                                                <div className="col-span-1 lg:col-span-2">
+                                                                    <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase tracking-tighter">Default Router</label>
+                                                                    <input type="text" value={pool.defaultRouter} placeholder="192.168.70.1" onChange={(e) => {
+                                                                        const n = [...selectedNode.properties.dhcp.pools]; n[idx].defaultRouter = e.target.value;
+                                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, dhcp: { ...selectedNode.properties.dhcp, pools: n } } });
+                                                                    }} className="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono outline-none focus:ring-1 focus:ring-yellow-500" />
+                                                                </div>
+                                                                <div className="col-span-1 lg:col-span-2">
+                                                                    <label className="text-[8px] font-bold text-slate-600 block mb-1 uppercase tracking-tighter">DNS Server</label>
+                                                                    <input type="text" value={pool.dnsServer} placeholder="8.8.8.8" onChange={(e) => {
+                                                                        const n = [...selectedNode.properties.dhcp.pools]; n[idx].dnsServer = e.target.value;
+                                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, dhcp: { ...selectedNode.properties.dhcp, pools: n } } });
+                                                                    }} className="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono outline-none focus:ring-1 focus:ring-yellow-500" />
+                                                                </div>
+                                                                <div className="col-span-1 lg:col-span-1 flex justify-end lg:justify-center mt-2 lg:mt-0 pt-2 lg:pt-0 border-t border-slate-800 lg:border-none lg:pb-1 no-print">
+                                                                    <button onClick={() => {
+                                                                        const n = selectedNode.properties.dhcp.pools.filter((_, i) => i !== idx);
+                                                                        updateNode(selectedNode.id, { properties: { ...selectedNode.properties, dhcp: { ...selectedNode.properties.dhcp, pools: n } } });
+                                                                    }} className="text-slate-600 bg-slate-900 lg:bg-transparent p-2 lg:p-0 rounded lg:rounded-none hover:text-red-500 transition-colors"><IconTrash size={16} className="lg:w-[14px] lg:h-[14px]"/></button>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                        
+                                                        {(!selectedNode.properties.dhcp?.pools || selectedNode.properties.dhcp.pools.length === 0) && (
+                                                            <p className="text-xs text-slate-600 italic text-center py-4">No hay pools DHCP configurados.</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </section>
+                                        )}
+                                        <div className="h-10"></div>{/* Spacer for bottom */}
+                                    </div>
+                                </div>
+
+                                {/* CONSOLE CLI RESPONSIVO */}
+                                {showCli && (
+                                    <div className="absolute inset-0 lg:relative z-40 w-full lg:w-[450px] xl:w-[500px] bg-black p-6 lg:p-8 border-l border-slate-900 flex flex-col no-print shadow-2xl lg:shadow-[inset_10px_0_30px_rgba(0,0,0,0.4)] animate-in slide-in-from-right duration-300">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_12px_#22c55e]"></div>
+                                                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Cisco Real-Time CLI</h3>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <button onClick={copyToClipboard} className="text-[9px] font-black text-slate-400 hover:text-white border border-slate-800 px-4 py-2 rounded-lg uppercase tracking-widest transition-all hover:bg-slate-900">Copiar</button>
+                                                <button onClick={() => setShowCli(false)} className="lg:hidden p-2 bg-slate-900 rounded text-slate-400 hover:text-white">
+                                                    <IconX size={18} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="flex-1 bg-[#0a0c10] rounded-2xl border border-slate-800 p-6 font-mono text-[11px] leading-relaxed overflow-y-auto text-green-500/90 scrollbar-hide selection:bg-green-500/20 selection:text-white">
+                                            <pre className="whitespace-pre-wrap">{generateConfig(selectedNode)}</pre>
+                                        </div>
+                                        <div className="mt-6 p-4 bg-slate-900/30 rounded-xl border border-slate-800/50 text-center font-bold italic text-[9px] text-slate-500 uppercase tracking-wide">
+                                            Generación compatible con IOS XE/XR
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

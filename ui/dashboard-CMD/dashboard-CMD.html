@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ConsoleFlow - Local Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #020617;
+            color: #f1f5f9;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .code-font { font-family: 'Fira Code', monospace; }
+        .glass-sidebar { background: #0b1120; border-right: 1px solid rgba(255, 255, 255, 0.05); }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        
+        .project-item.active {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: white;
+            box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4);
+        }
+        
+        .animate-fade { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;  
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="flex flex-row overflow-hidden relative">
+
+    <!-- OVERLAY MÓVIL (Fondo oscuro cuando el menú está abierto en celular) -->
+    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-40 hidden md:hidden backdrop-blur-sm transition-opacity duration-300 opacity-0"></div>
+
+    <!-- SIDEBAR -->
+    <aside id="appSidebar" class="w-80 glass-sidebar flex flex-col shrink-0 h-full z-50 fixed md:relative transition-all duration-300 transform -translate-x-full md:translate-x-0 bg-[#0b1120] shadow-2xl md:shadow-none border-r border-slate-800">
+        <div class="p-6 md:p-8 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="bg-indigo-600 p-3 rounded-2xl shadow-xl shadow-indigo-600/20">
+                    <i data-lucide="terminal" class="text-white w-5 h-5 md:w-6 md:h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg md:text-xl font-bold tracking-tight text-white leading-none">ConsoleFlow</h1>
+                    <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Local Edition</span>
+                </div>
+            </div>
+            <!-- Botón cerrar solo visible en móviles -->
+            <button onclick="toggleSidebar()" class="md:hidden text-slate-500 hover:text-white p-2 rounded-lg bg-slate-900">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-4 custom-scrollbar">
+            <div class="flex items-center justify-between mb-4 px-2">
+                <h2 class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mis Proyectos</h2>
+                <button onclick="openNewProjectModal()" class="p-1.5 hover:bg-slate-800 rounded-lg text-indigo-400 transition-colors">
+                    <i data-lucide="folder-plus" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <nav id="projectList" class="space-y-1.5">
+                <p class="text-xs text-slate-600 italic p-4 text-center">Buscando servidor local...</p>
+            </nav>
+        </div>
+
+        <!-- Status Box -->
+        <div class="p-4 md:p-6">
+            <div class="bg-slate-950/50 rounded-3xl p-5 border border-slate-800">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase">Estado del Puente</span>
+                    <div id="statusBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-red-500/10 text-red-400 border-red-500/20">
+                        <div id="statusDot" class="w-1.5 h-1.5 rounded-full bg-red-500"></div>
+                        <span id="statusText" class="text-[8px] font-black uppercase tracking-widest">Offline</span>
+                    </div>
+                </div>
+                <div id="statusHint" class="text-[10px] text-slate-600 leading-relaxed italic">
+                    Inicia <code class="text-indigo-400 font-bold">server.js</code> en CMD para activar.
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="flex-1 flex flex-col h-full relative bg-[#020617]/30 min-w-0 transition-all duration-300">
+        <header class="min-h-[5rem] px-4 md:px-10 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-900 bg-[#020617]/80 backdrop-blur-2xl gap-4 z-20 sticky top-0">
+            <div class="flex items-center w-full sm:w-auto flex-1 gap-3">
+                <button onclick="toggleSidebar()" class="p-2.5 rounded-xl bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors shrink-0">
+                    <i data-lucide="menu" class="w-5 h-5"></i>
+                </button>
+                <div class="relative w-full max-w-2xl">
+                    <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4"></i>
+                    <input type="text" id="searchInput" oninput="renderCommands()" placeholder="Buscar..." 
+                        class="w-full bg-slate-900/50 border border-slate-800 rounded-2xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all text-white placeholder-slate-500">
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2 md:gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                <!-- Selector de Vistas -->
+                <div class="flex items-center bg-slate-900/80 rounded-xl p-1 border border-slate-800">
+                    <button onclick="setViewMode('list')" id="btnViewList" class="p-2 rounded-lg bg-slate-800 text-white shadow-sm transition-all" title="Vista de Lista">
+                        <i data-lucide="list" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="setViewMode('card')" id="btnViewCard" class="p-2 rounded-lg text-slate-500 hover:text-white transition-all" title="Vista de Tarjetas">
+                        <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <div class="flex gap-2 flex-1 sm:flex-none justify-end">
+                    <button onclick="openNewCategoryModal()" class="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 md:px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 whitespace-nowrap">
+                        <i data-lucide="folder-plus" class="w-4 h-4"></i> <span class="hidden lg:inline">Categoría</span>
+                    </button>
+                    <button onclick="openNewCommandModal()" class="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 md:px-6 py-3 rounded-xl text-sm font-bold shadow-xl shadow-indigo-600/30 transition-all active:scale-95 whitespace-nowrap">
+                        <i data-lucide="plus" class="w-4 h-4"></i> <span class="hidden md:inline">Nuevo Comando</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Contexto de Proyecto Activo (Fijo y más compacto) -->
+        <div id="projectHeader" class="hidden animate-fade shrink-0 z-10 bg-[#020617]/80 backdrop-blur-xl border-b border-slate-900 px-4 md:px-10 py-3">
+            <div class="bg-indigo-600/10 border border-indigo-500/20 py-2 px-4 rounded-xl flex items-center justify-between shadow-sm">
+                <div class="flex items-center gap-3 w-full overflow-hidden">
+                    <div class="bg-indigo-600 p-1.5 rounded-lg shadow-sm shadow-indigo-600/20 shrink-0">
+                        <i data-lucide="folder-code" class="text-white w-4 h-4"></i>
+                    </div>
+                    <div class="overflow-hidden flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-2 w-full">
+                        <h2 id="activeProjName" class="text-sm font-bold text-white tracking-tight truncate"></h2>
+                        <p id="activeProjPath" class="text-[10px] font-mono text-indigo-400 opacity-80 truncate"></p>
+                    </div>
+                </div>
+                <button onclick="deselectProject()" class="text-slate-500 hover:text-indigo-400 transition-colors bg-slate-900/50 hover:bg-indigo-500/10 p-1.5 rounded-lg shrink-0 ml-3">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar">
+            <div id="commandsGrid" class="flex flex-col gap-6 md:gap-10">
+                <!-- Se agrupan y llenan dinámicamente -->
+            </div>
+        </div>
+
+        <!-- Terminal Logs -->
+        <div id="consoleWrapper" class="bg-[#020617] border-t border-slate-800 flex flex-col font-mono z-30 relative transition-all">
+            <div class="px-4 md:px-10 py-3 bg-slate-900/30 border-b border-slate-800 flex justify-between items-center cursor-pointer select-none" onclick="toggleConsole()">
+                <div class="flex items-center gap-3">
+                    <div class="flex gap-1.5">
+                        <div class="w-2.5 h-2.5 rounded-full bg-red-500/50"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/50"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-green-500/50"></div>
+                    </div>
+                    <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2 md:ml-4">Consola</span>
+                </div>
+                <div class="flex items-center gap-4 md:gap-5">
+                    <button onclick="clearLogs(); event.stopPropagation();" class="text-[10px] text-slate-600 hover:text-indigo-400 transition-colors uppercase font-bold">Limpiar</button>
+                    <i data-lucide="chevron-down" id="consoleToggleIcon" class="w-4 h-4 text-slate-500"></i>
+                </div>
+            </div>
+            <div id="logAreaContainer" class="h-32 md:h-40 flex flex-col transition-all">
+                <div id="logArea" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-2 custom-scrollbar text-[10px] md:text-[11px] text-slate-400">
+                    <p class="text-slate-700 italic">Esperando acciones...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODALES -->
+    <div id="projModal" class="fixed inset-0 bg-black/80 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#0f172a] border border-slate-800 w-full max-w-md rounded-3xl p-6 md:p-10 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <h3 id="projModalTitle" class="text-xl font-bold text-white mb-6">Nuevo Proyecto</h3>
+            <div class="space-y-5">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Nombre Visual</label>
+                    <input type="text" id="inProjName" autocomplete="off" placeholder="Ej: Proyecto Ionic" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-600 outline-none text-white">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Ruta Absoluta</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="inProjPath" autocomplete="off" placeholder="C:\Users\...\app" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm code-font focus:ring-2 focus:ring-indigo-600 outline-none text-white">
+                        <input type="file" id="dirPicker" webkitdirectory directory class="hidden" onchange="handleDirSelect(this)">
+                        <button onclick="document.getElementById('dirPicker').click()" class="bg-slate-800 hover:bg-slate-700 px-4 rounded-xl border border-slate-700"><i data-lucide="search" class="w-4 h-4 text-indigo-400"></i></button>
+                    </div>
+                </div>
+            </div>
+            <div class="flex flex-col-reverse sm:flex-row gap-3 mt-8">
+                <button onclick="toggleModal('projModal', false)" class="flex-1 py-3 rounded-xl bg-slate-800 font-bold text-slate-300">Cancelar</button>
+                <button onclick="saveProject()" class="flex-1 py-3 rounded-xl bg-indigo-600 font-bold text-white">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CATEGORIA -->
+    <div id="catModal" class="fixed inset-0 bg-black/80 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#0f172a] border border-slate-800 w-full max-w-md rounded-3xl p-6 md:p-10 shadow-2xl">
+            <h3 id="catModalTitle" class="text-xl font-bold text-white mb-6">Nueva Categoría</h3>
+            <div class="space-y-5">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Nombre de la Categoría</label>
+                    <input type="text" id="inCatName" autocomplete="off" placeholder="Ej: Herramientas" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-600 outline-none text-white">
+                </div>
+            </div>
+            <div class="flex flex-col-reverse sm:flex-row gap-3 mt-8">
+                <button onclick="toggleModal('catModal', false)" class="flex-1 py-3 rounded-xl bg-slate-800 font-bold text-slate-300">Cancelar</button>
+                <button onclick="saveCategory()" class="flex-1 py-3 rounded-xl bg-indigo-600 font-bold text-white shadow-xl shadow-indigo-600/30">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL COMANDO -->
+    <div id="cmdModal" class="fixed inset-0 bg-black/80 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#0f172a] border border-slate-800 w-full max-w-lg rounded-3xl p-6 md:p-10 shadow-2xl max-h-[95vh] overflow-y-auto custom-scrollbar">
+            <h3 id="cmdModalTitle" class="text-xl font-bold text-white mb-4 md:mb-6">Nuevo Comando</h3>
+            <div class="space-y-4 md:space-y-5">
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <div class="flex-1">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase mb-2 block ml-1">Etiqueta del Botón</label>
+                        <input type="text" id="inCmdLabel" autocomplete="off" placeholder="Ej: Abrir APK" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-600 outline-none text-white">
+                    </div>
+                    
+                    <!-- Autocompletado Custom para Categoría -->
+                    <div class="flex-1 relative">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase mb-2 block ml-1">Categoría</label>
+                        <input type="text" id="inCmdCategory" autocomplete="off" placeholder="Ej: General" 
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-600 outline-none text-white"
+                            onfocus="showCategorySuggestions()" 
+                            oninput="filterCategorySuggestions()" 
+                            onblur="hideCategorySuggestions()">
+                        
+                        <div id="categorySuggestions" class="absolute z-50 w-full mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl hidden max-h-48 overflow-y-auto custom-scrollbar">
+                            <!-- Se llena por JavaScript -->
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-2 gap-2">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase ml-1 block">Scripts</label>
+                        <div class="flex flex-wrap gap-1.5 md:gap-2">
+                            <button type="button" onclick="insertMacro('%CURRENT_DIR%')" class="text-[9px] bg-slate-900 hover:bg-slate-800 text-indigo-400 px-2.5 py-1.5 rounded-lg border border-slate-700 transition-colors flex items-center gap-1 font-mono cursor-pointer active:scale-95">
+                                <i data-lucide="terminal-square" class="w-3 h-3"></i> + %CURRENT_DIR%
+                            </button>
+                            <button type="button" onclick="insertMacro(' && exit')" class="text-[9px] bg-slate-900 hover:bg-slate-800 text-indigo-400 px-2.5 py-1.5 rounded-lg border border-slate-700 transition-colors flex items-center gap-1 font-mono cursor-pointer active:scale-95">
+                                <i data-lucide="terminal-square" class="w-3 h-3"></i> + && exit
+                            </button>
+                            <button type="button" onclick="addScriptVariant()" class="text-[9px] bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 px-2.5 py-1.5 rounded-lg border border-indigo-500/30 transition-colors flex items-center gap-1 font-mono cursor-pointer active:scale-95">
+                                <i data-lucide="plus" class="w-3 h-3"></i> Opción
+                            </button>
+                        </div>
+                    </div>
+                    <div id="cmdScriptsContainer" class="space-y-2 max-h-32 overflow-y-auto custom-scrollbar p-1">
+                        <!-- Se llena por JavaScript -->
+                    </div>
+                    
+                    <!-- Opción de ejecución en serie -->
+                    <label class="flex items-start md:items-center gap-2 mt-3 cursor-pointer group w-max ml-1">
+                        <input type="checkbox" id="inCmdMulti" class="mt-0.5 md:mt-0 w-3.5 h-3.5 accent-indigo-500 rounded cursor-pointer border-slate-700 bg-slate-900 shrink-0">
+                        <span class="text-[9px] md:text-[10px] font-bold text-slate-500 group-hover:text-slate-300 uppercase transition-colors whitespace-normal">Permitir selección múltiple (Checkboxes / Serie)</span>
+                    </label>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end mt-4 gap-4">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-500 uppercase mb-2 block ml-1">Color</label>
+                        <div class="flex gap-3 mt-2">
+                            <button onclick="setColor('indigo')" id="c-indigo" class="w-8 h-8 rounded-full bg-indigo-600 border-2 border-white shadow-lg"></button>
+                            <button onclick="setColor('emerald')" id="c-emerald" class="w-8 h-8 rounded-full bg-emerald-600 border-2 border-transparent"></button>
+                            <button onclick="setColor('rose')" id="c-rose" class="w-8 h-8 rounded-full bg-rose-600 border-2 border-transparent"></button>
+                            <button onclick="setColor('amber')" id="c-amber" class="w-8 h-8 rounded-full bg-amber-600 border-2 border-transparent"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800 flex items-start gap-3 cursor-pointer mt-2" onclick="document.getElementById('inCmdBg').click()">
+                    <input type="checkbox" id="inCmdBg" class="w-4 h-4 mt-0.5 accent-indigo-500 rounded cursor-pointer shrink-0" onclick="event.stopPropagation()">
+                    <div>
+                        <p class="text-sm font-bold text-slate-300">Ejecutar en Segundo Plano</p>
+                        <p class="text-[10px] text-slate-500 mt-1">Ideal para comandos que no requieren ver output, o abrir explorador.</p>
+                    </div>
+                </div>
+
+            </div>
+            <div class="flex flex-col-reverse sm:flex-row gap-3 mt-6 md:mt-8">
+                <button onclick="toggleModal('cmdModal', false)" class="flex-1 py-3 rounded-xl bg-slate-800 font-bold text-slate-300">Cancelar</button>
+                <button onclick="saveCommand()" class="flex-1 py-3 rounded-xl bg-indigo-600 font-bold text-white shadow-xl shadow-indigo-600/30">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LÓGICA LOCAL -->
+    <script>
+        let projects = [];
+        let commands = [];
+        let explicitCategories = [];
+        let collapsedCategories = {}; // Almacenará el estado minimizado de las categorías
+        let selectedProjId = null;
+        let activeColor = 'indigo';
+        let serverOnline = false;
+        let editingCmdId = null; 
+        let editingProjId = null; 
+        let editingCatName = null;
+        let consoleMin = false;
+        
+        // Vista por defecto: 'list' o 'card'
+        let viewMode = 'list';
+        
+        // Control del Sidebar
+        let sidebarOpenMobile = false;
+        let sidebarOpenDesktop = true;
+        
+        // Variable para recordar qué script input se seleccionó al final
+        let lastFocusedInput = null;
+
+        const SERVER_URL = window.location.protocol === 'file:' ? 'http://localhost:3000' : window.location.origin;
+
+        // Función para cambiar de vista (Lista / Tarjeta)
+        window.setViewMode = (mode) => {
+            viewMode = mode;
+            document.getElementById('btnViewList').className = mode === 'list' ? 'p-1.5 md:p-2 rounded-lg bg-slate-800 text-white shadow-sm transition-all' : 'p-1.5 md:p-2 rounded-lg text-slate-500 hover:text-white transition-all';
+            document.getElementById('btnViewCard').className = mode === 'card' ? 'p-1.5 md:p-2 rounded-lg bg-slate-800 text-white shadow-sm transition-all' : 'p-1.5 md:p-2 rounded-lg text-slate-500 hover:text-white transition-all';
+            renderCommands();
+        };
+
+        // Función para abrir/cerrar menú lateral
+        window.toggleSidebar = () => {
+            const sidebar = document.getElementById('appSidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (window.innerWidth < 768) {
+                // Modo Móvil (Drawer con Overlay)
+                sidebarOpenMobile = !sidebarOpenMobile;
+                if (sidebarOpenMobile) {
+                    sidebar.classList.remove('-translate-x-full');
+                    overlay.classList.remove('hidden');
+                    // Retraso muy corto para permitir que la clase hidden se quite antes de cambiar opacity
+                    setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+                } else {
+                    sidebar.classList.add('-translate-x-full');
+                    overlay.classList.add('opacity-0');
+                    setTimeout(() => overlay.classList.add('hidden'), 300); // Igual a duration-300
+                }
+            } else {
+                // Modo Escritorio (Colapsar y empujar contenido)
+                sidebarOpenDesktop = !sidebarOpenDesktop;
+                if (sidebarOpenDesktop) {
+                    sidebar.classList.remove('md:-translate-x-full', 'md:-ml-80');
+                } else {
+                    sidebar.classList.add('md:-translate-x-full', 'md:-ml-80');
+                }
+            }
+        };
+
+        window.toggleConsole = () => {
+            consoleMin = !consoleMin;
+            const logCont = document.getElementById('logAreaContainer');
+            const icon = document.getElementById('consoleToggleIcon');
+            if (consoleMin) {
+                logCont.classList.add('hidden');
+                icon.setAttribute('data-lucide', 'chevron-up');
+            } else {
+                logCont.classList.remove('hidden');
+                icon.setAttribute('data-lucide', 'chevron-down');
+            }
+            lucide.createIcons();
+        };
+
+        async function fetchLocalData() {
+            try {
+                const res = await fetch(`${SERVER_URL}/data`);
+                if (res.ok) {
+                    const data = await res.json();
+                    
+                    const newProjects = data.projects || [];
+                    const newCommands = data.commands || [];
+                    const newCategories = data.categories || [];
+
+                    // Comparamos los datos nuevos con los actuales usando JSON stringify para evitar re-renderizados (parpadeos) innecesarios
+                    const dataChanged = JSON.stringify({ p: newProjects, c: newCommands, cat: newCategories }) !== 
+                                        JSON.stringify({ p: projects, c: commands, cat: explicitCategories });
+
+                    if (dataChanged) {
+                        projects = newProjects;
+                        commands = newCommands;
+                        explicitCategories = newCategories;
+                        
+                        renderProjects();
+                        renderCommands();
+                    }
+                    
+                    serverOnline = true;
+                }
+            } catch (error) {
+                serverOnline = false;
+                if (projects.length === 0 && commands.length === 0) {
+                    document.getElementById('projectList').innerHTML = '<p class="text-xs text-slate-600 italic p-4 text-center">Servidor desconectado.</p>';
+                }
+            }
+            updateStatusUI();
+        }
+
+        setInterval(fetchLocalData, 3000);
+        fetchLocalData(); 
+
+        async function syncData() {
+            if (!serverOnline) {
+                alert("Debes iniciar server.js para guardar cambios en tu JSON.");
+                return false;
+            }
+            try {
+                await fetch(`${SERVER_URL}/data`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ projects, commands, categories: explicitCategories })
+                });
+                
+                // Renderizamos inmediatamente los cambios locales en la interfaz
+                renderProjects();
+                renderCommands();
+                
+                return true;
+            } catch (e) {
+                alert("Error al guardar en el archivo JSON local.");
+                return false;
+            }
+        }
+
+        function updateStatusUI() {
+            const badge = document.getElementById('statusBadge');
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+            const hint = document.getElementById('statusHint');
+
+            if (serverOnline) {
+                badge.className = "flex items-center gap-1.5 px-3 py-1 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+                dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]";
+                text.innerText = "Online";
+                hint.classList.add('hidden');
+            } else {
+                badge.className = "flex items-center gap-1.5 px-3 py-1 rounded-full border bg-red-500/10 text-red-400 border-red-500/20";
+                dot.className = "w-1.5 h-1.5 rounded-full bg-red-500";
+                text.innerText = "Offline";
+                hint.classList.remove('hidden');
+            }
+        }
+
+        window.toggleModal = (id, show) => {
+            document.getElementById(id).classList.toggle('hidden', !show);
+        };
+
+        window.openNewProjectModal = () => {
+            editingProjId = null;
+            document.getElementById('projModalTitle').innerText = 'Nuevo Proyecto';
+            document.getElementById('inProjName').value = '';
+            document.getElementById('inProjPath').value = '';
+            toggleModal('projModal', true);
+        };
+
+        window.editProject = (id) => {
+            editingProjId = id;
+            const p = projects.find(x => x.id === id);
+            if (p) {
+                document.getElementById('projModalTitle').innerText = 'Editar Proyecto';
+                document.getElementById('inProjName').value = p.name;
+                document.getElementById('inProjPath').value = p.path;
+                toggleModal('projModal', true);
+            }
+        };
+
+        window.openNewCategoryModal = () => {
+            editingCatName = null;
+            document.getElementById('catModalTitle').innerText = 'Nueva Categoría';
+            document.getElementById('inCatName').value = '';
+            toggleModal('catModal', true);
+        };
+
+        window.editCategory = (oldName) => {
+            editingCatName = oldName;
+            document.getElementById('catModalTitle').innerText = 'Renombrar Categoría';
+            document.getElementById('inCatName').value = oldName;
+            toggleModal('catModal', true);
+        };
+
+        // Función para minimizar/expandir categorías
+        window.toggleCategory = (encodedCat) => {
+            const cat = decodeURIComponent(encodedCat);
+            collapsedCategories[cat] = !collapsedCategories[cat];
+            renderCommands(); // Vuelve a renderizar la cuadrícula para aplicar el ocultamiento
+        };
+
+        /* --- LÓGICA DEL AUTOCOMPLETADO CUSTOM DE CATEGORÍAS --- */
+        window.showCategorySuggestions = () => {
+            document.getElementById('categorySuggestions').classList.remove('hidden');
+            filterCategorySuggestions(); 
+        };
+
+        window.hideCategorySuggestions = () => {
+            document.getElementById('categorySuggestions').classList.add('hidden');
+        };
+
+        window.filterCategorySuggestions = () => {
+            const val = document.getElementById('inCmdCategory').value.toLowerCase();
+            const allCategories = [...new Set([...commands.map(c => c.category || 'General'), ...explicitCategories])];
+            if (!allCategories.includes('General')) allCategories.unshift('General');
+
+            const filtered = allCategories.filter(c => c.toLowerCase().includes(val));
+            const container = document.getElementById('categorySuggestions');
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="px-4 py-3 text-sm text-slate-500 italic">Crear nueva: "${document.getElementById('inCmdCategory').value}"</div>`;
+            } else {
+                container.innerHTML = filtered.map(cat => 
+                    `<div class="px-4 py-3 text-sm text-slate-300 hover:bg-indigo-600 hover:text-white cursor-pointer transition-colors border-b border-slate-800 last:border-0" onmousedown="selectCategory('${cat}')">${cat}</div>`
+                ).join('');
+            }
+        };
+
+        window.selectCategory = (cat) => {
+            document.getElementById('inCmdCategory').value = cat;
+            document.getElementById('categorySuggestions').classList.add('hidden');
+        };
+        /* ------------------------------------------------------- */
+
+        window.addScriptVariant = () => {
+            const container = document.getElementById('cmdScriptsContainer');
+            const div = document.createElement('div');
+            div.className = "flex gap-2 items-start script-variant";
+            div.innerHTML = `
+                <textarea rows="1" onfocus="lastFocusedInput = this" class="cmd-script-input flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm code-font focus:ring-2 focus:ring-indigo-600 outline-none text-white resize-y"></textarea>
+                <button type="button" onclick="this.parentElement.remove()" class="text-slate-500 hover:text-red-400 p-2 shrink-0 transition-colors"><i data-lucide="x" class="w-4 h-4"></i></button>
+            `;
+            container.appendChild(div);
+            lucide.createIcons();
+        };
+
+        window.renderScriptInputs = (scripts = ['']) => {
+            const container = document.getElementById('cmdScriptsContainer');
+            container.innerHTML = scripts.map((s, i) => `
+                <div class="flex gap-2 items-start script-variant">
+                    <textarea rows="1" onfocus="lastFocusedInput = this" class="cmd-script-input flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm code-font focus:ring-2 focus:ring-indigo-600 outline-none text-white resize-y">${s}</textarea>
+                    ${i > 0 ? `<button type="button" onclick="this.parentElement.remove()" class="text-slate-500 hover:text-red-400 p-2 shrink-0 transition-colors"><i data-lucide="x" class="w-4 h-4"></i></button>` : `<div class="w-8 md:w-8"></div>`}
+                </div>
+            `).join('');
+            
+            // Forzar a que el primero sea el 'último seleccionado' por defecto al renderizar
+            const firstInput = container.querySelector('.cmd-script-input');
+            if (firstInput) lastFocusedInput = firstInput;
+
+            lucide.createIcons();
+        };
+
+        window.openNewCommandModal = () => {
+            editingCmdId = null;
+            document.getElementById('cmdModalTitle').innerText = 'Nuevo Comando';
+            document.getElementById('inCmdLabel').value = '';
+            
+            renderScriptInputs(['']);
+            
+            document.getElementById('inCmdCategory').value = ''; 
+            document.getElementById('inCmdBg').checked = false;
+            document.getElementById('inCmdMulti').checked = false;
+            setColor('indigo');
+            toggleModal('cmdModal', true);
+        };
+
+        window.editCommand = (id) => {
+            editingCmdId = id;
+            const cmd = commands.find(c => c.id === id);
+            if (cmd) {
+                document.getElementById('cmdModalTitle').innerText = 'Editar Comando';
+                document.getElementById('inCmdLabel').value = cmd.label;
+                
+                // Mantiene retrocompatibilidad con scripts antiguos y carga array de variantes
+                const scrs = (cmd.scripts && cmd.scripts.length > 0) ? cmd.scripts : [cmd.script || ''];
+                renderScriptInputs(scrs);
+                
+                document.getElementById('inCmdCategory').value = cmd.category || 'General';
+                document.getElementById('inCmdBg').checked = !!cmd.background;
+                document.getElementById('inCmdMulti').checked = !!cmd.multiSelect;
+                setColor(cmd.color || 'indigo');
+                toggleModal('cmdModal', true);
+            }
+        };
+
+        // Función corregida para insertar tags exactamente donde el usuario tenía el cursor
+        window.insertMacro = (text) => {
+            let targetInput = lastFocusedInput;
+            
+            // Validar que el input recordado exista y siga en el DOM
+            if (!targetInput || !document.body.contains(targetInput)) {
+                const inputs = document.querySelectorAll('.cmd-script-input');
+                if (inputs.length > 0) {
+                    targetInput = inputs[inputs.length - 1]; // Fallback al último
+                } else {
+                    return; // No hay donde insertar
+                }
+            }
+
+            const startPos = targetInput.selectionStart || 0;
+            const endPos = targetInput.selectionEnd || 0;
+            const value = targetInput.value || '';
+
+            targetInput.value = value.substring(0, startPos) + text + value.substring(endPos);
+            
+            // Restablecer foco y posición del cursor
+            targetInput.focus();
+            targetInput.selectionStart = targetInput.selectionEnd = startPos + text.length;
+        };
+
+        window.handleDirSelect = (input) => {
+            if (input.files.length) {
+                const folderName = input.files[0].webkitRelativePath.split('/')[0];
+                document.getElementById('inProjName').value = folderName;
+                document.getElementById('inProjPath').value = `C:\\...\\${folderName}`;
+            }
+        };
+
+        window.setColor = (c) => {
+            activeColor = c;
+            ['indigo', 'emerald', 'rose', 'amber'].forEach(color => {
+                const el = document.getElementById(`c-${color}`);
+                el.classList.toggle('border-white', color === c);
+                el.classList.toggle('border-transparent', color !== c);
+                if (color === c) el.classList.add('shadow-lg');
+                else el.classList.remove('shadow-lg');
+            });
+        };
+
+        window.saveProject = async () => {
+            const name = document.getElementById('inProjName').value;
+            const path = document.getElementById('inProjPath').value;
+            if (name && path) {
+                if (editingProjId) {
+                    const idx = projects.findIndex(p => p.id === editingProjId);
+                    if (idx !== -1) {
+                        projects[idx] = { ...projects[idx], name, path };
+                        if (selectedProjId === editingProjId) {
+                            document.getElementById('activeProjName').innerText = name;
+                            document.getElementById('activeProjPath').innerText = path;
+                        }
+                    }
+                } else {
+                    projects.push({ id: Date.now().toString(), name, path });
+                }
+
+                const success = await syncData();
+                if (success) {
+                    toggleModal('projModal', false);
+                    editingProjId = null;
+                }
+            }
+        };
+
+        window.saveCategory = async () => {
+            const newName = document.getElementById('inCatName').value.trim();
+            if (newName) {
+                if (editingCatName) {
+                    if (explicitCategories.includes(editingCatName)) {
+                        explicitCategories = explicitCategories.map(c => c === editingCatName ? newName : c);
+                    } else {
+                        explicitCategories.push(newName);
+                    }
+                    commands = commands.map(c => {
+                        if ((c.category || 'General') === editingCatName) {
+                            return { ...c, category: newName };
+                        }
+                        return c;
+                    });
+                    
+                    // Actualizar el estado de colapsado si fue modificado
+                    if (collapsedCategories[editingCatName]) {
+                        collapsedCategories[newName] = collapsedCategories[editingCatName];
+                        delete collapsedCategories[editingCatName];
+                    }
+                } else {
+                    if (!explicitCategories.includes(newName)) {
+                        explicitCategories.push(newName);
+                    }
+                }
+                const success = await syncData();
+                if (success) {
+                    toggleModal('catModal', false);
+                    editingCatName = null;
+                }
+            }
+        };
+
+        window.saveCommand = async () => {
+            const label = document.getElementById('inCmdLabel').value;
+            
+            // Recolectar todos los inputs de script creados
+            const scriptInputs = document.querySelectorAll('.cmd-script-input');
+            const scriptsArray = Array.from(scriptInputs).map(i => i.value.trim()).filter(v => v);
+            
+            const category = document.getElementById('inCmdCategory').value.trim() || 'General';
+            const bg = document.getElementById('inCmdBg').checked;
+            const multi = document.getElementById('inCmdMulti').checked;
+            
+            if (label && scriptsArray.length > 0) {
+                if (!explicitCategories.includes(category)) {
+                    explicitCategories.push(category);
+                }
+
+                // Guardar la opción 0 como main para compatibilidad del backend antiguo si es necesario
+                const mainScript = scriptsArray[0];
+
+                if (editingCmdId) {
+                    const idx = commands.findIndex(c => c.id === editingCmdId);
+                    if (idx !== -1) {
+                        commands[idx] = { ...commands[idx], label, script: mainScript, scripts: scriptsArray, multiSelect: multi, category, color: activeColor, background: bg };
+                    }
+                } else {
+                    commands.push({ id: Date.now().toString(), label, script: mainScript, scripts: scriptsArray, multiSelect: multi, category, color: activeColor, background: bg });
+                }
+                
+                const success = await syncData();
+                if (success) {
+                    toggleModal('cmdModal', false);
+                    editingCmdId = null;
+                }
+            }
+        };
+
+        window.deleteItem = async (type, id) => {
+            if (confirm("¿Borrar permanentemente?")) {
+                if (type === 'projects') {
+                    projects = projects.filter(p => p.id !== id);
+                    if (selectedProjId === id) deselectProject();
+                } else {
+                    commands = commands.filter(c => c.id !== id);
+                }
+                await syncData();
+            }
+        };
+
+        window.deleteCategory = async (catName) => {
+            if (confirm(`¿Eliminar la categoría "${catName}"? Sus comandos pasarán a "General".`)) {
+                explicitCategories = explicitCategories.filter(c => c !== catName);
+                commands = commands.map(c => {
+                    if ((c.category || 'General') === catName) {
+                        return { ...c, category: 'General' };
+                    }
+                    return c;
+                });
+                delete collapsedCategories[catName];
+                await syncData();
+            }
+        };
+
+        window.renderProjects = () => {
+            const container = document.getElementById('projectList');
+            if (projects.length === 0) {
+                container.innerHTML = '<div class="p-4 text-center text-[10px] text-slate-700 font-bold uppercase tracking-widest border border-dashed border-slate-800 rounded-2xl opacity-50 mx-2 mt-4">Sin Proyectos</div>';
+                return;
+            }
+            container.innerHTML = projects.map(p => `
+                <div onclick="selectProj('${p.id}'); if(window.innerWidth < 768) toggleSidebar();" class="project-item group flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all duration-300 ${selectedProjId === p.id ? 'active' : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'}">
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <i data-lucide="folder" class="w-4 h-4 shrink-0 ${selectedProjId === p.id ? 'text-indigo-200' : 'text-slate-600'}"></i>
+                        <span class="text-sm font-bold truncate">${p.name}</span>
+                    </div>
+                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                        <button onclick="event.stopPropagation(); editProject('${p.id}')" class="text-slate-500 hover:text-indigo-400 transition-all p-1.5 hover:bg-indigo-500/10 rounded-lg" title="Editar Proyecto">
+                            <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button onclick="event.stopPropagation(); deleteItem('projects', '${p.id}')" class="text-slate-500 hover:text-red-400 transition-all p-1.5 hover:bg-red-500/10 rounded-lg" title="Eliminar">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        };
+
+        window.selectProj = (id) => {
+            selectedProjId = id;
+            const p = projects.find(x => x.id === id);
+            const context = document.getElementById('projectHeader');
+            if (p) {
+                context.classList.remove('hidden');
+                document.getElementById('activeProjName').innerText = p.name;
+                document.getElementById('activeProjPath').innerText = p.path;
+            } else {
+                context.classList.add('hidden');
+            }
+            renderProjects();
+        };
+
+        window.deselectProject = () => {
+            selectedProjId = null;
+            document.getElementById('projectHeader').classList.add('hidden');
+            renderProjects();
+        };
+
+        window.renderCommands = () => {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const gridContainer = document.getElementById('commandsGrid');
+            
+            const allCategories = [...new Set([...commands.map(c => c.category || 'General'), ...explicitCategories])];
+
+            const filtered = commands.filter(c => 
+                c.label.toLowerCase().includes(search) || 
+                c.script.toLowerCase().includes(search) || 
+                (c.category && c.category.toLowerCase().includes(search))
+            );
+
+            const grouped = allCategories.reduce((acc, cat) => {
+                acc[cat] = filtered.filter(c => (c.category || 'General') === cat);
+                return acc;
+            }, {});
+
+            const isSearching = search.length > 0;
+            let renderedAny = false;
+
+            const btnColorMap = {
+                indigo: 'bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white',
+                emerald: 'bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white',
+                rose: 'bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white',
+                amber: 'bg-amber-600/10 hover:bg-amber-600 text-amber-400 hover:text-white'
+            };
+
+            const htmlContent = Object.keys(grouped).sort().map(cat => {
+                const catCommands = grouped[cat];
+                
+                if (isSearching && catCommands.length === 0) return '';
+                if (catCommands.length === 0 && cat !== 'General' && !explicitCategories.includes(cat)) return '';
+
+                renderedAny = true;
+                
+                // Comprobamos si la categoría está minimizada en el estado actual
+                const isCollapsed = collapsedCategories[cat] === true;
+
+                const catCommandsHTML = catCommands.length > 0 ? catCommands.map(c => {
+                    const bgIcon = c.background ? `<i data-lucide="monitor-off" class="w-3.5 h-3.5 text-slate-500 ml-2" title="Segundo Plano"></i>` : '';
+                    
+                    const scrs = (c.scripts && c.scripts.length > 0) ? c.scripts : [c.script];
+                    const isMulti = !!c.multiSelect;
+                    
+                    const scriptsHTML = scrs.map((scr, idx) => `
+                        <label class="flex items-start gap-2 cursor-pointer group/radio ${scrs.length > 1 ? 'hover:bg-white/5' : ''} p-1 rounded-lg transition-colors">
+                            ${scrs.length > 1 ? `<input type="${isMulti ? 'checkbox' : 'radio'}" name="cmd_${c.id}" value="${idx}" ${idx === 0 ? 'checked' : ''} class="mt-1 sm:mt-0.5 shrink-0 accent-indigo-500 cursor-pointer" onclick="event.stopPropagation()">` : ''}
+                            <code class="text-[10px] text-slate-400 code-font line-clamp-2 w-full select-text" title="${scr.replace(/"/g, '&quot;')}">${scr}</code>
+                        </label>
+                    `).join('');
+
+                    if (viewMode === 'card') {
+                        // VISTA DE TARJETAS (CUADRÍCULA)
+                        return `
+                        <div class="bg-[#0f172a] border border-slate-800 hover:border-indigo-500/50 transition-all p-4 rounded-2xl flex flex-col group relative overflow-hidden shadow-sm animate-fade">
+                            <div class="flex justify-between items-center mb-3">
+                                <div class="flex items-center w-[80%]">
+                                     <div class="w-2 h-2 rounded-full shrink-0 ${c.color === 'emerald' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : c.color === 'rose' ? 'bg-rose-500' : c.color === 'amber' ? 'bg-amber-500' : 'bg-indigo-500'}"></div>
+                                     <h4 class="font-bold text-white text-sm ml-2 truncate group-hover:text-indigo-400 transition-colors" title="${c.label}">${c.label}</h4>
+                                     ${bgIcon}
+                                </div>
+                                <div class="flex gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-all">
+                                    <button onclick="editCommand('${c.id}')" class="text-slate-500 hover:text-indigo-400 transition-all p-1.5 hover:bg-indigo-500/10 rounded-lg" title="Editar">
+                                        <i data-lucide="pencil" class="w-4 h-4"></i>
+                                    </button>
+                                    <button onclick="deleteItem('commands', '${c.id}')" class="text-slate-500 hover:text-red-400 transition-all p-1.5 hover:bg-red-500/10 rounded-lg" title="Eliminar">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="bg-[#020617] px-2 py-2 rounded-xl border border-white/5 mb-3 flex-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar max-h-24">
+                                ${scriptsHTML}
+                            </div>
+                            <button onclick="runCommand('${c.id}')" class="w-full py-2.5 rounded-xl text-[10px] font-black tracking-widest uppercase flex items-center justify-center gap-2 transition-all active:scale-95 ${btnColorMap[c.color] || btnColorMap.indigo}">
+                                <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i> Ejecutar
+                            </button>
+                        </div>
+                        `;
+                    } else {
+                        // VISTA DE LISTA (HORIZONTAL)
+                        return `
+                        <div class="bg-[#0f172a] border border-slate-800 hover:border-indigo-500/50 transition-all p-3 rounded-xl flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4 group relative overflow-hidden shadow-sm animate-fade">
+                            <div class="flex items-center sm:min-w-[180px] sm:max-w-[220px]">
+                                 <div class="w-2 h-2 rounded-full shrink-0 ${c.color === 'emerald' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : c.color === 'rose' ? 'bg-rose-500' : c.color === 'amber' ? 'bg-amber-500' : 'bg-indigo-500'}"></div>
+                                 <h4 class="font-bold text-white text-sm ml-2 truncate group-hover:text-indigo-400 transition-colors" title="${c.label}">${c.label}</h4>
+                                 ${bgIcon}
+                            </div>
+                            
+                            <div class="flex-1 bg-[#020617] px-3 py-2 rounded-lg border border-white/5 flex flex-col gap-1 overflow-y-auto custom-scrollbar max-h-24 sm:max-h-20 min-h-[40px] justify-center w-full sm:w-auto">
+                                ${scriptsHTML}
+                            </div>
+
+                            <div class="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                                <div class="flex gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-all">
+                                    <button onclick="editCommand('${c.id}')" class="text-slate-500 hover:text-indigo-400 transition-all p-2 sm:p-1.5 hover:bg-indigo-500/10 rounded-lg" title="Editar">
+                                        <i data-lucide="pencil" class="w-4 h-4"></i>
+                                    </button>
+                                    <button onclick="deleteItem('commands', '${c.id}')" class="text-slate-500 hover:text-red-400 transition-all p-2 sm:p-1.5 hover:bg-red-500/10 rounded-lg" title="Eliminar">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                                <button onclick="runCommand('${c.id}')" class="px-5 py-2.5 md:py-2 rounded-xl text-[10px] font-black tracking-widest uppercase flex items-center justify-center gap-2 transition-all active:scale-95 ${btnColorMap[c.color] || btnColorMap.indigo}">
+                                    <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i> Ejecutar
+                                </button>
+                            </div>
+                        </div>
+                        `;
+                    }
+                }).join('') : `<div class="text-slate-600 text-xs italic py-4 col-span-full border-2 border-dashed border-slate-800 rounded-2xl flex justify-center w-full">No hay comandos asignados.</div>`;
+
+                const containerClass = viewMode === 'card' 
+                    ? `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 ${isCollapsed ? 'hidden' : ''}`
+                    : `flex flex-col gap-2 ${isCollapsed ? 'hidden' : ''}`;
+
+                return `
+                <div class="mb-5">
+                    <!-- Se agregó onclick y cursor-pointer para hacer toda la barra interactiva -->
+                    <div class="flex items-center gap-2 mb-3 border-b border-slate-800 pb-2 group/cat hover:border-indigo-500/30 transition-colors cursor-pointer select-none" onclick="toggleCategory('${encodeURIComponent(cat)}')">
+                        <i data-lucide="chevron-${isCollapsed ? 'right' : 'down'}" class="w-4 h-4 text-slate-500 transition-transform"></i>
+                        <i data-lucide="folder-tree" class="w-4 h-4 text-indigo-500"></i>
+                        <h3 class="text-sm font-bold text-white uppercase tracking-widest">${cat}</h3>
+                        <div class="ml-auto flex gap-1 opacity-100 sm:opacity-0 group-hover/cat:opacity-100 transition-all">
+                            <!-- event.stopPropagation() evita que el click de editar/eliminar cierre la categoría -->
+                            <button onclick="event.stopPropagation(); editCategory('${cat}')" class="text-slate-500 hover:text-indigo-400 p-2 sm:p-1.5 hover:bg-indigo-500/10 rounded-lg transition-all" title="Renombrar Categoría">
+                                <i data-lucide="pencil" class="w-4 h-4"></i>
+                            </button>
+                            ${cat !== 'General' ? `<button onclick="event.stopPropagation(); deleteCategory('${cat}')" class="text-slate-500 hover:text-red-400 p-2 sm:p-1.5 hover:bg-red-500/10 rounded-lg transition-all" title="Eliminar Categoría">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>` : ''}
+                        </div>
+                    </div>
+                    <!-- Se aplica la clase de Layout (Grid o Columna) y se oculta si está contraído -->
+                    <div class="${containerClass}">
+                        ${catCommandsHTML}
+                    </div>
+                </div>
+                `;
+            }).join('');
+            
+            gridContainer.innerHTML = renderedAny ? htmlContent : '<div class="text-center py-10 text-slate-500 italic">No se encontraron resultados...</div>';
+            lucide.createIcons();
+        };
+
+        window.runCommand = async (id) => {
+            const cmd = commands.find(c => c.id === id);
+            const p = projects.find(x => x.id === selectedProjId);
+            const path = p ? p.path : 'C:\\';
+
+            const scrs = (cmd.scripts && cmd.scripts.length > 0) ? cmd.scripts : [cmd.script];
+            const isMulti = !!cmd.multiSelect;
+            let scriptsToRun = [];
+
+            if (scrs.length > 1) {
+                const inputs = document.getElementsByName(`cmd_${id}`);
+                for (let r of inputs) {
+                    if (r.checked) {
+                        scriptsToRun.push(scrs[parseInt(r.value)]);
+                        if (!isMulti) break; // Si es radio, con el primero basta
+                    }
+                }
+            } else {
+                scriptsToRun = [scrs[0]];
+            }
+
+            if (scriptsToRun.length === 0) {
+                alert("Selecciona al menos un script para ejecutar.");
+                return;
+            }
+
+            // Une todos los comandos seleccionados usando && para ejecutarlos en serie
+            const scriptToRun = scriptsToRun.join(' && ');
+
+            addLog(scriptToRun, path);
+
+            if (serverOnline) {
+                try {
+                    await fetch(`${SERVER_URL}/execute`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ command: scriptToRun, path: path, background: !!cmd.background })
+                    });
+                } catch (e) { console.error("Fallo", e); }
+            } else {
+                const finalScript = scriptToRun.replace(/%CURRENT_DIR%/gi, path);
+                const full = `cd /d "${path}" && ${finalScript}`;
+                
+                const el = document.createElement('textarea');
+                el.value = full;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                alert("Servidor apagado. Comando copiado al portapapeles.");
+            }
+        };
+
+        function addLog(script, path) {
+            const area = document.getElementById('logArea');
+            if (area.innerText.includes('Esperando')) area.innerHTML = '';
+            const div = document.createElement('div');
+            // Evitamos que los elementos se rompan horizontalmente en móvil usando flex-wrap
+            div.className = "flex flex-wrap sm:flex-nowrap gap-2 sm:gap-6 border-b border-white/5 pb-2 animate-fade";
+            div.innerHTML = `
+                <span class="text-slate-700 shrink-0 font-bold">[{log.time}]</span>
+                <span class="text-indigo-500 font-black shrink-0">EXEC:</span>
+                <span class="text-slate-300 italic truncate font-medium max-w-full" title="${script}">"${script}"</span>
+                <span class="text-slate-800 sm:ml-auto font-bold tracking-tighter w-full sm:w-auto mt-1 sm:mt-0">WD: ${path}</span>
+            `;
+            // Reemplazar la fecha
+            div.innerHTML = div.innerHTML.replace('{log.time}', new Date().toLocaleTimeString());
+            area.prepend(div);
+        }
+
+        window.clearLogs = () => document.getElementById('logArea').innerHTML = '<p class="text-slate-700 italic text-center py-4">Logs limpiados...</p>';
+
+        window.onload = () => lucide.createIcons();
+    </script>
+</body>
+</html>

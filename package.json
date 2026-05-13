@@ -1,0 +1,27 @@
+{
+    "name": "consoleflow",
+    "version": "1.0.1",
+    "description": "ConsoleFlow Local Desktop App",
+    "main": "main.js",
+    "scripts": {
+        "start": "electron .",
+        "build": "electron-builder --win portable"
+    },
+    "build": {
+        "appId": "com.consoleflow.app",
+        "productName": "ConsoleFlow",
+        "win": {
+            "target": [
+                "portable"
+            ],
+            "icon": "assets/icon.ico"
+        },
+        "portable": {
+            "artifactName": "ConsoleFlow-Portable.exe"
+        }
+    },
+    "devDependencies": {
+        "electron": "^29.0.0",
+        "electron-builder": "^24.9.1"
+    }
+}
