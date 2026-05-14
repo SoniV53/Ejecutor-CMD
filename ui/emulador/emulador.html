@@ -115,6 +115,11 @@
             color: white !important;
             box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4), 0 4px 6px -2px rgba(79, 70, 229, 0.2) !important;
         }
+
+        /* Cursor táctil */
+        .touch-cursor {
+            cursor: pointer; 
+        }
     </style>
 </head>
 <body class="flex flex-col h-screen relative">
@@ -228,7 +233,7 @@
                 </div>
 
                 <div class="flex items-center gap-1">
-                    <select id="consolePosition" onchange="changeConsolePosition()" class="bg-slate-800 text-[10px] font-bold text-slate-300 outline-none px-2 py-2 rounded-xl border border-slate-700 cursor-pointer">
+                    <select id="consolePosition" onchange="changeConsolePosition()" class="bg-slate-800 text-[10px] font-bold text-slate-300 outline-none px-2 py-2 rounded-xl border border-slate-700 cursor-pointer hidden">
                         <option value="left">Izquierda</option>
                         <option value="right">Derecha</option>
                         <option value="bottom">Abajo</option>
@@ -257,7 +262,6 @@
                     </div>
                 </div>
                 <div class="flex-1 w-full bg-white relative" id="frameContainer">
-                    <!-- El frame (WebView o Iframe) se inyectará aquí mediante JavaScript -->
                     <div id="loadingOverlay" class="absolute inset-0 bg-slate-50 flex flex-col items-center justify-center z-20 hidden">
                         <i data-lucide="loader-2" class="w-6 h-6 text-indigo-500 animate-spin mb-3"></i>
                         <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Cargando aplicación...</p>
@@ -316,35 +320,122 @@
         const devToolsLabel = document.getElementById('devToolsLabel');
 
         // ==========================================
-        // INICIALIZACIÓN DEL FRAME (HÍBRIDO: WEBVIEW vs IFRAME)
+        // INICIALIZACIÓN DEL FRAME
         // ==========================================
         function initAppFrame() {
+            if (appFrame && appFrame.parentNode) {
+                appFrame.parentNode.removeChild(appFrame);
+            }
+
             if (isElectron) {
-                // Modo Profesional: Electron con Native DevTools
                 appFrame = document.createElement('webview');
                 appFrame.setAttribute('allowpopups', 'true');
-                devToolsLabel.innerText = "Native DevTools";
-                // En webview la posición la maneja Chrome nativo, ocultamos selector
+                devToolsLabel.innerText = "DevTools";
                 consolePositionSelector.classList.add('hidden'); 
+                resizerBar.classList.add('hidden');
+                
+                workspace.style.marginLeft = '0px';
+                workspace.style.marginRight = '0px';
+                workspace.style.marginBottom = '0px';
             } else {
-                // Fallback: Web Canvas con Iframe y Eruda
                 appFrame = document.createElement('iframe');
+                devToolsLabel.innerText = "DevTools (Ancl.)";
+                consolePositionSelector.classList.remove('hidden'); 
             }
             
             appFrame.id = "appFrame";
-            appFrame.className = "absolute inset-0 w-full h-full border-0 bg-white z-10";
+            appFrame.className = `absolute inset-0 w-full h-full border-0 bg-white z-10 touch-cursor`;
             frameContainer.appendChild(appFrame);
 
-            // Escuchadores de carga
             if (isElectron) {
                 appFrame.addEventListener('did-start-loading', () => loadingOverlay.classList.remove('hidden'));
                 
-                // NUEVO: Inyectamos CSS directamente al webview para ocultar su scroll interno
                 appFrame.addEventListener('dom-ready', () => {
                     appFrame.insertCSS(`
                         *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
                         * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
                     `);
+
+                    // --- INYECCIÓN DEL MOTOR TÁCTIL (TOUCH MAP) EN EL WEBVIEW ---
+                    const touchSimScript = `
+                        (function() {
+                            if (window.__touchSimActive) return;
+                            window.__touchSimActive = true;
+
+                            const createTouchEvt = (type, originalEvent) => {
+                                let touchObj; 
+                                try { 
+                                    touchObj = new Touch({ 
+                                        identifier: Date.now(), 
+                                        target: originalEvent.target, 
+                                        clientX: originalEvent.clientX, 
+                                        clientY: originalEvent.clientY 
+                                    }); 
+                                } catch(err) { 
+                                    touchObj = { ...originalEvent, identifier: Date.now(), target: originalEvent.target }; 
+                                }
+                                
+                                try { 
+                                    return new TouchEvent(type, { 
+                                        bubbles: true, 
+                                        cancelable: true,
+                                        touches: type === 'touchend' ? [] : [touchObj], 
+                                        targetTouches: type === 'touchend' ? [] : [touchObj], 
+                                        changedTouches: [touchObj] 
+                                    }); 
+                                } catch(err) { 
+                                    const evt = document.createEvent('Event'); 
+                                    evt.initEvent(type, true, true); 
+                                    return evt; 
+                                }
+                            };
+
+                            // CSS para evitar que se seleccione el texto nativamente al simular el toque/arrastre
+                            const touchStyle = document.createElement('style');
+                            touchStyle.textContent = \`
+                                body {
+                                    -webkit-user-select: none;
+                                    -ms-user-select: none;
+                                    user-select: none;
+                                }
+                                input, textarea, [contenteditable="true"] {
+                                    -webkit-user-select: auto;
+                                    -ms-user-select: auto;
+                                    user-select: auto;
+                                }
+                            \`;
+                            document.head.appendChild(touchStyle);
+
+                            let isSimulatingDrag = false;
+
+                            document.addEventListener('mousedown', (e) => { 
+                                isSimulatingDrag = true;
+                                e.target.dispatchEvent(createTouchEvt('touchstart', e)); 
+                            }, true);
+
+                            document.addEventListener('mousemove', (e) => {
+                                if (isSimulatingDrag) {
+                                    e.target.dispatchEvent(createTouchEvt('touchmove', e));
+                                }
+                            }, true);
+
+                            document.addEventListener('mouseup', (e) => { 
+                                if (isSimulatingDrag) {
+                                    isSimulatingDrag = false;
+                                    e.target.dispatchEvent(createTouchEvt('touchend', e)); 
+                                }
+                            }, true);
+                            
+                            document.addEventListener('mouseleave', (e) => {
+                                if (isSimulatingDrag) {
+                                    isSimulatingDrag = false;
+                                    e.target.dispatchEvent(createTouchEvt('touchend', e));
+                                }
+                            });
+                        })();
+                    `;
+                    // Ejecutamos el script de simulación directamente dentro del contenedor del webview
+                    appFrame.executeJavaScript(touchSimScript);
                 });
 
                 appFrame.addEventListener('did-stop-loading', () => {
@@ -357,6 +448,8 @@
             } else {
                 appFrame.onload = handleIframeOnLoad;
             }
+            
+            applyZoom(); 
         }
 
         // ==========================================
@@ -436,7 +529,6 @@
                 wrapper.style.margin = '0'; 
                 return; 
             }
-            // MODIFICADO: Lógica estricta de centrado con Flexbox/Auto-margins según espacio disponible
             const availableW = workspace.clientWidth;
             const availableH = workspace.clientHeight;
             
@@ -466,7 +558,7 @@
 
         function updateWorkspaceLayout() {
             let l = 0, r = 0, b = 0;
-            if (isConsoleOpen && !isElectron) { // Resizer solo aplica a Eruda (iframe)
+            if (isConsoleOpen && !isElectron) { 
                 const pos = consolePositionSelector.value;
                 if (pos === 'left') l = consWidth;
                 else if (pos === 'right') r = consWidth;
@@ -476,17 +568,14 @@
             workspace.style.marginRight = r + 'px';
             workspace.style.marginBottom = b + 'px';
             
-            // Usar requestAnimationFrame asegura que los márgenes se calculen DESPUÉS de que el DOM asimiló el cambio
-            requestAnimationFrame(() => {
-                updateCentering();
-            });
+            requestAnimationFrame(() => { updateCentering(); });
         }
 
         // ==========================================
         // DISEÑO Y LÓGICA DE ERUDA (SOLO PARA IFRAME)
         // ==========================================
         function updateFloatingButtonPos() {
-            if (isElectron) return; // En Electron el botón no se mueve
+            if (isElectron) return; 
             if (!isConsoleOpen) {
                 floatingConsoleBtn.style.left = '1.5rem'; floatingConsoleBtn.style.right = 'auto'; floatingConsoleBtn.style.bottom = '1.5rem';
                 return;
@@ -584,24 +673,22 @@
         });
 
         // ==========================================
-        // CONTROL GLOBAL DE LA CONSOLA (ELECTRON O IFRAME)
+        // CONTROL GLOBAL DE LA CONSOLA
         // ==========================================
         function toggleConsole() {
             if (isElectron) {
-                // Modo NATIVO (Electron WebView)
                 if(isConsoleOpen) {
                     appFrame.closeDevTools();
                     isConsoleOpen = false;
                     btnHeaderConsole.classList.remove('bg-indigo-600/20', 'text-indigo-400');
                     floatingConsoleBtn.classList.remove('console-active-btn');
                 } else {
-                    appFrame.openDevTools();
+                    appFrame.openDevTools(); 
                     isConsoleOpen = true;
                     btnHeaderConsole.classList.add('bg-indigo-600/20', 'text-indigo-400');
                     floatingConsoleBtn.classList.add('console-active-btn');
                 }
             } else {
-                // Modo FALLBACK (Web Eruda)
                 const currentEruda = appFrame.contentWindow ? appFrame.contentWindow.eruda : null;
                 if (currentEruda && currentEruda._isInit) { 
                     if(isConsoleOpen) {
@@ -639,7 +726,7 @@
         lucide.createIcons();
 
         // ==========================================
-        // INYECCIÓN DE ERUDA EN IFRAME (SOLO SI NO ES ELECTRON)
+        // INYECCIÓN DE ERUDA EN IFRAME Y SIMULACIÓN TÁCTIL (MODO WEB)
         // ==========================================
         function handleIframeOnLoad() {
             loadingOverlay.classList.add('hidden');
@@ -662,6 +749,23 @@
                 script.onload = () => {
                     if(iframeWindow.eruda) {
                         iframeWindow.eruda.init({ container: erudaParentContainer, tool: ['console', 'elements', 'network', 'resource'], useShadowDom: true });
+                        
+                        try {
+                            const observer = new MutationObserver(() => {
+                                const shadow = iframeWindow.eruda._shadowRoot;
+                                if (!shadow) return;
+                                const highlight = shadow.querySelector('.eruda-elements-highlight');
+                                if (highlight) {
+                                    const rect = appFrame.getBoundingClientRect();
+                                    highlight.style.setProperty('margin-left', `${rect.left}px`, 'important');
+                                    highlight.style.setProperty('margin-top', `${rect.top}px`, 'important');
+                                    highlight.style.setProperty('transform', `scale(${currentZoom})`, 'important');
+                                    highlight.style.setProperty('transform-origin', 'top left', 'important');
+                                }
+                            });
+                            observer.observe(erudaParentContainer, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+                        } catch(e) {}
+
                         setTimeout(() => {
                             applyErudaPosition(consolePositionSelector.value || 'left');
                             if(isConsoleOpen) iframeWindow.eruda.show(); else iframeWindow.eruda.hide();
@@ -673,17 +777,83 @@
                     try { return !!iframeWindow.eruda._shadowRoot.querySelector('.eruda-select.eruda-active'); } catch(e) { return false; }
                 };
 
-                const createTouchEvt = (type, e) => {
-                    let t; try { t = new iframeWindow.Touch({ identifier: Date.now(), target: e.target, clientX: e.clientX, clientY: e.clientY }); } 
-                    catch(err) { t = { ...e, identifier: Date.now(), target: e.target }; }
-                    try { return new iframeWindow.TouchEvent(type, { bubbles: true, touches: type==='touchend'?[]:[t], changedTouches: [t] }); } 
-                    catch(err) { const evt = iframeDoc.createEvent('Event'); evt.initEvent(type, true, true); return evt; }
+                const createTouchEvt = (type, originalEvent) => {
+                    let touchObj; 
+                    try { 
+                        touchObj = new iframeWindow.Touch({ 
+                            identifier: Date.now(), 
+                            target: originalEvent.target, 
+                            clientX: originalEvent.clientX, 
+                            clientY: originalEvent.clientY 
+                        }); 
+                    } 
+                    catch(err) { 
+                        touchObj = { ...originalEvent, identifier: Date.now(), target: originalEvent.target }; 
+                    }
+                    
+                    try { 
+                        return new iframeWindow.TouchEvent(type, { 
+                            bubbles: true, 
+                            cancelable: true,
+                            touches: type === 'touchend' ? [] : [touchObj], 
+                            targetTouches: type === 'touchend' ? [] : [touchObj], 
+                            changedTouches: [touchObj] 
+                        }); 
+                    } 
+                    catch(err) { 
+                        const evt = iframeDoc.createEvent('Event'); 
+                        evt.initEvent(type, true, true); 
+                        evt.touches = type === 'touchend' ? [] : [touchObj];
+                        evt.targetTouches = type === 'touchend' ? [] : [touchObj];
+                        evt.changedTouches = [touchObj];
+                        return evt; 
+                    }
                 };
 
-                iframeDoc.addEventListener('mousedown', (e) => { if (!isErudaSelectActive()) e.target.dispatchEvent(createTouchEvt('touchstart', e)); }, true);
-                iframeDoc.addEventListener('mouseup', (e) => { if (!isErudaSelectActive()) e.target.dispatchEvent(createTouchEvt('touchend', e)); }, true);
+                const touchStyle = iframeDoc.createElement('style');
+                touchStyle.textContent = `
+                    body {
+                        -webkit-user-select: none;
+                        -ms-user-select: none;
+                        user-select: none;
+                    }
+                    input, textarea, [contenteditable="true"] {
+                        -webkit-user-select: auto;
+                        -ms-user-select: auto;
+                        user-select: auto;
+                    }
+                `;
+                iframeDoc.head.appendChild(touchStyle);
+
+                let isSimulatingDrag = false;
+
+                iframeDoc.addEventListener('mousedown', (e) => { 
+                    if (!isErudaSelectActive()) {
+                        isSimulatingDrag = true;
+                        e.target.dispatchEvent(createTouchEvt('touchstart', e)); 
+                    }
+                }, true);
+
+                iframeDoc.addEventListener('mousemove', (e) => {
+                    if (isSimulatingDrag && !isErudaSelectActive()) {
+                        e.target.dispatchEvent(createTouchEvt('touchmove', e));
+                    }
+                }, true);
+
+                iframeDoc.addEventListener('mouseup', (e) => { 
+                    if (isSimulatingDrag && !isErudaSelectActive()) {
+                        isSimulatingDrag = false;
+                        e.target.dispatchEvent(createTouchEvt('touchend', e)); 
+                    }
+                }, true);
                 
-                // Reenvio de logs al main
+                iframeDoc.addEventListener('mouseleave', (e) => {
+                    if (isSimulatingDrag) {
+                        isSimulatingDrag = false;
+                        e.target.dispatchEvent(createTouchEvt('touchend', e));
+                    }
+                });
+                
                 ['log', 'info', 'warn', 'error'].forEach(m => iframeWindow.console[m] = function(...a) { window.console[m].apply(window.console, a); });
 
             } catch (err) {
@@ -698,7 +868,6 @@
 
         function updateZoom(delta) {
             if (currentDeviceKey === 'responsive') return;
-            // Al hacer zoom manual, también recalcula desde la escala base limpia.
             currentZoom = Math.max(0.1, Math.min(2, currentZoom + delta));
             applyZoom();
         }
@@ -713,24 +882,20 @@
                 container.style.transform = 'none'; 
                 wrapper.style.width = '100%'; 
                 wrapper.style.height = '100%'; 
-                if(isElectron) appFrame.setZoomFactor(1);
+                if(isElectron && appFrame.setZoomFactor) appFrame.setZoomFactor(1);
             } else {
                 const config = devices[currentDeviceKey];
                 const w = isLandscape ? config.height : config.width;
                 const h = isLandscape ? config.width : config.height;
                 
-                // Aplicar escala CSS
                 container.style.transform = `scale(${currentZoom})`;
                 
-                // Ajustar el contenedor para reflejar el tamaño escalado
                 wrapper.style.width = `${w * currentZoom}px`;
                 wrapper.style.height = `${h * currentZoom}px`;
                 
-                if(isElectron && appFrame.setZoomFactor) appFrame.setZoomFactor(currentZoom); // En electron usamos zoom nativo interno!
+                if(isElectron && appFrame.setZoomFactor) appFrame.setZoomFactor(currentZoom); 
             }
             zoomLabel.innerText = Math.round(currentZoom * 100) + '%';
-            
-            // Recalcular el centrado después de escalar
             updateCentering();
         }
 
@@ -757,32 +922,23 @@
             if (currentDeviceKey !== 'responsive') {
                 lastDeviceKey = currentDeviceKey; 
             }
-            // MODIFICADO: Resetear zoom a 1 para asegurar un cambio limpio sin "friqueos" residuales
             currentZoom = 1.0;
             applyDeviceStyles(); 
-            // Forzar un "auto-fit" (si es necesario) pero partiendo de una escala base limpia 1.0
             autoFit();
         }
         
         function toggleDeviceMode() { 
             currentDeviceKey = (currentDeviceKey === 'responsive') ? lastDeviceKey : 'responsive'; 
             deviceSelector.value = currentDeviceKey; 
-            
-            // MODIFICADO: Alterne entre modos necesita reinicio limpio de escala
             currentZoom = 1.0;
             applyDeviceStyles(); 
-            
-            if(currentDeviceKey !== 'responsive') {
-                autoFit();
-            }
+            if(currentDeviceKey !== 'responsive') autoFit();
         }
         
         function toggleRotation() { 
             if (currentDeviceKey === 'responsive') return; 
             isLandscape = !isLandscape; 
             rotateIcon.style.transform = isLandscape ? 'rotate(90deg)' : 'rotate(0deg)'; 
-            
-            // MODIFICADO: Reiniciar escala al rotar para evitar deformaciones
             currentZoom = 1.0;
             applyDeviceStyles(); 
             autoFit();
@@ -793,20 +949,16 @@
             if (currentDeviceKey === 'responsive') {
                 container.classList.add('mode-responsive'); 
                 rotateIcon.classList.add('opacity-30');
-                
-                // Elimina tamaños fijos
                 container.style.width = '100%'; 
                 container.style.height = '100%';
                 wrapper.style.width = '100%';
                 wrapper.style.height = '100%';
                 container.style.transform = 'none';
-                
             } else {
                 container.classList.remove('mode-responsive'); 
                 rotateIcon.classList.remove('opacity-30');
                 
                 const w = config.width, h = config.height;
-                // Establece dimensiones base reales (sin zoom aplicado todavía)
                 container.style.width = isLandscape ? h + 'px' : w + 'px'; 
                 container.style.height = isLandscape ? w + 'px' : h + 'px';
                 container.style.borderRadius = config.borderRadius; 
@@ -819,10 +971,7 @@
                 homeIndicator.classList.remove('hidden');
             }
             
-            // Usar requestAnimationFrame para garantizar que el DOM ya tiene las nuevas dimensiones
-            requestAnimationFrame(() => {
-                updateWorkspaceLayout();
-            });
+            requestAnimationFrame(() => { updateWorkspaceLayout(); });
         }
 
         window.addEventListener('load', () => {
