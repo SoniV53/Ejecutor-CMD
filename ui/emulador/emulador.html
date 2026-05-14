@@ -465,11 +465,11 @@
         const HistoryAPI = {
             async getFullData() {
                 try {
-                    const response = await fetch('/data');
+                    const response = await fetch('/dataEmulador');
                     if (!response.ok) throw new Error("Error de red");
                     return await response.json();
                 } catch (e) {
-                    return { history: JSON.parse(localStorage.getItem('temp_history')) || [], projects: [], commands: [], categories: [] };
+                    return { history: JSON.parse(localStorage.getItem('temp_history')) || []};
                 }
             },
             async get() {
@@ -485,7 +485,7 @@
                 data.history = history;
 
                 try {
-                    await fetch('/data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data, null, 2) });
+                    await fetch('/dataEmulador', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data, null, 2) });
                 } catch (e) {
                     localStorage.setItem('temp_history', JSON.stringify(history));
                 }
@@ -525,7 +525,7 @@
             localStorage.removeItem('temp_history');
             HistoryAPI.getFullData().then(data => {
                 data.history = [];
-                fetch('/data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data, null, 2) })
+                fetch('/dataEmulador', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data, null, 2) })
                 .catch(() => {})
                 .finally(() => { toggleHistory(true); });
             });

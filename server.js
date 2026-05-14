@@ -4,6 +4,7 @@ const path = require('path');
 
 // Importamos nuestros controladores y rutas
 const dataController = require('./controllers/dataController');
+const dataEmuladorController = require('./controllers/dataEmuladorController');
 const executeController = require('./controllers/executeController');
 const routing = require('./navegacion');
 
@@ -42,12 +43,12 @@ const server = http.createServer((req, res) => {
     }
 
     // --- RUTAS FRONTEND (VISTAS HTML) ---
-    
+
     // Delegamos toda la lógica de navegación a navegacion.js
     // Si la función retorna "true", significa que encontró la ruta y ya envió el HTML.
     // Usamos "return" para detener la ejecución y no buscar más abajo.
     if (routing.routeNavigation(req, res)) {
-        return; 
+        return;
     }
 
     // --- ARCHIVOS ESTÁTICOS DE UI (/ui/...) ---
@@ -79,6 +80,16 @@ const server = http.createServer((req, res) => {
     // Guardar Datos
     if (req.method === 'POST' && req.url === '/data') {
         return dataController.saveData(req, res);
+    }
+
+    // Obtener Datos
+    if (req.method === 'GET' && req.url === '/dataEmulador') {
+        return dataEmuladorController.getData(req, res);
+    }
+
+    // Guardar Datos
+    if (req.method === 'POST' && req.url === '/dataEmulador') {
+        return dataEmuladorController.saveData(req, res);
     }
 
     // Ejecutar Comando
