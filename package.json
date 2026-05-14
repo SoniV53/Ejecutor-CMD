@@ -9,7 +9,7 @@
     },
     "build": {
         "appId": "com.consoleflow.app",
-        "productName": "ConsoleFlow",
+        "productName": "Workspace-Hub",
         "win": {
             "target": [
                 "portable"
@@ -17,7 +17,7 @@
             "icon": "assets/icon.ico"
         },
         "portable": {
-            "artifactName": "ConsoleFlow-Portable.exe"
+            "artifactName": "Workspace-Hub.exe"
         }
     },
     "devDependencies": {

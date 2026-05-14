@@ -19,7 +19,7 @@ app.on('ready', () => {
   mainWindow = new BrowserWindow({
     width: 1300,
     height: 900,
-    title: "ConsoleFlow Workspace",
+    title: "Workspace",
     icon: path.join(__dirname, 'assets/icon.ico'),
     webPreferences: {
       nodeIntegration: true,
