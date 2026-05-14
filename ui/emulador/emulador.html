@@ -7,30 +7,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <script>
-        (function() {
-            try {
-                var originalWebSocket = window.WebSocket;
-                if (originalWebSocket) {
-                    Object.defineProperty(window, 'WebSocket', {
-                        configurable: true,
-                        enumerable: true,
-                        get: function() { return originalWebSocket; },
-                        set: function(v) { 
-                            console.warn("Intento de sobrescritura de WebSocket detectado y bloqueado."); 
-                        }
-                    });
-                }
-            } catch (e) {}
-        })();
-    </script>
-
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700&display=swap');
         
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #020617; /* Slate 950 */
+            background-color: #020617; 
             color: #f1f5f9;
             height: 100vh;
             width: 100vw;
@@ -48,7 +30,10 @@
             overflow: auto;
             flex: 1;
             position: relative;
+            scrollbar-width: none; /* Firefox */
         }
+        
+        #workspace::-webkit-scrollbar { display: none; }
 
         #deviceWrapper {
             transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -91,7 +76,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* SCROLL INVISIBLE GLOBAL */
+        /* SCROLL INVISIBLE GLOBAL (Para la UI del emulador) */
         * {
             -ms-overflow-style: none !important;
             scrollbar-width: none !important;
@@ -115,17 +100,11 @@
             color: white !important;
             box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4), 0 4px 6px -2px rgba(79, 70, 229, 0.2) !important;
         }
-
-        /* Cursor táctil */
-        .touch-cursor {
-            cursor: pointer; 
-        }
+        
+        #frameContainer { overflow: hidden !important; }
     </style>
 </head>
 <body class="flex flex-col h-screen relative">
-
-    <div id="eruda-parent-container"></div>
-    <div id="console-resizer" class="fixed z-[9999] hidden hover:bg-indigo-500/50 transition-colors"></div>
 
     <button id="floatingConsoleBtn" onclick="toggleConsole()" class="fixed bottom-6 left-6 z-[60] bg-slate-800 text-slate-400 p-3.5 rounded-full shadow-lg border border-slate-700 hover:text-white group">
         <i data-lucide="terminal-square" class="w-6 h-6 transition-transform group-hover:-translate-y-0.5"></i>
@@ -233,13 +212,8 @@
                 </div>
 
                 <div class="flex items-center gap-1">
-                    <select id="consolePosition" onchange="changeConsolePosition()" class="bg-slate-800 text-[10px] font-bold text-slate-300 outline-none px-2 py-2 rounded-xl border border-slate-700 cursor-pointer hidden">
-                        <option value="left">Izquierda</option>
-                        <option value="right">Derecha</option>
-                        <option value="bottom">Abajo</option>
-                    </select>
                     <button onclick="toggleConsole()" id="btnHeaderConsole" class="flex items-center gap-2 bg-slate-800 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-slate-700">
-                        <i data-lucide="terminal" class="w-4 h-4"></i> <span id="devToolsLabel" class="hidden sm:inline">DevTools</span>
+                        <i data-lucide="terminal" class="w-4 h-4"></i> <span id="devToolsLabel" class="hidden sm:inline">DevTools Nativo</span>
                     </button>
                 </div>
             </div>
@@ -275,9 +249,8 @@
     </main>
 
     <script>
-        // --- DETECCIÓN DE ENTORNO ELECTRON ---
         const isElectron = window.navigator.userAgent.toLowerCase().includes('electron');
-        let appFrame; 
+        let appFrame;
         
         const devices = {
             iphone14: { width: 393, height: 852, borderRadius: '3.2rem', borderWidth: '12px', hasNotch: true },
@@ -293,9 +266,6 @@
         let currentZoom = 1.0;
         let isConsoleOpen = false;
 
-        let consWidth = parseInt(localStorage.getItem('eruda-width')) || 450;
-        let consHeight = parseInt(localStorage.getItem('eruda-height')) || 300;
-
         const urlInput = document.getElementById('urlInput');
         const loadingOverlay = document.getElementById('loadingOverlay');
         const container = document.getElementById('deviceContainer');
@@ -309,147 +279,184 @@
         const deviceSelector = document.getElementById('deviceSelector');
         const mainHeader = document.getElementById('mainHeader');
         const btnShowMenu = document.getElementById('btnShowMenu');
-        const consolePositionSelector = document.getElementById('consolePosition');
-        const resizerBar = document.getElementById('console-resizer');
         const historyDropdown = document.getElementById('historyDropdown');
         const historyList = document.getElementById('historyList');
         const floatingConsoleBtn = document.getElementById('floatingConsoleBtn');
         const btnHeaderConsole = document.getElementById('btnHeaderConsole');
-        const erudaParentContainer = document.getElementById('eruda-parent-container');
         const frameContainer = document.getElementById('frameContainer');
-        const devToolsLabel = document.getElementById('devToolsLabel');
 
         // ==========================================
-        // INICIALIZACIÓN DEL FRAME
+        // CSS MAESTRO DE SCROLL (Invisible 100%)
+        // Ataca el Root global y el Shadow DOM de Ionic
+        // ==========================================
+        const invisibleScrollCSS = `
+            ::-webkit-scrollbar, *::-webkit-scrollbar {
+                display: none !important;
+                width: 0px !important;
+                height: 0px !important;
+                background: transparent !important;
+                -webkit-appearance: none !important;
+            }
+            html, body, * {
+                scrollbar-width: none !important;
+                -ms-overflow-style: none !important;
+            }
+            /* Atacar y perforar el Shadow DOM de Ionic */
+            ion-content::part(scroll)::-webkit-scrollbar,
+            .scroll-y::-webkit-scrollbar,
+            .inner-scroll::-webkit-scrollbar,
+            [part="scroll"]::-webkit-scrollbar {
+                display: none !important;
+                width: 0px !important;
+                height: 0px !important;
+            }
+            ion-content::part(scroll),
+            .scroll-y,
+            .inner-scroll,
+            [part="scroll"] {
+                scrollbar-width: none !important;
+            }
+        `;
+
+        // ==========================================
+        // INICIALIZACIÓN DEL WEBVIEW (NATIVO EXCLUSIVO)
         // ==========================================
         function initAppFrame() {
             if (appFrame && appFrame.parentNode) {
                 appFrame.parentNode.removeChild(appFrame);
             }
 
-            if (isElectron) {
-                appFrame = document.createElement('webview');
-                appFrame.setAttribute('allowpopups', 'true');
-                devToolsLabel.innerText = "DevTools";
-                consolePositionSelector.classList.add('hidden'); 
-                resizerBar.classList.add('hidden');
-                
-                workspace.style.marginLeft = '0px';
-                workspace.style.marginRight = '0px';
-                workspace.style.marginBottom = '0px';
-            } else {
-                appFrame = document.createElement('iframe');
-                devToolsLabel.innerText = "DevTools (Ancl.)";
-                consolePositionSelector.classList.remove('hidden'); 
+            if (!isElectron) {
+                // Si alguien lo abre en Chrome web normal, advertimos.
+                document.getElementById('toastElectron').classList.remove('hidden');
+                document.querySelector('#toastElectron p').innerText = "Este emulador está configurado exclusivamente para correr en Electron usando el motor WebView.";
+                return;
             }
-            
+
+            appFrame = document.createElement('webview');
+            appFrame.setAttribute('allowpopups', 'true');
             appFrame.id = "appFrame";
-            appFrame.className = `absolute inset-0 w-full h-full border-0 bg-white z-10 touch-cursor`;
+            // allow-pointer-events previene algunos bloqueos visuales
+            appFrame.className = `absolute inset-0 w-full h-full border-0 bg-white z-10`;
             frameContainer.appendChild(appFrame);
 
-            if (isElectron) {
-                appFrame.addEventListener('did-start-loading', () => loadingOverlay.classList.remove('hidden'));
-                
-                appFrame.addEventListener('dom-ready', () => {
-                    appFrame.insertCSS(`
-                        *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
-                        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
-                    `);
+            appFrame.addEventListener('did-start-loading', () => loadingOverlay.classList.remove('hidden'));
 
-                    // --- INYECCIÓN DEL MOTOR TÁCTIL (TOUCH MAP) EN EL WEBVIEW ---
-                    const touchSimScript = `
-                        (function() {
-                            if (window.__touchSimActive) return;
-                            window.__touchSimActive = true;
+            appFrame.addEventListener('dom-ready', () => {
+                // Inyectamos el CSS blindado para matar el scrollbar
+                appFrame.insertCSS(invisibleScrollCSS);
 
-                            const createTouchEvt = (type, originalEvent) => {
-                                let touchObj; 
-                                try { 
-                                    touchObj = new Touch({ 
-                                        identifier: Date.now(), 
-                                        target: originalEvent.target, 
-                                        clientX: originalEvent.clientX, 
-                                        clientY: originalEvent.clientY 
-                                    }); 
-                                } catch(err) { 
-                                    touchObj = { ...originalEvent, identifier: Date.now(), target: originalEvent.target }; 
-                                }
-                                
-                                try { 
-                                    return new TouchEvent(type, { 
-                                        bubbles: true, 
-                                        cancelable: true,
-                                        touches: type === 'touchend' ? [] : [touchObj], 
-                                        targetTouches: type === 'touchend' ? [] : [touchObj], 
-                                        changedTouches: [touchObj] 
-                                    }); 
-                                } catch(err) { 
-                                    const evt = document.createEvent('Event'); 
-                                    evt.initEvent(type, true, true); 
-                                    return evt; 
-                                }
-                            };
+                // --- INYECCIÓN DEL MOTOR TÁCTIL ---
+                const touchSimScript = `
+                    (function() {
+                        if (window.__touchSimActive) return;
+                        window.__touchSimActive = true;
 
-                            // CSS para evitar que se seleccione el texto nativamente al simular el toque/arrastre
-                            const touchStyle = document.createElement('style');
-                            touchStyle.textContent = \`
-                                body {
-                                    -webkit-user-select: none;
-                                    -ms-user-select: none;
-                                    user-select: none;
-                                }
-                                input, textarea, [contenteditable="true"] {
-                                    -webkit-user-select: auto;
-                                    -ms-user-select: auto;
-                                    user-select: auto;
-                                }
-                            \`;
-                            document.head.appendChild(touchStyle);
-
-                            let isSimulatingDrag = false;
-
-                            document.addEventListener('mousedown', (e) => { 
-                                isSimulatingDrag = true;
-                                e.target.dispatchEvent(createTouchEvt('touchstart', e)); 
-                            }, true);
-
-                            document.addEventListener('mousemove', (e) => {
-                                if (isSimulatingDrag) {
-                                    e.target.dispatchEvent(createTouchEvt('touchmove', e));
-                                }
-                            }, true);
-
-                            document.addEventListener('mouseup', (e) => { 
-                                if (isSimulatingDrag) {
-                                    isSimulatingDrag = false;
-                                    e.target.dispatchEvent(createTouchEvt('touchend', e)); 
-                                }
-                            }, true);
+                        const createTouchEvt = (type, originalEvent) => {
+                            let touchObj; 
+                            try { 
+                                touchObj = new Touch({ 
+                                    identifier: Date.now(), 
+                                    target: originalEvent.target, 
+                                    clientX: originalEvent.clientX, 
+                                    clientY: originalEvent.clientY 
+                                }); 
+                            } catch(err) { 
+                                touchObj = { ...originalEvent, identifier: Date.now(), target: originalEvent.target }; 
+                            }
                             
-                            document.addEventListener('mouseleave', (e) => {
-                                if (isSimulatingDrag) {
-                                    isSimulatingDrag = false;
-                                    e.target.dispatchEvent(createTouchEvt('touchend', e));
-                                }
-                            });
-                        })();
-                    `;
-                    // Ejecutamos el script de simulación directamente dentro del contenedor del webview
-                    appFrame.executeJavaScript(touchSimScript);
-                });
+                            try { 
+                                return new TouchEvent(type, { 
+                                    bubbles: true, 
+                                    cancelable: true,
+                                    touches: type === 'touchend' ? [] : [touchObj], 
+                                    targetTouches: type === 'touchend' ? [] : [touchObj], 
+                                    changedTouches: [touchObj] 
+                                }); 
+                            } catch(err) { 
+                                const evt = document.createEvent('Event'); 
+                                evt.initEvent(type, true, true); 
+                                return evt; 
+                            }
+                        };
 
-                appFrame.addEventListener('did-stop-loading', () => {
-                    loadingOverlay.classList.add('hidden');
-                    urlInput.value = appFrame.getURL();
-                });
-                appFrame.addEventListener('did-fail-load', () => {
-                    document.getElementById('toastElectron').classList.remove('hidden');
-                });
-            } else {
-                appFrame.onload = handleIframeOnLoad;
-            }
+                        // Evitar selección nativa de texto al arrastrar el ratón
+                        const touchStyle = document.createElement('style');
+                        touchStyle.textContent = \`
+                            body {
+                                -webkit-user-select: none !important;
+                                -ms-user-select: none !important;
+                                user-select: none !important;
+                            }
+                            input, textarea, [contenteditable="true"] {
+                                -webkit-user-select: auto !important;
+                                -ms-user-select: auto !important;
+                                user-select: auto !important;
+                            }
+                        \`;
+                        document.head.appendChild(touchStyle);
+
+                        let isSimulatingDrag = false;
+
+                        document.addEventListener('mousedown', (e) => { 
+                            isSimulatingDrag = true;
+                            e.target.dispatchEvent(createTouchEvt('touchstart', e)); 
+                        }, true);
+
+                        document.addEventListener('mousemove', (e) => {
+                            if (isSimulatingDrag) {
+                                e.target.dispatchEvent(createTouchEvt('touchmove', e));
+                            }
+                        }, true);
+
+                        document.addEventListener('mouseup', (e) => { 
+                            if (isSimulatingDrag) {
+                                isSimulatingDrag = false;
+                                e.target.dispatchEvent(createTouchEvt('touchend', e)); 
+                            }
+                        }, true);
+                        
+                        document.addEventListener('mouseleave', (e) => {
+                            if (isSimulatingDrag) {
+                                isSimulatingDrag = false;
+                                e.target.dispatchEvent(createTouchEvt('touchend', e));
+                            }
+                        });
+                    })();
+                `;
+                appFrame.executeJavaScript(touchSimScript);
+            });
+
+            appFrame.addEventListener('did-stop-loading', () => {
+                loadingOverlay.classList.add('hidden');
+                urlInput.value = appFrame.getURL();
+            });
+            
+            appFrame.addEventListener('did-fail-load', () => {
+                loadingOverlay.classList.add('hidden');
+                showToast("No se pudo cargar la URL.");
+            });
             
             applyZoom(); 
+        }
+
+        // ==========================================
+        // CONTROL GLOBAL DE LA CONSOLA (SOLO NATIVO)
+        // ==========================================
+        function toggleConsole() {
+            if (!appFrame) return;
+
+            if (isConsoleOpen) {
+                appFrame.closeDevTools();
+                isConsoleOpen = false;
+                btnHeaderConsole.classList.remove('bg-indigo-600/20', 'text-indigo-400');
+                floatingConsoleBtn.classList.remove('console-active-btn');
+            } else {
+                appFrame.openDevTools(); 
+                isConsoleOpen = true;
+                btnHeaderConsole.classList.add('bg-indigo-600/20', 'text-indigo-400');
+                floatingConsoleBtn.classList.add('console-active-btn');
+            }
         }
 
         // ==========================================
@@ -462,10 +469,7 @@
                     if (!response.ok) throw new Error("Error de red");
                     return await response.json();
                 } catch (e) {
-                    return { 
-                        history: JSON.parse(localStorage.getItem('temp_history')) || [],
-                        projects: [], commands: [], categories: [] 
-                    };
+                    return { history: JSON.parse(localStorage.getItem('temp_history')) || [], projects: [], commands: [], categories: [] };
                 }
             },
             async get() {
@@ -517,11 +521,31 @@
             }
         }
 
+        function clearHistory() {
+            localStorage.removeItem('temp_history');
+            HistoryAPI.getFullData().then(data => {
+                data.history = [];
+                fetch('/data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data, null, 2) })
+                .catch(() => {})
+                .finally(() => { toggleHistory(true); });
+            });
+        }
+
         function showToast(msg) {
             const toast = document.getElementById('toastMessage');
             document.getElementById('toastText').innerText = msg;
             toast.classList.remove('hidden');
             setTimeout(() => { toast.classList.add('hidden'); }, 3000);
+        }
+
+        // ==========================================
+        // DISEÑO Y CONTROLES DEL WORKSPACE
+        // ==========================================
+        function toggleMenu() {
+            isMenuVisible = !isMenuVisible;
+            if (isMenuVisible) { mainHeader.classList.remove('header-hidden'); btnShowMenu.classList.add('opacity-0', 'pointer-events-none'); } 
+            else { mainHeader.classList.add('header-hidden'); btnShowMenu.classList.remove('opacity-0', 'pointer-events-none'); }
+            setTimeout(updateCentering, 350);
         }
 
         function updateCentering() {
@@ -556,316 +580,6 @@
             applyZoom();
         }
 
-        function updateWorkspaceLayout() {
-            let l = 0, r = 0, b = 0;
-            if (isConsoleOpen && !isElectron) { 
-                const pos = consolePositionSelector.value;
-                if (pos === 'left') l = consWidth;
-                else if (pos === 'right') r = consWidth;
-                else if (pos === 'bottom') b = consHeight;
-            }
-            workspace.style.marginLeft = l + 'px';
-            workspace.style.marginRight = r + 'px';
-            workspace.style.marginBottom = b + 'px';
-            
-            requestAnimationFrame(() => { updateCentering(); });
-        }
-
-        // ==========================================
-        // DISEÑO Y LÓGICA DE ERUDA (SOLO PARA IFRAME)
-        // ==========================================
-        function updateFloatingButtonPos() {
-            if (isElectron) return; 
-            if (!isConsoleOpen) {
-                floatingConsoleBtn.style.left = '1.5rem'; floatingConsoleBtn.style.right = 'auto'; floatingConsoleBtn.style.bottom = '1.5rem';
-                return;
-            }
-            const pos = consolePositionSelector.value;
-            if (pos === 'left') { floatingConsoleBtn.style.left = `calc(${consWidth}px + 1.5rem)`; floatingConsoleBtn.style.right = 'auto'; floatingConsoleBtn.style.bottom = '1.5rem'; } 
-            else if (pos === 'right') { floatingConsoleBtn.style.right = `calc(${consWidth}px + 1.5rem)`; floatingConsoleBtn.style.left = 'auto'; floatingConsoleBtn.style.bottom = '1.5rem'; } 
-            else if (pos === 'bottom') { floatingConsoleBtn.style.left = '1.5rem'; floatingConsoleBtn.style.right = 'auto'; floatingConsoleBtn.style.bottom = `calc(${consHeight}px + 1.5rem)`; }
-        }
-
-        function applyErudaPosition(pos) {
-            if (isElectron) return;
-            const currentEruda = appFrame.contentWindow ? appFrame.contentWindow.eruda : null;
-            if (!currentEruda || !currentEruda._isInit || !currentEruda._shadowRoot) return;
-            
-            let styleEl = currentEruda._shadowRoot.getElementById('custom-eruda-pos');
-            if (!styleEl) { styleEl = document.createElement('style'); styleEl.id = 'custom-eruda-pos'; currentEruda._shadowRoot.appendChild(styleEl); }
-
-            if (!isConsoleOpen) resizerBar.classList.add('hidden');
-            else resizerBar.classList.remove('hidden');
-
-            const devToolsThemeCSS = `
-                /* Base y fondo */
-                .eruda-dev-tools { background-color: #ffffff !important; color: #333333 !important; }
-                /* Iconos arreglados explícitamente */
-                .eruda-icon { font-family: 'eruda-icon' !important; font-style: normal !important; }
-                .eruda-entry-btn { display: none !important; }
-                
-                /* Barra de navegación */
-                .eruda-nav-bar { background-color: #ffffff !important; border-bottom: 1px solid #e2e8f0 !important; }
-                .eruda-nav-bar .eruda-nav-bar-item { color: #475569 !important; font-size: 13px !important; }
-                .eruda-nav-bar .eruda-active { color: #4f46e5 !important; border-bottom: 2px solid #4f46e5 !important; }
-
-                /* FORZANDO MODO SPLIT VIEW CORRECTAMENTE */
-                .eruda-elements { display: flex !important; flex-direction: column !important; height: 100% !important; }
-                .eruda-elements .eruda-dom-tree { display: block !important; flex: 1 1 50% !important; height: 50% !important; overflow-y: auto !important; }
-                
-                /* Las propiedades deben mostrarse estáticas debajo */
-                .eruda-elements .eruda-style-wrapper {
-                    display: block !important;
-                    position: static !important;
-                    flex: 1 1 50% !important;
-                    height: 50% !important;
-                    transform: none !important;
-                    border-top: 2px solid #cbd5e1 !important;
-                    background: #f8fafc !important;
-                    overflow-y: auto !important;
-                }
-                .eruda-style-wrapper .eruda-back { display: none !important; }
-
-                /* Colores Chrome */
-                .eruda-tag-name { color: #881280 !important; }
-                .eruda-attribute-name { color: #994500 !important; }
-                .eruda-attribute-value { color: #1a1aa6 !important; }
-            `;
-
-            let positionCSS = '';
-            if (pos === 'left') {
-                positionCSS = `.eruda-dev-tools { top: 0 !important; bottom: 0 !important; left: 0 !important; right: auto !important; width: ${consWidth}px !important; position: fixed !important; border-right: 1px solid #cbd5e1 !important; border-left: none !important; border-top: none !important; border-bottom: none !important; }`;
-                resizerBar.style.cssText = `top: 0; bottom: 0; left: ${consWidth - 4}px; width: 8px; cursor: ew-resize; z-index: 9999;`;
-            } else if (pos === 'right') {
-                positionCSS = `.eruda-dev-tools { top: 0 !important; bottom: 0 !important; right: 0 !important; left: auto !important; width: ${consWidth}px !important; position: fixed !important; border-left: 1px solid #cbd5e1 !important; border-right: none !important; border-top: none !important; border-bottom: none !important; }`;
-                resizerBar.style.cssText = `top: 0; bottom: 0; right: ${consWidth - 4}px; width: 8px; cursor: ew-resize; z-index: 9999;`;
-            } else {
-                positionCSS = `.eruda-dev-tools { top: auto !important; bottom: 0 !important; left: 0 !important; right: 0 !important; height: ${consHeight}px !important; width: 100% !important; position: fixed !important; border-top: 1px solid #cbd5e1 !important; border-bottom: none !important; border-left: none !important; border-right: none !important; }`;
-                resizerBar.style.cssText = `left: 0; right: 0; bottom: ${consHeight - 4}px; height: 8px; cursor: ns-resize; z-index: 9999;`;
-            }
-
-            styleEl.innerHTML = devToolsThemeCSS + positionCSS;
-            updateFloatingButtonPos(); 
-        }
-
-        resizerBar.addEventListener('mousedown', (e) => {
-            isDraggingCons = true; document.body.style.userSelect = 'none'; resizerBar.classList.add('bg-indigo-400');
-            const pos = consolePositionSelector.value;
-            dragStartPos = pos === 'bottom' ? e.clientY : e.clientX;
-            startSize = pos === 'bottom' ? consHeight : consWidth;
-            document.body.style.cursor = pos === 'bottom' ? 'ns-resize' : 'ew-resize';
-        });
-
-        window.addEventListener('mousemove', (e) => {
-            if (!isDraggingCons) return;
-            const pos = consolePositionSelector.value;
-            if (pos === 'bottom') consHeight = Math.max(150, Math.min(window.innerHeight - 80, startSize + (dragStartPos - e.clientY)));
-            else if (pos === 'left') consWidth = Math.max(250, Math.min(window.innerWidth - 80, startSize + (e.clientX - dragStartPos)));
-            else if (pos === 'right') consWidth = Math.max(250, Math.min(window.innerWidth - 80, startSize + (dragStartPos - e.clientX)));
-            applyErudaPosition(pos); updateWorkspaceLayout(); updateFloatingButtonPos(); 
-        });
-
-        window.addEventListener('mouseup', () => {
-            if (isDraggingCons) {
-                isDraggingCons = false; document.body.style.userSelect = ''; document.body.style.cursor = ''; resizerBar.classList.remove('bg-indigo-400');
-                localStorage.setItem('eruda-width', consWidth); localStorage.setItem('eruda-height', consHeight);
-            }
-        });
-
-        // ==========================================
-        // CONTROL GLOBAL DE LA CONSOLA
-        // ==========================================
-        function toggleConsole() {
-            if (isElectron) {
-                if(isConsoleOpen) {
-                    appFrame.closeDevTools();
-                    isConsoleOpen = false;
-                    btnHeaderConsole.classList.remove('bg-indigo-600/20', 'text-indigo-400');
-                    floatingConsoleBtn.classList.remove('console-active-btn');
-                } else {
-                    appFrame.openDevTools(); 
-                    isConsoleOpen = true;
-                    btnHeaderConsole.classList.add('bg-indigo-600/20', 'text-indigo-400');
-                    floatingConsoleBtn.classList.add('console-active-btn');
-                }
-            } else {
-                const currentEruda = appFrame.contentWindow ? appFrame.contentWindow.eruda : null;
-                if (currentEruda && currentEruda._isInit) { 
-                    if(isConsoleOpen) {
-                        currentEruda.hide();
-                        isConsoleOpen = false;
-                        btnHeaderConsole.classList.remove('bg-indigo-600/20', 'text-indigo-400');
-                        floatingConsoleBtn.classList.remove('console-active-btn');
-                    } else {
-                        currentEruda.show();
-                        isConsoleOpen = true;
-                        btnHeaderConsole.classList.add('bg-indigo-600/20', 'text-indigo-400');
-                        floatingConsoleBtn.classList.add('console-active-btn');
-                    }
-                    updateWorkspaceLayout();
-                    applyErudaPosition(consolePositionSelector.value);
-                } else { showToast("Consola cargando o no disponible."); }
-            }
-        }
-
-        function changeConsolePosition() {
-            if (isElectron) return;
-            const newPos = consolePositionSelector.value;
-            localStorage.setItem('eruda-position', newPos);
-            applyErudaPosition(newPos);
-            updateWorkspaceLayout();
-        }
-
-        function toggleMenu() {
-            isMenuVisible = !isMenuVisible;
-            if (isMenuVisible) { mainHeader.classList.remove('header-hidden'); btnShowMenu.classList.add('opacity-0', 'pointer-events-none'); } 
-            else { mainHeader.classList.add('header-hidden'); btnShowMenu.classList.remove('opacity-0', 'pointer-events-none'); }
-            setTimeout(updateWorkspaceLayout, 350);
-        }
-
-        lucide.createIcons();
-
-        // ==========================================
-        // INYECCIÓN DE ERUDA EN IFRAME Y SIMULACIÓN TÁCTIL (MODO WEB)
-        // ==========================================
-        function handleIframeOnLoad() {
-            loadingOverlay.classList.add('hidden');
-            erudaParentContainer.innerHTML = ''; 
-            
-            try {
-                const iframeWindow = appFrame.contentWindow;
-                const iframeDoc = appFrame.contentDocument;
-                if (!iframeDoc) throw new Error("CORS Blocked");
-
-                const updateUrlBar = () => { try { if (iframeWindow.location.href !== 'about:blank') urlInput.value = iframeWindow.location.href; } catch(e) {} };
-                updateUrlBar();
-                iframeWindow.addEventListener('hashchange', updateUrlBar);
-                iframeWindow.addEventListener('popstate', updateUrlBar);
-
-                const script = iframeDoc.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/eruda';
-                iframeDoc.head.appendChild(script);
-
-                script.onload = () => {
-                    if(iframeWindow.eruda) {
-                        iframeWindow.eruda.init({ container: erudaParentContainer, tool: ['console', 'elements', 'network', 'resource'], useShadowDom: true });
-                        
-                        try {
-                            const observer = new MutationObserver(() => {
-                                const shadow = iframeWindow.eruda._shadowRoot;
-                                if (!shadow) return;
-                                const highlight = shadow.querySelector('.eruda-elements-highlight');
-                                if (highlight) {
-                                    const rect = appFrame.getBoundingClientRect();
-                                    highlight.style.setProperty('margin-left', `${rect.left}px`, 'important');
-                                    highlight.style.setProperty('margin-top', `${rect.top}px`, 'important');
-                                    highlight.style.setProperty('transform', `scale(${currentZoom})`, 'important');
-                                    highlight.style.setProperty('transform-origin', 'top left', 'important');
-                                }
-                            });
-                            observer.observe(erudaParentContainer, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
-                        } catch(e) {}
-
-                        setTimeout(() => {
-                            applyErudaPosition(consolePositionSelector.value || 'left');
-                            if(isConsoleOpen) iframeWindow.eruda.show(); else iframeWindow.eruda.hide();
-                        }, 500);
-                    }
-                };
-
-                const isErudaSelectActive = () => {
-                    try { return !!iframeWindow.eruda._shadowRoot.querySelector('.eruda-select.eruda-active'); } catch(e) { return false; }
-                };
-
-                const createTouchEvt = (type, originalEvent) => {
-                    let touchObj; 
-                    try { 
-                        touchObj = new iframeWindow.Touch({ 
-                            identifier: Date.now(), 
-                            target: originalEvent.target, 
-                            clientX: originalEvent.clientX, 
-                            clientY: originalEvent.clientY 
-                        }); 
-                    } 
-                    catch(err) { 
-                        touchObj = { ...originalEvent, identifier: Date.now(), target: originalEvent.target }; 
-                    }
-                    
-                    try { 
-                        return new iframeWindow.TouchEvent(type, { 
-                            bubbles: true, 
-                            cancelable: true,
-                            touches: type === 'touchend' ? [] : [touchObj], 
-                            targetTouches: type === 'touchend' ? [] : [touchObj], 
-                            changedTouches: [touchObj] 
-                        }); 
-                    } 
-                    catch(err) { 
-                        const evt = iframeDoc.createEvent('Event'); 
-                        evt.initEvent(type, true, true); 
-                        evt.touches = type === 'touchend' ? [] : [touchObj];
-                        evt.targetTouches = type === 'touchend' ? [] : [touchObj];
-                        evt.changedTouches = [touchObj];
-                        return evt; 
-                    }
-                };
-
-                const touchStyle = iframeDoc.createElement('style');
-                touchStyle.textContent = `
-                    body {
-                        -webkit-user-select: none;
-                        -ms-user-select: none;
-                        user-select: none;
-                    }
-                    input, textarea, [contenteditable="true"] {
-                        -webkit-user-select: auto;
-                        -ms-user-select: auto;
-                        user-select: auto;
-                    }
-                `;
-                iframeDoc.head.appendChild(touchStyle);
-
-                let isSimulatingDrag = false;
-
-                iframeDoc.addEventListener('mousedown', (e) => { 
-                    if (!isErudaSelectActive()) {
-                        isSimulatingDrag = true;
-                        e.target.dispatchEvent(createTouchEvt('touchstart', e)); 
-                    }
-                }, true);
-
-                iframeDoc.addEventListener('mousemove', (e) => {
-                    if (isSimulatingDrag && !isErudaSelectActive()) {
-                        e.target.dispatchEvent(createTouchEvt('touchmove', e));
-                    }
-                }, true);
-
-                iframeDoc.addEventListener('mouseup', (e) => { 
-                    if (isSimulatingDrag && !isErudaSelectActive()) {
-                        isSimulatingDrag = false;
-                        e.target.dispatchEvent(createTouchEvt('touchend', e)); 
-                    }
-                }, true);
-                
-                iframeDoc.addEventListener('mouseleave', (e) => {
-                    if (isSimulatingDrag) {
-                        isSimulatingDrag = false;
-                        e.target.dispatchEvent(createTouchEvt('touchend', e));
-                    }
-                });
-                
-                ['log', 'info', 'warn', 'error'].forEach(m => iframeWindow.console[m] = function(...a) { window.console[m].apply(window.console, a); });
-
-            } catch (err) {
-                console.error("CORS Bloqueado.");
-            }
-        }
-
-        setInterval(() => {
-            const now = new Date();
-            if(document.getElementById('clock')) document.getElementById('clock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }, 1000);
-
         function updateZoom(delta) {
             if (currentDeviceKey === 'responsive') return;
             currentZoom = Math.max(0.1, Math.min(2, currentZoom + delta));
@@ -882,7 +596,7 @@
                 container.style.transform = 'none'; 
                 wrapper.style.width = '100%'; 
                 wrapper.style.height = '100%'; 
-                if(isElectron && appFrame.setZoomFactor) appFrame.setZoomFactor(1);
+                if(appFrame && appFrame.setZoomFactor) appFrame.setZoomFactor(1);
             } else {
                 const config = devices[currentDeviceKey];
                 const w = isLandscape ? config.height : config.width;
@@ -893,7 +607,7 @@
                 wrapper.style.width = `${w * currentZoom}px`;
                 wrapper.style.height = `${h * currentZoom}px`;
                 
-                if(isElectron && appFrame.setZoomFactor) appFrame.setZoomFactor(currentZoom); 
+                if(appFrame && appFrame.setZoomFactor) appFrame.setZoomFactor(currentZoom); 
             }
             zoomLabel.innerText = Math.round(currentZoom * 100) + '%';
             updateCentering();
@@ -906,14 +620,14 @@
             
             await HistoryAPI.save(url);
             loadingOverlay.classList.remove('hidden');
-            appFrame.src = url;
+            if (appFrame) appFrame.src = url;
             toggleHistory(false);
         }
 
         function refreshFrame() {
-            if (appFrame.src) {
+            if (appFrame && appFrame.src) {
                 loadingOverlay.classList.remove('hidden');
-                if (isElectron) appFrame.reload(); else appFrame.src = appFrame.src;
+                appFrame.reload();
             }
         }
 
@@ -971,21 +685,25 @@
                 homeIndicator.classList.remove('hidden');
             }
             
-            requestAnimationFrame(() => { updateWorkspaceLayout(); });
+            requestAnimationFrame(() => { updateCentering(); });
         }
+
+        setInterval(() => {
+            const now = new Date();
+            if(document.getElementById('clock')) document.getElementById('clock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }, 1000);
+
+        lucide.createIcons();
 
         window.addEventListener('load', () => {
             initAppFrame();
-            const savedPos = localStorage.getItem('eruda-position') || 'left';
-            consolePositionSelector.value = savedPos;
             renderHistoryList(); 
             applyDeviceStyles();
             if(urlInput.value) navigateToUrl();
         });
         
         window.addEventListener('resize', () => { 
-            updateWorkspaceLayout(); 
-            updateFloatingButtonPos(); 
+            updateCentering(); 
         });
 
     </script>

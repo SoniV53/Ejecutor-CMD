@@ -36,8 +36,8 @@
     "General"
   ],
   "history": [
-    "http://localhost:8100",
+    "http://localhost:3000",
     "http://localhost:8100/home",
-    "http://localhost:3000"
+    "http://localhost:8100"
   ]
 }
