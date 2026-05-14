@@ -1,1 +1,42 @@
-{"projects":[{"id":"1778687662953","name":"Ionic","path":"D:\\SONI VEGA\\PROGRAMAS DESARROLLO\\IONIC\\Control_Payment_vol2"}],"commands":[{"id":"1778687707346","label":"Start Ionic","script":"ionic serve","scripts":["ionic serve"],"multiSelect":false,"category":"General","color":"indigo","background":false},{"id":"1778687825262","label":"open","script":"Code .","scripts":["Code ."],"multiSelect":false,"category":"General","color":"indigo","background":false}],"categories":["General"],"urlHistory":["http://localhost:8100/","http://localhost:3000/"]}
+{
+  "projects": [
+    {
+      "id": "1778687662953",
+      "name": "Ionic",
+      "path": "D:\\SONI VEGA\\PROGRAMAS DESARROLLO\\IONIC\\Control_Payment_vol2"
+    }
+  ],
+  "commands": [
+    {
+      "id": "1778687707346",
+      "label": "Start Ionic",
+      "script": "ionic serve",
+      "scripts": [
+        "ionic serve"
+      ],
+      "multiSelect": false,
+      "category": "General",
+      "color": "indigo",
+      "background": false
+    },
+    {
+      "id": "1778687825262",
+      "label": "open",
+      "script": "Code .",
+      "scripts": [
+        "Code ."
+      ],
+      "multiSelect": false,
+      "category": "General",
+      "color": "indigo",
+      "background": false
+    }
+  ],
+  "categories": [
+    "General"
+  ],
+  "history": [
+    "http://localhost:3000",
+    "http://localhost:8100"
+  ]
+}

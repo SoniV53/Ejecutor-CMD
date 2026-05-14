@@ -6,6 +6,7 @@
     <title>ConsoleFlow - Device Emulator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    
     <!-- Script de seguridad para evitar errores de solo lectura en WebSocket con Eruda -->
     <script>
         (function() {
@@ -25,6 +26,7 @@
         })();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;600;700&display=swap');
         
@@ -58,7 +60,6 @@
         }
 
         .device-mockup {
-            /* Sincronizado a 0.3s idéntico al Wrapper para que el Zoom no parpadee ni se desfase */
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255,255,255,0.05);
             background: black;
@@ -93,14 +94,32 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; border: 2px solid #020617; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #334155; }
-        .custom-scrollbar::-webkit-scrollbar-corner { background: transparent; }
+        /* --- SCROLL INVISIBLE GLOBAL --- */
+        /* Oculta el scrollbar visualmente en toda la aplicación pero permite hacer scroll */
+        * {
+            -ms-overflow-style: none !important;  /* IE and Edge */
+            scrollbar-width: none !important;  /* Firefox */
+        }
+        *::-webkit-scrollbar {
+            display: none !important; /* Chrome, Safari and Opera */
+            width: 0 !important;
+            height: 0 !important;
+        }
 
         #mainHeader { transition: transform 0.3s ease-in-out, margin-top 0.3s ease-in-out; }
         .header-hidden { transform: translateY(-100%); margin-top: -90px; }
+        
+        /* Animación para el dropdown del historial */
+        .dropdown-open {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        .dropdown-closed {
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
+        }
     </style>
 </head>
 <body class="flex flex-col h-screen relative">
@@ -121,6 +140,14 @@
             Entendido
         </button>
     </div>
+    
+    <!-- TOAST DE MENSAJE GENÉRICO (Reemplaza alert()) -->
+    <div id="toastMessage" class="fixed top-20 right-6 bg-slate-800 text-white p-4 rounded-xl shadow-2xl z-[70] hidden border border-slate-700 animate-slide-up transition-all">
+        <div class="flex items-center gap-3">
+            <i data-lucide="info" class="w-5 h-5 text-indigo-400"></i>
+            <p id="toastText" class="text-sm text-slate-200"></p>
+        </div>
+    </div>
 
     <button id="btnShowMenu" onclick="toggleMenu()" class="fixed top-4 left-4 z-[60] bg-indigo-600 p-2.5 rounded-xl shadow-lg opacity-0 pointer-events-none transition-all">
         <i data-lucide="chevrons-down" class="text-white w-5 h-5"></i>
@@ -138,20 +165,40 @@
                     </a>
                 </div>
 
-                <div class="flex-1 max-w-2xl flex items-center gap-2">
-                    <input type="text" id="urlInput" value="" placeholder="http://localhost:8100" 
-                        class="w-full bg-[#0f172a] border border-slate-800 rounded-xl px-4 py-2 text-sm code-font focus:outline-none focus:border-indigo-500 transition-all text-white"
-                        onkeydown="if(event.key === 'Enter') navigateToUrl()">
-                    <button onclick="navigateToUrl()" class="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-xl transition-colors shadow-lg">
+                <div class="flex-1 max-w-2xl flex items-center gap-2 relative">
+                    <div class="relative w-full">
+                        <input type="text" id="urlInput" value="" placeholder="http://localhost:8100" 
+                            class="w-full bg-[#0f172a] border border-slate-800 rounded-xl pl-4 pr-10 py-2 text-sm code-font focus:outline-none focus:border-indigo-500 transition-all text-white"
+                            onkeydown="if(event.key === 'Enter') navigateToUrl()"
+                            onfocus="toggleHistory(true)"
+                            onblur="setTimeout(() => toggleHistory(false), 200)">
+                        
+                        <button onclick="toggleHistory(true)" class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white">
+                            <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                        </button>
+
+                        <!-- Menú desplegable del historial -->
+                        <div id="historyDropdown" class="absolute top-full left-0 right-0 mt-2 bg-[#0f172a] border border-slate-800 rounded-xl shadow-2xl z-50 transition-all duration-200 dropdown-closed overflow-hidden">
+                            <div class="px-3 py-2 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                                <span class="text-xs font-semibold text-slate-400">Historial Reciente</span>
+                                <button onclick="clearHistory()" class="text-xs text-red-400 hover:text-red-300">Limpiar</button>
+                            </div>
+                            <ul id="historyList" class="max-h-48 overflow-y-auto">
+                                <!-- Elementos del historial inyectados por JS -->
+                            </ul>
+                        </div>
+                    </div>
+
+                    <button onclick="navigateToUrl()" class="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-xl transition-colors shadow-lg shrink-0">
                         <i data-lucide="arrow-right" class="w-5 h-5"></i>
                     </button>
-                    <button onclick="refreshFrame()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-xl transition-colors border border-slate-700">
+                    <button onclick="refreshFrame()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-xl transition-colors border border-slate-700 shrink-0">
                         <i data-lucide="rotate-cw" class="w-5 h-5"></i>
                     </button>
                 </div>
             </div>
 
-            <div class="flex items-center justify-between gap-2 overflow-x-auto custom-scrollbar pb-1">
+            <div class="flex items-center justify-between gap-2 overflow-x-auto pb-1">
                 <div class="flex items-center gap-1 bg-[#0f172a] p-1 rounded-xl border border-slate-800 shrink-0">
                     <button onclick="updateZoom(-0.1)" class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors">
                         <i data-lucide="zoom-out" class="w-4 h-4"></i>
@@ -200,8 +247,7 @@
         </div>
     </header>
 
-    <main id="workspace" class="custom-scrollbar bg-[#020617]">
-        <!-- MOVIMOS animate-slide-up AL WRAPPER PARA QUE NO BLOQUEE EL ZOOM (TRANSFORM) DEL DISPOSITIVO -->
+    <main id="workspace" class="bg-[#020617]">
         <div id="deviceWrapper" class="animate-slide-up">
             <div id="deviceContainer" class="device-mockup border-slate-900 rounded-[3rem] flex flex-col overflow-hidden w-[393px] h-[852px] border-[12px]">
                 <div id="notch" class="absolute top-0 inset-x-0 h-6 bg-slate-900 rounded-b-2xl w-28 mx-auto z-10 flex justify-center items-end pb-1 gap-1.5">
@@ -230,6 +276,9 @@
         </div>
     </main>
 
+    <!-- ==========================================
+         INICIO DEL BLOQUE JAVASCRIPT
+         ========================================== -->
     <script>
         const devices = {
             iphone14: { width: 393, height: 852, borderRadius: '3.2rem', borderWidth: '12px', hasNotch: true },
@@ -248,6 +297,7 @@
         let consWidth = parseInt(localStorage.getItem('eruda-width')) || 450;
         let consHeight = parseInt(localStorage.getItem('eruda-height')) || 300;
 
+        // Referencias al DOM
         const frame = document.getElementById('appFrame');
         const urlInput = document.getElementById('urlInput');
         const loadingOverlay = document.getElementById('loadingOverlay');
@@ -265,8 +315,118 @@
         const toastCors = document.getElementById('toastCors');
         const consolePositionSelector = document.getElementById('consolePosition');
         const resizerBar = document.getElementById('console-resizer');
+        
+        // Elementos del historial
+        const historyDropdown = document.getElementById('historyDropdown');
+        const historyList = document.getElementById('historyList');
 
-        // FUNCIÓN CLAVE: Centrado inteligente que respeta los scrollbars
+        // ==========================================
+        // LÓGICA DE HISTORIAL (INTEGRADA A TU API NODE.JS)
+        // ==========================================
+        
+        const HistoryAPI = {
+            async getFullData() {
+                try {
+                    const response = await fetch('/data');
+                    if (!response.ok) throw new Error("Error de red");
+                    return await response.json();
+                } catch (e) {
+                    console.warn("No se pudo conectar a /data, usando LocalStorage", e);
+                    return { 
+                        history: JSON.parse(localStorage.getItem('temp_history')) || [],
+                        projects: [], commands: [], categories: [] 
+                    };
+                }
+            },
+            async get() {
+                const data = await this.getFullData();
+                return data.history || [];
+            },
+            async save(url) {
+                const data = await this.getFullData();
+                let history = data.history || [];
+                
+                history = history.filter(item => item !== url); // Evitar duplicados
+                history.unshift(url); // Añadir al inicio
+                if(history.length > 15) history.pop(); // Máximo 15 items
+                
+                data.history = history;
+
+                try {
+                    await fetch('/data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data, null, 2)
+                    });
+                } catch (e) {
+                    localStorage.setItem('temp_history', JSON.stringify(history));
+                }
+                return history;
+            },
+            async clear() {
+                const data = await this.getFullData();
+                data.history = [];
+                
+                try {
+                    await fetch('/data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data, null, 2)
+                    });
+                } catch (e) {
+                    localStorage.setItem('temp_history', JSON.stringify([]));
+                }
+            }
+        };
+
+        async function renderHistoryList() {
+            const history = await HistoryAPI.get();
+            historyList.innerHTML = '';
+            
+            if(history.length === 0) {
+                historyList.innerHTML = '<li class="px-4 py-3 text-sm text-slate-500 italic text-center">No hay búsquedas recientes</li>';
+                return;
+            }
+
+            history.forEach(url => {
+                const li = document.createElement('li');
+                li.className = 'px-4 py-2.5 text-sm text-slate-300 hover:bg-indigo-600/20 hover:text-white cursor-pointer border-b border-slate-800/50 last:border-0 truncate flex items-center gap-2 transition-colors';
+                li.innerHTML = `<i data-lucide="globe" class="w-3.5 h-3.5 opacity-50"></i> ${url}`;
+                li.onclick = () => {
+                    urlInput.value = url;
+                    navigateToUrl();
+                };
+                historyList.appendChild(li);
+            });
+            lucide.createIcons();
+        }
+
+        function toggleHistory(show) {
+            if(show) {
+                renderHistoryList();
+                historyDropdown.classList.remove('dropdown-closed');
+                historyDropdown.classList.add('dropdown-open');
+            } else {
+                historyDropdown.classList.remove('dropdown-open');
+                historyDropdown.classList.add('dropdown-closed');
+            }
+        }
+
+        async function clearHistory() {
+            await HistoryAPI.clear();
+            renderHistoryList();
+            showToast("Historial borrado");
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toastMessage');
+            document.getElementById('toastText').innerText = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
         function updateCentering() {
             if (currentDeviceKey === 'responsive') {
                 wrapper.style.margin = '0';
@@ -287,7 +447,6 @@
             wrapper.style.margin = `${mTop} ${mRight} ${mBottom} ${mLeft}`;
         }
 
-        // FUNCIÓN NUEVA: Auto-Ajustar al espacio disponible al instante
         function autoFit() {
             if (currentDeviceKey === 'responsive') {
                 currentZoom = 1.0;
@@ -295,8 +454,7 @@
                 return;
             }
 
-            // Calculamos el espacio real que nos quedó luego de abrir/cerrar consola
-            const availableW = workspace.clientWidth - 40; // 40px de respiro (20px por lado)
+            const availableW = workspace.clientWidth - 40; 
             const availableH = workspace.clientHeight - 40;
             
             const config = devices[currentDeviceKey];
@@ -306,7 +464,6 @@
             const scaleW = availableW / w;
             const scaleH = availableH / h;
             
-            // Toma la escala más pequeña requerida para encajar perfectamente (tope de 100%)
             currentZoom = Math.min(scaleW, scaleH, 1.0);
             currentZoom = Math.max(0.1, currentZoom);
             
@@ -330,7 +487,6 @@
             setTimeout(autoFit, 10);
         }
 
-        // INYECCIÓN DE ESTILOS EN EL SHADOW DOM DE ERUDA
         function applyErudaPosition(pos) {
             if (typeof eruda === 'undefined' || !eruda._isInit || !eruda._shadowRoot) return;
             
@@ -347,6 +503,7 @@
                 resizerBar.classList.remove('hidden');
             }
 
+            // Se inyectan reglas CSS adicionales en Eruda para ocultar su scroll nativo
             if (pos === 'left') {
                 styleEl.innerHTML = `
                     .eruda-dev-tools {
@@ -355,6 +512,8 @@
                         border-right: 1px solid #1e293b !important; resize: none !important; overflow: auto !important; transform: none !important;
                     }
                     .eruda-entry-btn { display: none !important; }
+                    *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+                    * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
                 `;
                 resizerBar.style.cssText = `top: 0; bottom: 0; left: ${consWidth - 4}px; width: 8px; cursor: ew-resize; z-index: 9999;`;
             } else if (pos === 'right') {
@@ -365,6 +524,8 @@
                         border-left: 1px solid #1e293b !important; resize: none !important; overflow: auto !important; transform: none !important;
                     }
                     .eruda-entry-btn { display: none !important; }
+                    *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+                    * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
                 `;
                 resizerBar.style.cssText = `top: 0; bottom: 0; right: ${consWidth - 4}px; width: 8px; cursor: ew-resize; z-index: 9999;`;
             } else {
@@ -375,12 +536,13 @@
                         border-top: 1px solid #1e293b !important; resize: none !important; transform: none !important;
                      }
                      .eruda-entry-btn { display: none !important; }
+                     *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+                     * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
                 `;
                 resizerBar.style.cssText = `left: 0; right: 0; bottom: ${consHeight - 4}px; height: 8px; cursor: ns-resize; z-index: 9999;`;
             }
         }
 
-        // LÓGICA DE DRAG & DROP
         let isDraggingCons = false;
         let dragStartPos = 0;
         let startSize = 0;
@@ -418,7 +580,7 @@
             }
             
             applyErudaPosition(pos);
-            updateWorkspaceLayout(); // Trigger autoFit dinámicamente al arrastrar
+            updateWorkspaceLayout(); 
         });
 
         window.addEventListener('mouseup', () => {
@@ -445,7 +607,10 @@
             }
         }
 
-        window.addEventListener('load', initEruda);
+        window.addEventListener('load', () => {
+            initEruda();
+            renderHistoryList(); 
+        });
         
         window.addEventListener('resize', () => {
             updateWorkspaceLayout();
@@ -465,7 +630,7 @@
                 updateWorkspaceLayout();
                 applyErudaPosition(consolePositionSelector.value);
             }
-            else { alert("Eruda no disponible."); }
+            else { showToast("Consola Eruda no disponible."); }
         }
 
         function changeConsolePosition() {
@@ -486,12 +651,11 @@
                 mainHeader.classList.add('header-hidden');
                 btnShowMenu.classList.remove('opacity-0', 'pointer-events-none');
             }
-            setTimeout(updateWorkspaceLayout, 350); // Recalcula el autoFit al ocultar menú
+            setTimeout(updateWorkspaceLayout, 350);
         }
 
         lucide.createIcons();
 
-        // INYECCIÓN EN EL IFRAME
         frame.onload = () => {
             loadingOverlay.classList.add('hidden');
             
@@ -503,7 +667,9 @@
                 const updateUrlBar = () => {
                     try {
                         const currentUrl = iframeWindow.location.href;
-                        if (currentUrl && currentUrl !== 'about:blank') urlInput.value = currentUrl;
+                        if (currentUrl && currentUrl !== 'about:blank') {
+                            urlInput.value = currentUrl;
+                        }
                     } catch(e) {}
                 };
 
@@ -522,6 +688,16 @@
                     originalReplaceState.apply(this, arguments);
                     updateUrlBar();
                 };
+
+                // Forzar scrollbars invisibles también dentro del iFrame (La aplicación a probar)
+                try {
+                    const style = iframeDoc.createElement('style');
+                    style.textContent = `
+                        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+                        *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+                    `;
+                    iframeDoc.head.appendChild(style);
+                } catch(e) {}
 
                 if (!('ontouchstart' in iframeWindow)) iframeWindow.ontouchstart = function() {};
 
@@ -594,7 +770,6 @@
             applyZoom();
         }
 
-        // LÓGICA PRINCIPAL DE ZOOM Y DIMENSIONES
         function applyZoom() {
             if (currentDeviceKey === 'responsive') {
                 container.style.transform = 'none';
@@ -606,27 +781,30 @@
                 const w = isLandscape ? config.height : config.width;
                 const h = isLandscape ? config.width : config.height;
 
-                // Aplicamos la transformación SÓLO al dispositivo interno
                 container.style.transform = `scale(${currentZoom})`;
-                
-                // Actualizamos el tamaño del Wrapper externo para que el navegador genere las barras de scroll
                 wrapper.style.width = `${w * currentZoom}px`;
                 wrapper.style.height = `${h * currentZoom}px`;
             }
             zoomLabel.innerText = Math.round(currentZoom * 100) + '%';
-            
             updateCentering();
         }
 
-        function navigateToUrl() {
+        async function navigateToUrl() {
             let url = urlInput.value.trim();
             if (!url) return; 
             if (!url.startsWith('http://') && !url.startsWith('https://')) {
                 url = 'http://' + url;
                 urlInput.value = url;
             }
+            
+            // Guardar en el historial de forma asíncrona (vía Node.js Fetch)
+            await HistoryAPI.save(url);
+            
             loadingOverlay.classList.remove('hidden');
             frame.src = url;
+            
+            // Ocultar historial al navegar
+            toggleHistory(false);
         }
 
         function refreshFrame() {
@@ -686,8 +864,9 @@
             updateWorkspaceLayout();
         }
 
+        // Inicialización final
         applyDeviceStyles();
-        navigateToUrl();
+        if(urlInput.value) navigateToUrl();
     </script>
 </body>
 </html>
