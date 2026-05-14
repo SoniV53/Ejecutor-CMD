@@ -25,8 +25,9 @@ app.on('ready', () => {
       nodeIntegration: true,
       contextIsolation: false,
       // Esto permite que el navegador reporte que tiene soporte táctil
-      enableRemoteModule: true, 
-      webSecurity: false
+      enableRemoteModule: true,
+      webSecurity: false,
+      webviewTag: true,
     }
   });
 
