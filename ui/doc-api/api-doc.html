@@ -109,14 +109,29 @@
                 </div>
             </div>
 
-            <div class="flex-1 flex flex-col overflow-hidden">
-                <label class="text-[10px] font-bold text-slate-500 uppercase mb-2 block ml-1">Cuerpo del Mensaje (Request/Response)</label>
-                <textarea id="docContent" spellcheck="false" class="flex-1 w-full editor-area rounded-2xl p-6 code-font text-sm text-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-600/50 resize-none custom-scrollbar" placeholder="{ 'header': { ... }, 'body': { ... } }"></textarea>
+            <div class="flex-1 flex flex-col overflow-hidden relative">
+                <!-- Herramientas de Formateo -->
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase block ml-1">Cuerpo del Mensaje (Request/Response)</label>
+                    
+                    <!-- Botonera de Formateadores -->
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[9px] font-bold text-slate-600 uppercase mr-1">Formato:</span>
+                        <button onclick="formatContent('json')" class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-indigo-600/20 text-slate-400 hover:text-indigo-400 border border-slate-800 rounded-lg text-[9px] font-bold transition-all" title="Formatear como JSON">
+                            <i data-lucide="braces" class="w-3 h-3"></i> JSON
+                        </button>
+                        <button onclick="formatContent('txt')" class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-emerald-600/20 text-slate-400 hover:text-emerald-400 border border-slate-800 rounded-lg text-[9px] font-bold transition-all" title="Limpiar y formatear Texto">
+                            <i data-lucide="align-left" class="w-3 h-3"></i> TXT
+                        </button>
+                    </div>
+                </div>
+                
+                <textarea id="docContent" spellcheck="false" class="flex-1 w-full editor-area rounded-2xl p-6 code-font text-sm text-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-600/50 resize-none custom-scrollbar" placeholder='{ "header": { ... }, "body": { ... } }'></textarea>
             </div>
         </main>
     </div>
 
-    <!-- MODALES CUSTOM (Remplazan a prompt y confirm de Electron) -->
+    <!-- MODALES CUSTOM -->
     
     <!-- Modal Nueva Carpeta -->
     <div id="folderModal" class="fixed inset-0 bg-black/80 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
@@ -334,7 +349,7 @@
             showToast("Exportado a descargas");
         }
 
-        // CARPETAS Y ELIMINACIÓN (Ahora usan Modals propios)
+        // CARPETAS Y ELIMINACIÓN
         function createFolder() {
             document.getElementById('inFolderName').value = '';
             document.getElementById('folderModal').classList.remove('hidden');
@@ -420,6 +435,38 @@
             currentDocType = type;
             document.getElementById('btnReq').className = type === 'req' ? 'flex-1 py-2 text-[10px] font-bold rounded-lg bg-indigo-600 text-white' : 'flex-1 py-2 text-[10px] font-bold rounded-lg text-slate-400 hover:text-white';
             document.getElementById('btnRes').className = type === 'res' ? 'flex-1 py-2 text-[10px] font-bold rounded-lg bg-indigo-600 text-white' : 'flex-1 py-2 text-[10px] font-bold rounded-lg text-slate-400 hover:text-white';
+        }
+
+        // LÓGICA DE FORMATEADORES VISUALES
+        function formatContent(type) {
+            const editor = document.getElementById('docContent');
+            let content = editor.value;
+
+            if (!content.trim()) {
+                showToast("El editor está vacío", "alert-circle", "text-amber-400");
+                return;
+            }
+
+            if (type === 'json') {
+                try {
+                    // Intenta reemplazar comillas simples por dobles en caso de haber copiado un objeto JS
+                    let toParse = content.replace(/'/g, '"');
+                    const obj = JSON.parse(toParse);
+                    // Formatea con 4 espacios de indentación
+                    editor.value = JSON.stringify(obj, null, 4);
+                    showToast("JSON Formateado", "check", "text-indigo-400");
+                } catch (e) {
+                    showToast("Sintaxis JSON Inválida", "alert-triangle", "text-red-400");
+                }
+            } else if (type === 'txt') {
+                // Formateo simple de texto: remueve dobles espacios y múltiples saltos de línea inútiles
+                editor.value = content
+                    .replace(/\n{3,}/g, '\n\n') // Reduce saltos de línea excesivos
+                    .split('\n')
+                    .map(line => line.trim())   // Elimina espacios al principio/final de cada línea
+                    .join('\n');
+                showToast("Texto Formateado", "check", "text-emerald-400");
+            }
         }
 
         window.onload = () => {
