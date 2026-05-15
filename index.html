@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +9,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;600;700&display=swap');
-        
+
         body {
             font-family: 'Inter', sans-serif;
             background-color: #020617;
@@ -17,7 +18,7 @@
             width: 100vw;
             margin: 0;
             overflow-x: hidden;
-            background-image: 
+            background-image:
                 radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
                 radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
         }
@@ -34,19 +35,45 @@
             box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.1), 0 8px 10px -6px rgba(99, 102, 241, 0.1);
         }
 
-        .animate-fade-in { animation: fadeIn 0.6s ease-out forwards; }
-        @keyframes fadeIn { 
-            from { opacity: 0; transform: translateY(20px); } 
-            to { opacity: 1; transform: translateY(0); } 
+        .animate-fade-in {
+            animation: fadeIn 0.6s ease-out forwards;
         }
-        
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         /* Staggered animation classes */
-        .delay-100 { animation-delay: 100ms; opacity: 0; }
-        .delay-200 { animation-delay: 200ms; opacity: 0; }
-        .delay-300 { animation-delay: 300ms; opacity: 0; }
-        .delay-400 { animation-delay: 400ms; opacity: 0; }
+        .delay-100 {
+            animation-delay: 100ms;
+            opacity: 0;
+        }
+
+        .delay-200 {
+            animation-delay: 200ms;
+            opacity: 0;
+        }
+
+        .delay-300 {
+            animation-delay: 300ms;
+            opacity: 0;
+        }
+
+        .delay-400 {
+            animation-delay: 400ms;
+            opacity: 0;
+        }
     </style>
 </head>
+
 <body class="flex flex-col min-h-screen">
 
     <!-- HEADER -->
@@ -61,7 +88,7 @@
                     <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Workspace Hub</span>
                 </div>
             </div>
-            
+
             <div class="flex items-center gap-4">
                 <div class="flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-800 bg-slate-900/50">
                     <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
@@ -73,103 +100,171 @@
 
     <!-- MAIN CONTENT -->
     <main class="flex-1 w-full max-w-7xl mx-auto px-6 py-12 flex flex-col">
-        
+
         <!-- Welcome Section -->
         <div class="mb-12 animate-fade-in">
             <h2 class="text-3xl md:text-4xl font-bold text-white mb-3 tracking-tight">Bienvenido a tu entorno.</h2>
             <p class="text-slate-400 text-sm md:text-base max-w-2xl leading-relaxed">
-                Selecciona la herramienta que deseas utilizar. Puedes agregar más módulos a este hub a medida que el proyecto siga creciendo.
+                Selecciona la herramienta que deseas utilizar. Puedes agregar más módulos a este hub a medida que el
+                proyecto siga creciendo.
             </p>
         </div>
 
         <!-- Apps Grid (Ajustado para 4 tarjetas) -->
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 md:gap-8">
-            
+
             <!-- APP 1: Local Dashboard -->
-            <a href="/dashboard-CMD" class="app-card rounded-[2rem] p-8 group cursor-pointer animate-fade-in delay-100 flex flex-col h-full relative overflow-hidden block hover:border-indigo-500">
-                <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-600/5 rounded-bl-full -z-10 transition-transform group-hover:scale-110"></div>
-                
-                <div class="flex justify-between items-start mb-6">
-                    <div class="bg-indigo-600/10 border border-indigo-500/20 p-4 rounded-2xl group-hover:bg-indigo-600 transition-colors duration-300">
-                        <i data-lucide="terminal" class="w-8 h-8 text-indigo-400 group-hover:text-white transition-colors"></i>
-                    </div>
-                    <span class="px-3 py-1 text-[10px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/10 rounded-full border border-indigo-500/20">Principal</span>
+            <a href="/dashboard-CMD"
+                class="app-card rounded-[2rem] p-8 group cursor-pointer animate-fade-in delay-100 flex flex-col h-full relative overflow-hidden block hover:border-indigo-500">
+                <div
+                    class="absolute top-0 right-0 w-32 h-32 bg-indigo-600/5 rounded-bl-full -z-10 transition-transform group-hover:scale-110">
                 </div>
-                
-                <h3 class="text-xl font-bold text-white mb-3 group-hover:text-indigo-400 transition-colors">Panel Local</h3>
+
+                <div class="flex justify-between items-start mb-6">
+                    <div
+                        class="bg-indigo-600/10 border border-indigo-500/20 p-4 rounded-2xl group-hover:bg-indigo-600 transition-colors duration-300">
+                        <i data-lucide="terminal"
+                            class="w-8 h-8 text-indigo-400 group-hover:text-white transition-colors"></i>
+                    </div>
+                    <span
+                        class="px-3 py-1 text-[10px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/10 rounded-full border border-indigo-500/20">Principal</span>
+                </div>
+
+                <h3 class="text-xl font-bold text-white mb-3 group-hover:text-indigo-400 transition-colors">Panel Local
+                </h3>
                 <p class="text-sm text-slate-500 leading-relaxed flex-1 mb-8">
-                    Administra tus proyectos, organiza comandos por categorías y ejecuta scripts directamente en tu máquina local.
+                    Administra tus proyectos, organiza comandos por categorías y ejecuta scripts directamente en tu
+                    máquina local.
                 </p>
-                
+
                 <div class="flex items-center text-sm font-bold text-indigo-500 group-hover:text-indigo-400 mt-auto">
                     <span>Abrir aplicación</span>
-                    <i data-lucide="arrow-right" class="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1"></i>
+                    <i data-lucide="arrow-right"
+                        class="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1"></i>
                 </div>
             </a>
 
             <!-- APP 2: Generador de Redes -->
-            <a href="/redes" class="app-card rounded-[2rem] p-8 group cursor-pointer animate-fade-in delay-200 flex flex-col h-full relative overflow-hidden block hover:border-emerald-500">
-                <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-600/5 rounded-bl-full -z-10 transition-transform group-hover:scale-110"></div>
-                
-                <div class="flex justify-between items-start mb-6">
-                    <div class="bg-emerald-600/10 border border-emerald-500/20 p-4 rounded-2xl group-hover:bg-emerald-600 transition-colors duration-300">
-                        <i data-lucide="network" class="w-8 h-8 text-emerald-400 group-hover:text-white transition-colors"></i>
-                    </div>
-                    <span class="px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/10 rounded-full border border-emerald-500/20">Herramienta</span>
+            <a href="/redes"
+                class="app-card rounded-[2rem] p-8 group cursor-pointer animate-fade-in delay-200 flex flex-col h-full relative overflow-hidden block hover:border-emerald-500">
+                <div
+                    class="absolute top-0 right-0 w-32 h-32 bg-emerald-600/5 rounded-bl-full -z-10 transition-transform group-hover:scale-110">
                 </div>
-                
-                <h3 class="text-xl font-bold text-white mb-3 group-hover:text-emerald-400 transition-colors">Generador de Redes</h3>
+
+                <div class="flex justify-between items-start mb-6">
+                    <div
+                        class="bg-emerald-600/10 border border-emerald-500/20 p-4 rounded-2xl group-hover:bg-emerald-600 transition-colors duration-300">
+                        <i data-lucide="network"
+                            class="w-8 h-8 text-emerald-400 group-hover:text-white transition-colors"></i>
+                    </div>
+                    <span
+                        class="px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/10 rounded-full border border-emerald-500/20">Herramienta</span>
+                </div>
+
+                <h3 class="text-xl font-bold text-white mb-3 group-hover:text-emerald-400 transition-colors">Generador
+                    de Redes</h3>
                 <p class="text-sm text-slate-500 leading-relaxed flex-1 mb-8">
-                    Diseña, configura y visualiza topologías de redes. Administra tu infraestructura de manera visual e interactiva.
+                    Diseña, configura y visualiza topologías de redes. Administra tu infraestructura de manera visual e
+                    interactiva.
                 </p>
-                
+
                 <div class="flex items-center text-sm font-bold text-emerald-500 group-hover:text-emerald-400 mt-auto">
                     <span>Abrir aplicación</span>
-                    <i data-lucide="arrow-right" class="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1"></i>
+                    <i data-lucide="arrow-right"
+                        class="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1"></i>
                 </div>
             </a>
 
             <!-- APP 3: Doc Generator -->
-            <a href="/doc-generator" class="app-card rounded-[2rem] p-8 group cursor-pointer animate-fade-in delay-300 flex flex-col h-full relative overflow-hidden block hover:border-amber-500">
-                <div class="absolute top-0 right-0 w-32 h-32 bg-amber-600/5 rounded-bl-full -z-10 transition-transform group-hover:scale-110"></div>
-                
-                <div class="flex justify-between items-start mb-6">
-                    <div class="bg-amber-600/10 border border-amber-500/20 p-4 rounded-2xl group-hover:bg-amber-600 transition-colors duration-300">
-                        <i data-lucide="file-text" class="w-8 h-8 text-amber-400 group-hover:text-white transition-colors"></i>
-                    </div>
-                    <span class="px-3 py-1 text-[10px] font-black uppercase tracking-widest text-amber-400 bg-amber-500/10 rounded-full border border-amber-500/20">Utilidad</span>
+            <a href="/doc-generator"
+                class="app-card rounded-[2rem] p-8 group cursor-pointer animate-fade-in delay-300 flex flex-col h-full relative overflow-hidden block hover:border-amber-500">
+                <div
+                    class="absolute top-0 right-0 w-32 h-32 bg-amber-600/5 rounded-bl-full -z-10 transition-transform group-hover:scale-110">
                 </div>
-                
-                <h3 class="text-xl font-bold text-white mb-3 group-hover:text-amber-400 transition-colors">Generador de Docs</h3>
+
+                <div class="flex justify-between items-start mb-6">
+                    <div
+                        class="bg-amber-600/10 border border-amber-500/20 p-4 rounded-2xl group-hover:bg-amber-600 transition-colors duration-300">
+                        <i data-lucide="file-text"
+                            class="w-8 h-8 text-amber-400 group-hover:text-white transition-colors"></i>
+                    </div>
+                    <span
+                        class="px-3 py-1 text-[10px] font-black uppercase tracking-widest text-amber-400 bg-amber-500/10 rounded-full border border-amber-500/20">Utilidad</span>
+                </div>
+
+                <h3 class="text-xl font-bold text-white mb-3 group-hover:text-amber-400 transition-colors">Generador de
+                    Docs</h3>
                 <p class="text-sm text-slate-500 leading-relaxed flex-1 mb-8">
-                    Genera y organiza documentación técnica automáticamente. Exporta tus especificaciones de forma estandarizada.
+                    Genera y organiza documentación técnica automáticamente. Exporta tus especificaciones de forma
+                    estandarizada.
                 </p>
-                
+
                 <div class="flex items-center text-sm font-bold text-amber-500 group-hover:text-amber-400 mt-auto">
                     <span>Abrir aplicación</span>
-                    <i data-lucide="arrow-right" class="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1"></i>
+                    <i data-lucide="arrow-right"
+                        class="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1"></i>
                 </div>
             </a>
 
             <!-- APP 4: Emulador de Dispositivos -->
-            <a href="/emulador" class="app-card rounded-[2rem] p-8 group cursor-pointer animate-fade-in delay-400 flex flex-col h-full relative overflow-hidden block hover:border-cyan-500">
-                <div class="absolute top-0 right-0 w-32 h-32 bg-cyan-600/5 rounded-bl-full -z-10 transition-transform group-hover:scale-110"></div>
-                
-                <div class="flex justify-between items-start mb-6">
-                    <div class="bg-cyan-600/10 border border-cyan-500/20 p-4 rounded-2xl group-hover:bg-cyan-600 transition-colors duration-300">
-                        <i data-lucide="smartphone" class="w-8 h-8 text-cyan-400 group-hover:text-white transition-colors"></i>
-                    </div>
-                    <span class="px-3 py-1 text-[10px] font-black uppercase tracking-widest text-cyan-400 bg-cyan-500/10 rounded-full border border-cyan-500/20">Emulador</span>
+            <a href="/emulador"
+                class="app-card rounded-[2rem] p-8 group cursor-pointer animate-fade-in delay-400 flex flex-col h-full relative overflow-hidden block hover:border-cyan-500">
+                <div
+                    class="absolute top-0 right-0 w-32 h-32 bg-cyan-600/5 rounded-bl-full -z-10 transition-transform group-hover:scale-110">
                 </div>
-                
-                <h3 class="text-xl font-bold text-white mb-3 group-hover:text-cyan-400 transition-colors">Device Emulator</h3>
+
+                <div class="flex justify-between items-start mb-6">
+                    <div
+                        class="bg-cyan-600/10 border border-cyan-500/20 p-4 rounded-2xl group-hover:bg-cyan-600 transition-colors duration-300">
+                        <i data-lucide="smartphone"
+                            class="w-8 h-8 text-cyan-400 group-hover:text-white transition-colors"></i>
+                    </div>
+                    <span
+                        class="px-3 py-1 text-[10px] font-black uppercase tracking-widest text-cyan-400 bg-cyan-500/10 rounded-full border border-cyan-500/20">Emulador</span>
+                </div>
+
+                <h3 class="text-xl font-bold text-white mb-3 group-hover:text-cyan-400 transition-colors">Device
+                    Emulator</h3>
                 <p class="text-sm text-slate-500 leading-relaxed flex-1 mb-8">
-                    Previsualiza tus aplicaciones web e Ionic en diferentes tamaños de pantalla (iPhone, Pixel, iPad) de forma rápida.
+                    Previsualiza tus aplicaciones web e Ionic en diferentes tamaños de pantalla (iPhone, Pixel, iPad) de
+                    forma rápida.
                 </p>
-                
+
                 <div class="flex items-center text-sm font-bold text-cyan-500 group-hover:text-cyan-400 mt-auto">
                     <span>Abrir aplicación</span>
-                    <i data-lucide="arrow-right" class="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1"></i>
+                    <i data-lucide="arrow-right"
+                        class="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1"></i>
+                </div>
+            </a>
+
+             <!-- APP 5: Documentar APIs -->
+
+            <a href="/doc-api"
+                class="app-card rounded-[2rem] p-8 group cursor-pointer animate-fade-in delay-300 flex flex-col h-full relative overflow-hidden block hover:border-amber-500">
+                <div
+                    class="absolute top-0 right-0 w-32 h-32 bg-amber-600/5 rounded-bl-full -z-10 transition-transform group-hover:scale-110">
+                </div>
+
+                <div class="flex justify-between items-start mb-6">
+                    <div
+                        class="bg-amber-600/10 border border-amber-500/20 p-4 rounded-2xl group-hover:bg-amber-600 transition-colors duration-300">
+                        <i data-lucide="file-text"
+                            class="w-8 h-8 text-amber-400 group-hover:text-white transition-colors"></i>
+                    </div>
+                    <span
+                        class="px-3 py-1 text-[10px] font-black uppercase tracking-widest text-amber-400 bg-amber-500/10 rounded-full border border-amber-500/20">Utilidad</span>
+                </div>
+
+                <h3 class="text-xl font-bold text-white mb-3 group-hover:text-amber-400 transition-colors">API
+                    Documentation</h3>
+                <p class="text-sm text-slate-500 leading-relaxed flex-1 mb-8">
+                    Accede a la documentación completa de la API para integrar tus aplicaciones con ConsoleFlow.
+                </p>
+
+                <div class="flex items-center text-sm font-bold text-amber-500 group-hover:text-amber-400 mt-auto">
+                    <span>Abrir aplicación</span>
+                    <i data-lucide="arrow-right"
+                        class="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1"></i>
                 </div>
             </a>
 
@@ -180,11 +275,14 @@
     <footer class="w-full border-t border-slate-900 bg-[#020617] mt-auto">
         <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row justify-between items-center gap-4">
             <p class="text-xs text-slate-600 font-medium">
-                &copy; <script>document.write(new Date().getFullYear())</script> ConsoleFlow. Todos los derechos reservados.
+                &copy;
+                <script>document.write(new Date().getFullYear())</script> ConsoleFlow. Todos los derechos reservados.
             </p>
             <div class="flex gap-4">
-                <a href="#" class="text-slate-500 hover:text-white transition-colors"><i data-lucide="github" class="w-4 h-4"></i></a>
-                <a href="#" class="text-slate-500 hover:text-white transition-colors"><i data-lucide="file-text" class="w-4 h-4"></i></a>
+                <a href="#" class="text-slate-500 hover:text-white transition-colors"><i data-lucide="github"
+                        class="w-4 h-4"></i></a>
+                <a href="#" class="text-slate-500 hover:text-white transition-colors"><i data-lucide="file-text"
+                        class="w-4 h-4"></i></a>
             </div>
         </div>
     </footer>
@@ -194,4 +292,5 @@
         lucide.createIcons();
     </script>
 </body>
+
 </html>

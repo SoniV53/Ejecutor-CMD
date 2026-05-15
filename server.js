@@ -6,6 +6,7 @@ const path = require('path');
 const dataController = require('./controllers/dataController');
 const dataEmuladorController = require('./controllers/dataEmuladorController');
 const executeController = require('./controllers/executeController');
+const apiDocController = require('./controllers/apiDocController');
 const routing = require('./navegacion');
 
 // --- TRUCO PARA MODO PORTABLE (.EXE) ---
@@ -96,6 +97,12 @@ const server = http.createServer((req, res) => {
     if (req.method === 'POST' && req.url === '/execute') {
         return executeController.executeCommand(req, res);
     }
+
+      // API DOC MANAGER
+    if (req.url.startsWith('/api/doc/list')) return apiDocController.listDocs(req, res);
+    if (req.url.startsWith('/api/doc/save')) return apiDocController.saveDoc(req, res);
+    if (req.url.startsWith('/api/doc/read')) return apiDocController.readFile(req, res);
+    if (req.url.startsWith('/api/doc/delete')) return apiDocController.deleteItem(req, res);
 
     // 404 para cualquier otra ruta que no exista
     res.writeHead(404);

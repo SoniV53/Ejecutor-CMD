@@ -5,3 +5,7 @@ node_modules/
 Directorio de distribución / compilación
 
 dist/
+
+json/
+
+api_doc/
