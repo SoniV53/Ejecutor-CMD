@@ -8,6 +8,7 @@ const REDES_FILE = path.join(__dirname, 'ui/redes/generador-redes.html');
 const DOC_GEN_FILE = path.join(__dirname, 'ui/doc-Generator/doc-generator.html');
 const EMULADOR_FILE = path.join(__dirname, 'ui/emulador/emulador.html');
 const API_DOC_FILE = path.join(__dirname, 'ui/doc-api/api-doc.html');
+const REPO_DOC_FILE = path.join(__dirname, 'ui/repo_doc/repo_doc.html');
 
 // Mapa exacto de URLs que el usuario escribe -> a qué archivo corresponden
 const routes = {
@@ -17,7 +18,8 @@ const routes = {
     '/redes': REDES_FILE,
     '/doc-generator': DOC_GEN_FILE,
     '/emulador': EMULADOR_FILE,
-    '/doc-api': API_DOC_FILE
+    '/doc-api': API_DOC_FILE,
+    '/repo-doc': REPO_DOC_FILE
 };
 
 // Función principal que exportaremos
