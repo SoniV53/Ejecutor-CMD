@@ -59,15 +59,41 @@ app.on('ready', () => {
   });
 
   const contextMenu = Menu.buildFromTemplate([
-    { label: 'Mostrar Workspace', click: () => {mainWindow.loadURL('http://localhost:3000/'); mainWindow.show()} },
-    { type: 'separator' },
-    { label: 'Repo Docs', click: () => { mainWindow.loadURL('http://localhost:3000/ui/repo_doc/repo_doc.html'); mainWindow.show(); } },
-    { label: 'Dashboard', click: () => { mainWindow.loadURL('http://localhost:3000/ui/dashboard-CMD/dashboard-CMD.html'); mainWindow.show(); } },
-    { label: 'Emulador', click: () => { mainWindow.loadURL('http://localhost:3000/ui/emulador/emulador.html'); mainWindow.show(); } },
-    { label: 'Generador DOC', click: () => { mainWindow.loadURL('http://localhost:3000/ui/doc-Generator/doc-generator.html'); mainWindow.show(); } },
-    { label: 'APi DOC', click: () => { mainWindow.loadURL('http://localhost:3000/ui/doc-api/api-doc.html'); mainWindow.show(); } },
-    { type: 'separator' },
-    { label: 'Salir', click: () => { isQuiting = true; app.quit(); } }
+      { label: 'Mostrar / Ocultar', click: () => { 
+          if (mainWindow.isVisible()) { mainWindow.hide(); } 
+          else { mainWindow.show(); mainWindow.focus(); } 
+      }},
+      { type: 'separator' },
+      { label: 'Inicio (Hub)', click: () => { 
+          mainWindow.show(); mainWindow.focus(); 
+          mainWindow.webContents.send('navigate', 'hub-view'); 
+      }},
+      { label: 'Panel Local (CMD)', click: () => { 
+          mainWindow.show(); mainWindow.focus(); 
+          mainWindow.webContents.send('navigate', 'cmd-view'); 
+      }},
+      { label: 'Doc Generator', click: () => { 
+          mainWindow.show(); mainWindow.focus(); 
+          mainWindow.webContents.send('navigate', 'doc-view'); 
+      }},
+      { label: 'Redes', click: () => { 
+          mainWindow.show(); mainWindow.focus(); 
+          mainWindow.webContents.send('navigate', 'redes-view'); 
+      }},
+      { label: 'API Docs', click: () => { 
+          mainWindow.show(); mainWindow.focus(); 
+          mainWindow.webContents.send('navigate', 'api-view'); 
+      }},
+      { label: 'Repo Docs', click: () => { 
+          mainWindow.show(); mainWindow.focus(); 
+          mainWindow.webContents.send('navigate', 'repo-view'); 
+      }},
+      { label: 'Emulador', click: () => { 
+          mainWindow.show(); mainWindow.focus(); 
+          mainWindow.webContents.send('navigate', 'emu-view'); 
+      }},
+      { type: 'separator' },
+      { label: 'Salir', click: () => { isQuiting = true; app.quit(); } }
   ]);
 
   tray.setToolTip('ConsoleFlow Workspace');
