@@ -1,48 +1,41 @@
-const { app, BrowserWindow, session } = require('electron');
+const { app, BrowserWindow, session, Tray, Menu } = require('electron');
 const path = require('path');
-const fs = require('fs'); // Importante: Necesario para leer/guardar el archivo de estado
+const fs = require('fs');
 
 // Iniciamos el servidor de Node.js
 require('./server.js');
 
 let mainWindow;
+let tray = null; // Variable para el icono de la bandeja
+let isQuiting = false; // Flag para manejar la salida real
 
-// Archivo donde se guardará el estado de la ventana de forma segura (AppData)
 const windowStateFile = path.join(app.getPath('userData'), 'window-state.json');
-
-// User Agent de un Google Pixel 7 para forzar el modo móvil
 const MOBILE_USER_AGENT = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.5845.92 Mobile Safari/537.36";
 
 app.on('ready', () => {
-  // Configuramos el User Agent global para todas las peticiones
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     details.requestHeaders['User-Agent'] = MOBILE_USER_AGENT;
     callback({ cancel: false, requestHeaders: details.requestHeaders });
   });
 
-  let windowState = { width: 1300, height: 900 }; 
+  let windowState = { width: 1300, height: 900 };
 
-  // 2. Intentamos leer el archivo guardado con la última posición
   try {
-      if (fs.existsSync(windowStateFile)) {
-          windowState = JSON.parse(fs.readFileSync(windowStateFile));
-      }
-  } catch (error) {
-      console.log("No hay posición guardada o hubo un error al leer.");
-  }
+    if (fs.existsSync(windowStateFile)) {
+      windowState = JSON.parse(fs.readFileSync(windowStateFile));
+    }
+  } catch (error) { }
 
-  // 3. Creamos la ventana inyectando los valores (x, y, width, height)
   mainWindow = new BrowserWindow({
     width: windowState.width,
     height: windowState.height,
-    x: windowState.x, // Restaura la posición X (horizontal) en la pantalla
-    y: windowState.y, // Restaura la posición Y (vertical) en la pantalla
+    x: windowState.x,
+    y: windowState.y,
     title: "Workspace",
     icon: path.join(__dirname, 'assets/icon.ico'),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      // Esto permite que el navegador reporte que tiene soporte táctil
       enableRemoteModule: true,
       webSecurity: false,
       webviewTag: true,
@@ -50,23 +43,51 @@ app.on('ready', () => {
   });
 
   mainWindow.loadURL('http://localhost:3000');
-  
-  mainWindow.setMenu(null); 
+  mainWindow.setMenu(null);
 
-  mainWindow.on('close', () => {
-      const bounds = mainWindow.getBounds(); 
-      try {
-          fs.writeFileSync(windowStateFile, JSON.stringify(bounds));
-      } catch (error) {
-          console.error("Error al guardar la posición de la ventana:", error);
-      }
+  // --- INTEGRACIÓN DE SYSTEM TRAY ---
+  const iconPath = path.join(__dirname, 'assets/icon.ico');
+  tray = new Tray(iconPath);
+
+  tray.on('click', () => {
+    if (mainWindow.isVisible()) {
+      mainWindow.hide();
+    } else {
+      mainWindow.show();
+      mainWindow.focus();
+    }
   });
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
+  const contextMenu = Menu.buildFromTemplate([
+    { label: 'Mostrar Workspace', click: () => {mainWindow.loadURL('http://localhost:3000/'); mainWindow.show()} },
+    { type: 'separator' },
+    { label: 'Repo Docs', click: () => { mainWindow.loadURL('http://localhost:3000/ui/repo_doc/repo_doc.html'); mainWindow.show(); } },
+    { label: 'Dashboard', click: () => { mainWindow.loadURL('http://localhost:3000/ui/dashboard-CMD/dashboard-CMD.html'); mainWindow.show(); } },
+    { label: 'Emulador', click: () => { mainWindow.loadURL('http://localhost:3000/ui/emulador/emulador.html'); mainWindow.show(); } },
+    { label: 'Generador DOC', click: () => { mainWindow.loadURL('http://localhost:3000/ui/doc-Generator/doc-generator.html'); mainWindow.show(); } },
+    { label: 'APi DOC', click: () => { mainWindow.loadURL('http://localhost:3000/ui/doc-api/api-doc.html'); mainWindow.show(); } },
+    { type: 'separator' },
+    { label: 'Salir', click: () => { isQuiting = true; app.quit(); } }
+  ]);
+
+  tray.setToolTip('ConsoleFlow Workspace');
+  tray.setContextMenu(contextMenu);
+
+  // --- LÓGICA DE MINIMIZADO ---
+  mainWindow.on('close', (event) => {
+    if (!isQuiting) {
+      event.preventDefault();
+      mainWindow.hide();
+      const bounds = mainWindow.getBounds();
+      fs.writeFileSync(windowStateFile, JSON.stringify(bounds));
+    } else {
+      const bounds = mainWindow.getBounds();
+      try { fs.writeFileSync(windowStateFile, JSON.stringify(bounds)); } catch (error) { }
+    }
   });
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+// Permite restaurar al hacer clic en el icono de la bandeja
+app.on('activate', () => {
+  if (mainWindow) mainWindow.show();
 });
