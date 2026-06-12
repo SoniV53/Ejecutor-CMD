@@ -98,8 +98,9 @@ const server = http.createServer((req, res) => {
         return executeController.executeCommand(req, res);
     }
 
-      // API DOC MANAGER
+    // API DOC MANAGER
     if (req.url.startsWith('/api/doc/list')) return apiDocController.listDocs(req, res);
+    if (req.url.startsWith('/api/doc/saveJsonDoc')) return apiDocController.saveJsonDoc(req, res);
     if (req.url.startsWith('/api/doc/save')) return apiDocController.saveDoc(req, res);
     if (req.url.startsWith('/api/doc/read')) return apiDocController.readFile(req, res);
     if (req.url.startsWith('/api/doc/delete')) return apiDocController.deleteItem(req, res);

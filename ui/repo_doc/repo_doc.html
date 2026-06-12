@@ -8,44 +8,19 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        /* Estilos personalizados para la jerarquía de ramas */
-        .branch-item {
-            position: relative;
-        }
-        .branch-item::before {
-            content: '';
-            position: absolute;
-            left: -12px;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background-color: #e5e7eb; /* tailwind gray-200 */
-        }
-        .branch-item:last-child::before {
-            bottom: 50%;
-        }
-        .branch-item::after {
-            content: '';
-            position: absolute;
-            left: -12px;
-            top: 50%;
-            width: 12px;
-            height: 2px;
-            background-color: #e5e7eb;
-        }
-        /* Ocultar lineas en la raiz */
-        .root-branch > .branch-item::before,
-        .root-branch > .branch-item::after {
-            display: none;
-        }
+        .branch-item { position: relative; }
+        .branch-item::before { content: ''; position: absolute; left: -12px; top: 0; bottom: 0; width: 2px; background-color: #e5e7eb; }
+        .branch-item:last-child::before { bottom: 50%; }
+        .branch-item::after { content: ''; position: absolute; left: -12px; top: 50%; width: 12px; height: 2px; background-color: #e5e7eb; }
+        .root-branch > .branch-item::before, .root-branch > .branch-item::after { display: none; }
     </style>
 </head>
 <body class="bg-slate-50 h-screen flex overflow-hidden text-slate-800 font-sans">
 
-    <!-- Sidebar: Lista de Ramas -->
-    <aside class="w-80 bg-white border-r border-slate-200 flex flex-col shadow-sm z-10">
+    <aside class="w-80 bg-white border-r border-slate-200 flex flex-col shadow-sm z-10 shrink-0">
         <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
             <h2 class="text-lg font-bold flex items-center gap-2 text-slate-700">
+                <a href="/" class="p-1 hover:bg-slate-200 rounded-lg text-slate-500 transition"><i data-lucide="arrow-left" class="w-5 h-5"></i></a>
                 <i data-lucide="git-branch" class="text-indigo-600"></i> Ramas
             </h2>
             <div class="flex gap-1">
@@ -58,33 +33,42 @@
             </div>
         </div>
         
-        <div id="branch-tree-container" class="flex-1 overflow-y-auto p-4 pl-2">
-            <!-- El árbol de ramas se renderizará aquí -->
-        </div>
+        <div id="branch-tree-container" class="flex-1 overflow-y-auto p-4 pl-2"></div>
 
-        <div class="p-4 border-t border-slate-200 bg-slate-50 space-y-2">
-            <button onclick="exportJSON()" class="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white py-2 px-4 rounded-md transition text-sm">
-                <i data-lucide="download" class="w-4 h-4"></i> Exportar JSON
+        <div class="p-4 border-t border-slate-200 bg-slate-50 flex flex-col gap-2">
+            <div class="text-xs text-slate-500 mb-1 flex items-center justify-between">
+                <span>Archivo Activo:</span>
+                <div class="flex items-center gap-1.5">
+                    <span id="file-status" class="font-medium text-amber-600 truncate max-w-[140px]" title="Cargando...">Cargando...</span>
+                    <button onclick="crearNuevoArchivo()" class="text-slate-400 hover:text-emerald-600 transition p-1" title="Nuevo Proyecto (En Blanco)">
+                        <i data-lucide="file-plus" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <button onclick="abrirArchivo()" class="w-full flex items-center justify-center gap-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 py-2 px-4 rounded-md transition text-sm font-medium">
+                <i data-lucide="folder-open" class="w-4 h-4"></i> Abrir Proyecto...
             </button>
             
-            <input type="file" id="import-file" accept=".json" class="hidden" onchange="importJSON(event)">
-            <button onclick="document.getElementById('import-file').click()" class="w-full flex items-center justify-center gap-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 py-2 px-4 rounded-md transition text-sm">
-                <i data-lucide="upload" class="w-4 h-4"></i> Importar JSON
-            </button>
+            <div class="flex gap-2">
+                <button onclick="guardarArchivoForzado()" class="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition text-sm font-medium" title="Forzar guardado">
+                    <i data-lucide="save" class="w-4 h-4"></i> Guardar
+                </button>
+                <button onclick="guardarArchivoComo()" class="flex-1 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white py-2 px-4 rounded-md transition text-sm font-medium" title="Guardar una copia nueva">
+                    <i data-lucide="copy" class="w-4 h-4"></i> Como...
+                </button>
+            </div>
         </div>
     </aside>
 
-    <!-- Área Principal: Detalles de la Rama y Commits -->
     <main class="flex-1 flex flex-col bg-slate-50 overflow-hidden">
         
-        <!-- Estado Vacío -->
         <div id="empty-state" class="flex-1 flex flex-col items-center justify-center text-slate-400">
             <i data-lucide="git-merge" class="w-24 h-24 mb-4 opacity-20"></i>
             <h3 class="text-xl font-medium text-slate-500">Selecciona o crea una rama</h3>
             <p class="text-sm mt-2 max-w-md text-center">Organiza tu código documentando la estructura de tus ramas y el historial de commits relevantes.</p>
         </div>
 
-        <!-- Contenido de la Carpeta -->
         <div id="folder-content" class="hidden flex-1 flex flex-col overflow-hidden">
             <div class="p-8 border-b border-slate-200 bg-white shadow-sm z-10">
                 <div class="flex items-start justify-between">
@@ -97,24 +81,18 @@
                         <h1 id="view-folder-name" class="text-3xl font-bold text-slate-900 mb-2"></h1>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button onclick="editCurrentFolder()" class="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 p-2 rounded-md transition" title="Editar Carpeta">
-                            <i data-lucide="pencil" class="w-5 h-5"></i>
-                        </button>
-                        <button onclick="deleteCurrentFolder()" class="text-slate-500 hover:text-red-600 hover:bg-red-50 p-2 rounded-md transition" title="Eliminar Carpeta">
-                            <i data-lucide="trash-2" class="w-5 h-5"></i>
-                        </button>
+                        <button onclick="editCurrentFolder()" class="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 p-2 rounded-md transition"><i data-lucide="pencil" class="w-5 h-5"></i></button>
+                        <button onclick="deleteCurrentFolder()" class="text-slate-500 hover:text-red-600 hover:bg-red-50 p-2 rounded-md transition"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
                     </div>
                 </div>
             </div>
             <div class="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50">
                 <i data-lucide="folder-open" class="w-16 h-16 mb-4 opacity-20"></i>
-                <p class="text-center max-w-md">Las carpetas sirven para agrupar ramas organizativamente. <br>Expande esta carpeta en el menú lateral y selecciona una rama para ver su historial de commits.</p>
+                <p class="text-center max-w-md">Las carpetas sirven para agrupar ramas organizativamente. <br>Expande esta carpeta en el menú lateral y selecciona una rama.</p>
             </div>
         </div>
 
-        <!-- Contenido de la Rama -->
         <div id="branch-content" class="hidden flex-1 flex flex-col overflow-hidden bg-white">
-            <!-- Cabecera de la Rama -->
             <div class="p-8 border-b border-slate-200 bg-slate-50">
                 <div class="flex items-start justify-between">
                     <div>
@@ -126,587 +104,564 @@
                                 desde <span id="view-branch-parent-name" class="font-mono bg-white border border-slate-200 px-1 rounded"></span>
                             </span>
                         </div>
-                        <h1 id="view-branch-name" class="text-3xl font-bold text-slate-900 font-mono mb-2">main</h1>
+                        <h1 id="view-branch-name" class="text-3xl font-bold text-slate-900 font-mono mb-2"></h1>
                         <p id="view-branch-desc" class="text-slate-600 mt-2 max-w-3xl leading-relaxed whitespace-pre-wrap"></p>
                     </div>
                     <div class="flex items-center gap-1 no-print">
-                        <button onclick="exportBranchPDF()" class="text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 p-2 rounded-md transition" title="Exportar a PDF">
-                            <i data-lucide="file-down" class="w-5 h-5"></i>
-                        </button>
-                        <button onclick="editCurrentBranch()" class="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 p-2 rounded-md transition" title="Editar Rama">
-                            <i data-lucide="pencil" class="w-5 h-5"></i>
-                        </button>
-                        <button onclick="deleteCurrentBranch()" class="text-slate-500 hover:text-red-600 hover:bg-red-50 p-2 rounded-md transition" title="Eliminar Rama">
-                            <i data-lucide="trash-2" class="w-5 h-5"></i>
-                        </button>
+                        <button onclick="exportBranchPDF()" class="text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 p-2 rounded-md transition" title="Exportar a PDF"><i data-lucide="file-down" class="w-5 h-5"></i></button>
+                        <button onclick="editCurrentBranch()" class="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 p-2 rounded-md transition" title="Editar Rama"><i data-lucide="pencil" class="w-5 h-5"></i></button>
+                        <button onclick="deleteCurrentBranch()" class="text-slate-500 hover:text-red-600 hover:bg-red-50 p-2 rounded-md transition" title="Eliminar Rama"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
                     </div>
                 </div>
             </div>
 
-            <!-- Lista de Commits -->
             <div class="flex-1 overflow-y-auto p-8 relative">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-                        <i data-lucide="git-commit" class="text-slate-500"></i> Historial de Commits
-                    </h2>
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="git-commit" class="text-slate-500"></i> Historial de Commits</h2>
                     <button onclick="openModal('commit-modal')" class="no-print flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-md transition text-sm font-medium shadow-sm">
                         <i data-lucide="plus" class="w-4 h-4"></i> Añadir Commit
                     </button>
                 </div>
-
-                <div id="commits-list" class="space-y-4">
-                    <!-- Los commits se inyectarán aquí -->
-                </div>
+                <div id="commits-list" class="space-y-4"></div>
             </div>
         </div>
     </main>
 
-    <!-- Modal: Nueva Rama -->
     <div id="branch-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-50">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
             <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                <h3 class="text-lg font-bold text-slate-800">Crear Nueva Rama</h3>
-                <button onclick="closeModal('branch-modal')" class="text-slate-400 hover:text-slate-600">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
+                <h3 class="text-lg font-bold text-slate-800">Crear/Editar Rama</h3>
+                <button onclick="closeModal('branch-modal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <form id="form-branch" onsubmit="saveBranch(event)" class="p-6 space-y-4">
                 <input type="hidden" id="edit-branch-id">
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Nombre de la rama</label>
-                    <input type="text" id="input-branch-name" required placeholder="ej. feature/login" class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono text-sm">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+                    <input type="text" id="input-branch-name" required class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none font-mono text-sm focus:ring-2 focus:ring-indigo-500">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Ubicación (Carpeta)</label>
-                        <select id="input-branch-folder" class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm">
-                            <option value="">Carpeta Raíz</option>
-                            <!-- Opciones se llenan dinámicamente -->
-                        </select>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Carpeta</label>
+                        <select id="input-branch-folder" class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm"></select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Rama Padre</label>
-                        <select id="input-branch-parent" class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm">
-                            <option value="">Ninguna (Rama Raíz)</option>
-                            <!-- Opciones se llenan dinámicamente -->
-                        </select>
+                        <select id="input-branch-parent" class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm"></select>
                     </div>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
-                    <textarea id="input-branch-desc" rows="3" placeholder="¿Cuál es el propósito de esta rama?" class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm resize-none"></textarea>
+                    <textarea id="input-branch-desc" rows="3" class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm resize-none"></textarea>
                 </div>
                 <div class="pt-2 flex justify-end gap-2">
-                    <button type="button" onclick="closeModal('branch-modal')" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition">Cancelar</button>
-                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition">Guardar Rama</button>
+                    <button type="button" onclick="closeModal('branch-modal')" class="px-4 py-2 text-sm font-medium bg-slate-100 hover:bg-slate-200 rounded-lg">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg">Guardar</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Modal: Nueva Carpeta -->
     <div id="folder-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-50">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
             <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                <h3 class="text-lg font-bold text-slate-800">Carpeta</h3>
-                <button onclick="closeModal('folder-modal')" class="text-slate-400 hover:text-slate-600">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
+                <h3 class="text-lg font-bold text-slate-800">Crear/Editar Carpeta</h3>
+                <button onclick="closeModal('folder-modal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <form id="form-folder" onsubmit="saveFolder(event)" class="p-6 space-y-4">
                 <input type="hidden" id="edit-folder-id">
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Nombre de la carpeta</label>
-                    <input type="text" id="input-folder-name" required placeholder="ej. features" class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+                    <input type="text" id="input-folder-name" required class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm focus:ring-2 focus:ring-indigo-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Ubicación (Carpeta Padre)</label>
-                    <select id="input-folder-parent" class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm">
-                        <option value="">Carpeta Raíz</option>
-                        <!-- Opciones se llenan dinámicamente -->
-                    </select>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Carpeta Padre</label>
+                    <select id="input-folder-parent" class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm"></select>
                 </div>
                 <div class="pt-2 flex justify-end gap-2">
-                    <button type="button" onclick="closeModal('folder-modal')" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition">Cancelar</button>
-                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition">Guardar Carpeta</button>
+                    <button type="button" onclick="closeModal('folder-modal')" class="px-4 py-2 text-sm font-medium bg-slate-100 hover:bg-slate-200 rounded-lg">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg">Guardar</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Modal: Nuevo Commit -->
     <div id="commit-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-50">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
             <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                 <h3 class="text-lg font-bold text-slate-800">Registrar Commit</h3>
-                <button onclick="closeModal('commit-modal')" class="text-slate-400 hover:text-slate-600">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
+                <button onclick="closeModal('commit-modal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <form id="form-commit" onsubmit="saveCommit(event)" class="p-6 space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Hash / ID (Opcional)</label>
-                    <input type="text" id="input-commit-hash" placeholder="ej. a1b2c3d" class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-mono text-sm">
+                    <input type="text" id="input-commit-hash" class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none font-mono text-sm focus:ring-2 focus:ring-emerald-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Mensaje del commit</label>
-                    <textarea id="input-commit-msg" required rows="3" placeholder="Agrega autenticación JWT..." class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm resize-none"></textarea>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Mensaje</label>
+                    <textarea id="input-commit-msg" required rows="3" class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm resize-none focus:ring-2 focus:ring-emerald-500"></textarea>
                 </div>
                 <div class="pt-2 flex justify-end gap-2">
-                    <button type="button" onclick="closeModal('commit-modal')" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition">Cancelar</button>
-                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition">Guardar Commit</button>
+                    <button type="button" onclick="closeModal('commit-modal')" class="px-4 py-2 text-sm font-medium bg-slate-100 hover:bg-slate-200 rounded-lg">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg">Guardar</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Script de la Aplicación -->
+    <div id="filename-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-[60]">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden transform transition-all">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="text-lg font-bold text-slate-800" id="filename-modal-title">Nombre del Proyecto</h3>
+                <button onclick="closeModal('filename-modal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-6">
+                <input type="text" id="input-filename" placeholder="ej. modulo_login" onkeydown="if(event.key==='Enter') confirmFilename()" class="w-full border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none text-sm mb-6">
+                <div class="flex justify-end gap-2">
+                    <button onclick="closeModal('filename-modal')" class="flex-1 px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition">Cancelar</button>
+                    <button onclick="confirmFilename()" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition">Aceptar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="open-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-[60]">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="text-lg font-bold text-slate-800">Archivos en json/rama</h3>
+                <button onclick="closeModal('open-modal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-4 bg-slate-50">
+                <div id="file-list-container" class="space-y-2 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
+                    </div>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // Inicializar iconos
         lucide.createIcons();
 
-        // Estado Global
-        let state = {
-            folders: [],
-            branches: [],
-            commits: []
-        };
+        // Variables de Estado
+        let state = { folders: [], branches: [], commits: [] };
         let currentBranchId = null;
         let currentFolderId = null;
         let expandedFolders = new Set();
+        
+        // --- SISTEMA DE ARCHIVOS Y BACKEND ---
+        const BASE_FOLDER = 'json/rama';
+        let activeFileName = localStorage.getItem('gitDocsActiveFile') || 'proyecto_default.json';
 
-        // --- Utilidades ---
-        function generateId() {
-            return Math.random().toString(36).substr(2, 9);
+        // 1. Iniciar App y buscar archivos
+        async function initBackendSystem() {
+            try {
+                // Consultamos todos los archivos en la ruta
+                const res = await fetch(`/api/doc/list?path=${encodeURIComponent(BASE_FOLDER)}&_t=${Date.now()}`, { cache: 'no-store' });
+                const items = await res.json();
+                
+                if (!res.ok || items.length === 0) {
+                    await ensureDefaultFile(); // Crea la carpeta y un default
+                    return;
+                }
+
+                // Validamos si el archivo guardado en LocalStorage aún existe en el server
+                const exists = items.some(i => !i.isFolder && i.name === activeFileName);
+                if (!exists) {
+                    const jsonFiles = items.filter(i => !i.isFolder && i.name.endsWith('.json'));
+                    if (jsonFiles.length > 0) activeFileName = jsonFiles[0].name;
+                    else { await ensureDefaultFile(); return; }
+                }
+                
+                await loadActiveFile();
+            } catch (e) {
+                console.error(e);
+                await ensureDefaultFile();
+            }
         }
 
-        function formatDate(date) {
-            return new Intl.DateTimeFormat('es-ES', {
-                year: 'numeric', month: 'short', day: 'numeric',
-                hour: '2-digit', minute: '2-digit'
-            }).format(new Date(date));
+        // 2. Crear archivo semilla inicial
+        async function ensureDefaultFile() {
+            activeFileName = 'proyecto_default.json';
+            const defaultState = { folders: [], branches: [], commits: [] };
+            try {
+                await fetch('/api/doc/saveJsonDoc', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fileName: activeFileName, folder: BASE_FOLDER, content: JSON.stringify(defaultState, null, 2) })
+                });
+                state = defaultState;
+                localStorage.setItem('gitDocsActiveFile', activeFileName);
+                updateFileStatusUI(activeFileName, true);
+                renderTree();
+            } catch(e) {}
         }
 
-        // --- Modales ---
+        // 3. Cargar el JSON Activo
+        async function loadActiveFile() {
+            try {
+                updateFileStatusUI("Cargando...", false);
+                const res = await fetch(`/api/doc/read?path=${encodeURIComponent(BASE_FOLDER + '/' + activeFileName)}&_t=${Date.now()}`);
+                if(res.ok) {
+                    const data = await res.json();
+                    const parsed = JSON.parse(data.content);
+                    state = parsed.state || parsed; // Compatibilidad
+                    expandedFolders = new Set();
+                    localStorage.setItem('gitDocsActiveFile', activeFileName);
+                    updateFileStatusUI(activeFileName, true);
+                    renderTree();
+                }
+            } catch(e) {
+                updateFileStatusUI(activeFileName + " (Error lectura)", false);
+            }
+        }
+
+        // 4. Guardado Automático al Servidor
+        function saveStateLocally() {
+            if(!activeFileName) return;
+            updateFileStatusUI(activeFileName, false); // "Sincronizando..."
+            const dataToSave = JSON.stringify(state, null, 2);
+            
+            fetch('/api/doc/saveJsonDoc', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileName: activeFileName, folder: BASE_FOLDER, content: dataToSave })
+            }).then(res => res.json()).then(data => {
+                if(data.status === 'success') updateFileStatusUI(activeFileName, true);
+                else updateFileStatusUI(activeFileName + " (Error)", false);
+            }).catch(e => updateFileStatusUI(activeFileName + " (Off)", false));
+        }
+
+        function guardarArchivoForzado() { saveStateLocally(); }
+
+        function updateFileStatusUI(name, isSynced = true) {
+            const el = document.getElementById('file-status');
+            el.textContent = name;
+            if(isSynced) {
+                el.className = "font-medium text-emerald-600 truncate max-w-[140px]";
+                el.title = name + " (Guardado)";
+            } else {
+                el.className = "font-medium text-amber-500 truncate max-w-[140px]";
+                el.title = name + " (Guardando...)";
+            }
+        }
+
+        // --- GESTIÓN DE MODALES DE ARCHIVO ---
+        let filenameCallback = null;
+        
+        function openFilenameModal(title, placeholder, callback) {
+            document.getElementById('filename-modal-title').innerText = title;
+            const input = document.getElementById('input-filename');
+            input.value = ''; input.placeholder = placeholder;
+            filenameCallback = callback;
+            openModal('filename-modal');
+            setTimeout(() => input.focus(), 100);
+        }
+
+        function confirmFilename() {
+            const val = document.getElementById('input-filename').value;
+            if(filenameCallback) filenameCallback(val);
+            closeModal('filename-modal');
+        }
+
+        function crearNuevoArchivo() {
+            openFilenameModal("Nuevo Proyecto", "ej. mi_proyecto", (rawName) => {
+                const cleanName = rawName.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim();
+                if(!cleanName) return;
+                
+                state = { folders: [], branches: [], commits: [] };
+                currentBranchId = null; currentFolderId = null; expandedFolders.clear();
+                
+                activeFileName = cleanName + '.json';
+                localStorage.setItem('gitDocsActiveFile', activeFileName);
+                saveStateLocally(); // Se manda a crear en el backend
+                
+                document.getElementById('empty-state').classList.remove('hidden');
+                document.getElementById('branch-content').classList.add('hidden');
+                document.getElementById('folder-content').classList.add('hidden');
+                renderTree();
+            });
+        }
+
+        function guardarArchivoComo() {
+            openFilenameModal("Guardar Como", "Nombre del archivo copia", (rawName) => {
+                const cleanName = rawName.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim();
+                if(!cleanName) return;
+                activeFileName = cleanName + '.json';
+                localStorage.setItem('gitDocsActiveFile', activeFileName);
+                saveStateLocally(); // Crea un clon
+            });
+        }
+
+        async function abrirArchivo() {
+            try {
+                const res = await fetch(`/api/doc/list?path=${encodeURIComponent(BASE_FOLDER)}&_t=${Date.now()}`, {cache:'no-store'});
+                const items = await res.json();
+                const container = document.getElementById('file-list-container');
+                container.innerHTML = '';
+                
+                const jsonFiles = items.filter(i => !i.isFolder && i.name.endsWith('.json'));
+                if(jsonFiles.length === 0) {
+                    container.innerHTML = '<p class="text-sm text-slate-500 text-center py-4">No hay archivos.</p>';
+                } else {
+                    jsonFiles.forEach(f => {
+                        const isActive = (f.name === activeFileName);
+                        container.innerHTML += `
+                            <button onclick="selectFileToOpen('${f.name}')" class="w-full flex items-center justify-between px-4 py-3 rounded-xl border ${isActive ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 hover:bg-white text-slate-700'} shadow-sm transition-all mb-2">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="file-json" class="w-4 h-4 ${isActive ? 'text-indigo-600' : 'text-slate-400'}"></i>
+                                    <span class="text-sm font-medium">${f.name}</span>
+                                </div>
+                                ${isActive ? '<span class="text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-600 px-2 py-1 rounded-full">Abierto</span>' : ''}
+                            </button>
+                        `;
+                    });
+                }
+                lucide.createIcons();
+                openModal('open-modal');
+            } catch(e) { alert("Error al conectar con la carpeta"); }
+        }
+
+        async function selectFileToOpen(fileName) {
+            activeFileName = fileName;
+            closeModal('open-modal');
+            await loadActiveFile();
+            document.getElementById('empty-state').classList.remove('hidden');
+            document.getElementById('branch-content').classList.add('hidden');
+            document.getElementById('folder-content').classList.add('hidden');
+        }
+
+        // --- FUNCIONALIDAD ORIGINAL DE ÁRBOL Y RAMAS ---
+        function generateId() { return Math.random().toString(36).substr(2, 9); }
+        function formatDate(date) { return new Intl.DateTimeFormat('es-ES', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(date)); }
+
         function openModal(id) {
             document.getElementById(id).classList.remove('hidden');
-            if (id === 'branch-modal' || id === 'folder-modal') updateParentSelect();
+            if (id === 'branch-modal' || id === 'folder-modal') populateSelects();
         }
 
         function closeModal(id) {
             document.getElementById(id).classList.add('hidden');
-            if (id === 'branch-modal') {
-                document.getElementById('form-branch').reset();
-                document.getElementById('edit-branch-id').value = '';
-            }
-            if (id === 'folder-modal') {
-                document.getElementById('form-folder').reset();
-                document.getElementById('edit-folder-id').value = '';
-            }
+            if (id === 'branch-modal') document.getElementById('form-branch').reset();
+            if (id === 'folder-modal') document.getElementById('form-folder').reset();
             if (id === 'commit-modal') document.getElementById('form-commit').reset();
+            document.getElementById('edit-branch-id').value = '';
+            document.getElementById('edit-folder-id').value = '';
         }
-        
-        // --- Lógica de Carpetas ---
+
+        function populateSelects() {
+            const folderSelectBranch = document.getElementById('input-branch-folder');
+            const parentSelectBranch = document.getElementById('input-branch-parent');
+            const folderSelectFolder = document.getElementById('input-folder-parent');
+
+            folderSelectBranch.innerHTML = '<option value="">Carpeta Raíz</option>';
+            folderSelectFolder.innerHTML = '<option value="">Carpeta Raíz</option>';
+            state.folders.forEach(f => {
+                folderSelectBranch.innerHTML += `<option value="${f.id}">${f.name}</option>`;
+                if(f.id !== document.getElementById('edit-folder-id').value) {
+                    folderSelectFolder.innerHTML += `<option value="${f.id}">${f.name}</option>`;
+                }
+            });
+
+            parentSelectBranch.innerHTML = '<option value="">Ninguna (Raíz)</option>';
+            state.branches.forEach(b => {
+                if(b.id !== document.getElementById('edit-branch-id').value) {
+                    parentSelectBranch.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+                }
+            });
+        }
+
         function saveFolder(e) {
             e.preventDefault();
             const id = document.getElementById('edit-folder-id').value;
-            const name = document.getElementById('input-folder-name').value.trim();
+            const name = document.getElementById('input-folder-name').value;
             const parentId = document.getElementById('input-folder-parent').value || null;
 
             if (id) {
-                // Editar
                 const folder = state.folders.find(f => f.id === id);
-                if (folder) {
-                    folder.name = name;
-                    folder.parentId = parentId;
-                }
+                if (folder) { folder.name = name; folder.parentId = parentId; }
             } else {
-                // Crear
-                const newFolder = {
-                    id: generateId(),
-                    name: name,
-                    parentId: parentId,
-                    createdAt: new Date().toISOString()
-                };
-                state.folders.push(newFolder);
-                expandedFolders.add(newFolder.id); // Auto expandir al crear
-                selectFolder(newFolder.id);
+                state.folders.push({ id: generateId(), name, parentId });
             }
 
+            saveStateLocally();
             closeModal('folder-modal');
             renderTree();
         }
 
-        function selectFolder(id) {
-            currentFolderId = id;
-            currentBranchId = null;
-            const folder = state.folders.find(f => f.id === id);
-            if (!folder) return;
-
-            document.getElementById('empty-state').classList.add('hidden');
-            document.getElementById('branch-content').classList.add('hidden');
-            document.getElementById('folder-content').classList.remove('hidden');
-
-            document.getElementById('view-folder-name').textContent = folder.name;
-            renderTree(); // Para actualizar los estilos de selección
-        }
-
-        function editCurrentFolder() {
-            if (!currentFolderId) return;
-            const folder = state.folders.find(f => f.id === currentFolderId);
-            if (!folder) return;
-            
-            document.getElementById('edit-folder-id').value = folder.id;
-            document.getElementById('input-folder-name').value = folder.name;
-            updateParentSelect();
-            document.getElementById('input-folder-parent').value = folder.parentId || '';
-            openModal('folder-modal');
-        }
-
-        function deleteCurrentFolder() {
-            if (!currentFolderId) return;
-            if (confirm('¿Estás seguro de que deseas eliminar esta carpeta? Sus ramas y subcarpetas se moverán a la raíz.')) {
-                // Mover hijos a la raíz
-                state.folders.filter(f => f.parentId === currentFolderId).forEach(f => f.parentId = null);
-                state.branches.filter(b => b.folderId === currentFolderId).forEach(b => b.folderId = null);
-                
-                state.folders = state.folders.filter(f => f.id !== currentFolderId);
-                
-                currentFolderId = null;
-                document.getElementById('empty-state').classList.remove('hidden');
-                document.getElementById('folder-content').classList.add('hidden');
-                renderTree();
-            }
-        }
-
-        function toggleFolder(id) {
-            if (expandedFolders.has(id)) {
-                expandedFolders.delete(id);
-            } else {
-                expandedFolders.add(id);
-            }
-            renderTree();
-        }
-
-        // --- Lógica de Ramas ---
         function saveBranch(e) {
             e.preventDefault();
             const id = document.getElementById('edit-branch-id').value;
-            const name = document.getElementById('input-branch-name').value.trim();
-            const desc = document.getElementById('input-branch-desc').value.trim();
+            const name = document.getElementById('input-branch-name').value;
+            const desc = document.getElementById('input-branch-desc').value;
             const parentId = document.getElementById('input-branch-parent').value || null;
             const folderId = document.getElementById('input-branch-folder').value || null;
 
             if (id) {
-                // Editar
                 const branch = state.branches.find(b => b.id === id);
-                if (branch) {
-                    branch.name = name;
-                    branch.description = desc;
-                    branch.parentId = parentId;
-                    branch.folderId = folderId;
-                }
-                selectBranch(id);
+                if (branch) { branch.name = name; branch.desc = desc; branch.parentId = parentId; branch.folderId = folderId; }
             } else {
-                // Crear
-                const newBranch = {
-                    id: generateId(),
-                    name: name,
-                    description: desc,
-                    parentId: parentId,
-                    folderId: folderId,
-                    createdAt: new Date().toISOString()
-                };
-                state.branches.push(newBranch);
-                selectBranch(newBranch.id);
+                state.branches.push({ id: generateId(), name, desc, parentId, folderId, createdAt: new Date().toISOString() });
             }
 
+            saveStateLocally();
             closeModal('branch-modal');
             renderTree();
+            if (id && currentBranchId === id) showBranchDetails(id);
         }
 
-        function selectBranch(id) {
-            currentBranchId = id;
-            currentFolderId = null;
-            const branch = state.branches.find(b => b.id === id);
-            if (!branch) return;
-
-            // Actualizar UI
-            document.getElementById('empty-state').classList.add('hidden');
-            document.getElementById('folder-content').classList.add('hidden');
-            document.getElementById('branch-content').classList.remove('hidden');
-
-            document.getElementById('view-branch-name').textContent = branch.name;
-            document.getElementById('view-branch-desc').textContent = branch.description || 'Sin descripción.';
-
-            const parentInfo = document.getElementById('view-branch-parent');
-            if (branch.parentId) {
-                const parent = state.branches.find(b => b.id === branch.parentId);
-                document.getElementById('view-branch-parent-name').textContent = parent ? parent.name : 'Desconocida';
-                parentInfo.classList.remove('hidden');
-            } else {
-                parentInfo.classList.add('hidden');
-            }
-
-            renderTree(); // Re-render para aplicar estilos de selección activos
-            renderCommits();
-        }
-
-        function editCurrentBranch() {
-            if (!currentBranchId) return;
-            const branch = state.branches.find(b => b.id === currentBranchId);
-            if (!branch) return;
-            
-            document.getElementById('edit-branch-id').value = branch.id;
-            document.getElementById('input-branch-name').value = branch.name;
-            document.getElementById('input-branch-desc').value = branch.description || '';
-            updateParentSelect();
-            document.getElementById('input-branch-parent').value = branch.parentId || '';
-            document.getElementById('input-branch-folder').value = branch.folderId || '';
-            openModal('branch-modal');
-        }
-
-        function deleteCurrentBranch() {
-            if (!currentBranchId) return;
-            if (confirm('¿Estás seguro de que deseas eliminar esta rama y todos sus commits? Las ramas hijas quedarán huérfanas.')) {
-                // Eliminar commits
-                state.commits = state.commits.filter(c => c.branchId !== currentBranchId);
-                // Eliminar rama
-                state.branches = state.branches.filter(b => b.id !== currentBranchId);
-                
-                currentBranchId = null;
-                document.getElementById('empty-state').classList.remove('hidden');
-                document.getElementById('branch-content').classList.add('hidden');
-                renderTree();
-            }
-        }
-
-        function updateParentSelect() {
-            const selectBranch = document.getElementById('input-branch-parent');
-            selectBranch.innerHTML = '<option value="">Ninguna (Rama Raíz)</option>';
-            state.branches.forEach(b => {
-                if(document.getElementById('edit-branch-id') && document.getElementById('edit-branch-id').value === b.id) return;
-                const option = document.createElement('option');
-                option.value = b.id;
-                option.textContent = b.name;
-                selectBranch.appendChild(option);
-            });
-
-            const selectFolder = document.getElementById('input-branch-folder');
-            if(selectFolder) {
-                selectFolder.innerHTML = '<option value="">Carpeta Raíz</option>';
-                state.folders.forEach(f => {
-                    const option = document.createElement('option');
-                    option.value = f.id;
-                    option.textContent = f.name;
-                    selectFolder.appendChild(option);
-                });
-            }
-
-            const selectFolderParent = document.getElementById('input-folder-parent');
-            if(selectFolderParent) {
-                selectFolderParent.innerHTML = '<option value="">Carpeta Raíz</option>';
-                state.folders.forEach(f => {
-                    if(document.getElementById('edit-folder-id') && document.getElementById('edit-folder-id').value === f.id) return;
-                    const option = document.createElement('option');
-                    option.value = f.id;
-                    option.textContent = f.name;
-                    selectFolderParent.appendChild(option);
-                });
-            }
-        }
-
-        // --- Renderizado del Árbol Jerárquico ---
-        function renderTree() {
-            const container = document.getElementById('branch-tree-container');
-            container.innerHTML = '';
-
-            const buildTreeHTML = (parentId, folderId, paddingLeft) => {
-                const ul = document.createElement('ul');
-                ul.className = (parentId === null && folderId === null) ? 'root-branch pl-2' : `pl-6`;
-                let hasChildren = false;
-
-                // 1. Render Folders (solo en el nivel raíz o dentro de otras carpetas)
-                if (parentId === null) {
-                    const childrenFolders = state.folders.filter(f => (f.parentId || null) === (folderId || null));
-                    childrenFolders.forEach(folder => {
-                        hasChildren = true;
-                        const li = document.createElement('li');
-                        li.className = 'branch-item py-1';
-                        
-                        const isExpanded = expandedFolders.has(folder.id);
-                        const isSelected = currentFolderId === folder.id;
-                        
-                        const div = document.createElement('div');
-                        div.className = `tree-node flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer hover:bg-slate-100 text-sm text-slate-700 transition ${isSelected ? 'bg-slate-200 font-semibold text-slate-900' : ''}`;
-                        div.onclick = (e) => {
-                            e.stopPropagation();
-                            selectFolder(folder.id);
-                        };
-
-                        div.innerHTML = `
-                            <div class="flex items-center gap-2 truncate">
-                                <i data-lucide="${isExpanded ? 'folder-open' : 'folder'}" class="w-4 h-4 ${isSelected ? 'text-indigo-600' : 'text-slate-400'}"></i>
-                                <span class="truncate font-medium">${folder.name}</span>
-                            </div>
-                            <button class="p-1 hover:bg-slate-300 rounded text-slate-500 transition" onclick="event.stopPropagation(); toggleFolder('${folder.id}')">
-                                <i data-lucide="${isExpanded ? 'chevron-down' : 'chevron-right'}" class="w-3 h-3"></i>
-                            </button>
-                        `;
-                        li.appendChild(div);
-
-                        if (isExpanded) {
-                            const childrenHTML = buildTreeHTML(null, folder.id, paddingLeft + 16);
-                            if (childrenHTML) li.appendChild(childrenHTML);
-                        }
-                        ul.appendChild(li);
-                    });
-                }
-
-                // 2. Render Branches
-                const childrenBranches = state.branches.filter(b => (b.parentId || null) === (parentId || null) && (b.folderId || null) === (folderId || null));
-                childrenBranches.forEach(branch => {
-                    hasChildren = true;
-                    const li = document.createElement('li');
-                    li.className = 'branch-item py-1';
-                    
-                    const isSelected = currentBranchId === branch.id;
-                    const div = document.createElement('div');
-                    div.id = `node-${branch.id}`;
-                    div.className = `tree-node flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-slate-100 text-sm text-slate-700 transition ${isSelected ? 'bg-indigo-50 text-indigo-700 font-semibold' : ''}`;
-                    div.onclick = (e) => {
-                        e.stopPropagation();
-                        selectBranch(branch.id);
-                    };
-
-                    div.innerHTML = `
-                        <i data-lucide="git-branch" class="w-4 h-4 ${isSelected ? 'text-indigo-600' : 'opacity-70'}"></i>
-                        <span class="truncate font-mono">${branch.name}</span>
-                    `;
-
-                    li.appendChild(div);
-                    
-                    // Recursión para ramas hijas
-                    const childrenHTML = buildTreeHTML(branch.id, folderId, paddingLeft + 16);
-                    if (childrenHTML) li.appendChild(childrenHTML);
-
-                    ul.appendChild(li);
-                });
-
-                return hasChildren ? ul : null;
-            };
-
-            const treeDOM = buildTreeHTML(null, null, 0);
-            if (treeDOM) {
-                container.appendChild(treeDOM);
-                lucide.createIcons();
-            } else {
-                container.innerHTML = '<p class="text-sm text-slate-400 text-center mt-4">El repositorio está vacío</p>';
-            }
-        }
-
-        // --- Funciones PDF ---
-        function exportBranchPDF() {
-            const element = document.getElementById('branch-content').cloneNode(true);
-            
-            // Eliminar elementos que no deben imprimirse
-            element.querySelectorAll('.no-print').forEach(el => el.remove());
-            
-            // Preparar contenedor temporal para correcta renderización
-            const wrapper = document.createElement('div');
-            wrapper.style.position = 'absolute';
-            wrapper.style.left = '-9999px';
-            wrapper.style.top = '-9999px';
-            wrapper.style.width = '800px'; // Forzar ancho de escritorio
-            wrapper.appendChild(element);
-            document.body.appendChild(wrapper);
-
-            element.classList.remove('hidden', 'overflow-hidden');
-            element.style.height = 'auto'; // Permitir que crezca
-            
-            // Asegurar que la lista de commits sea visible completa
-            const commitsListWrapper = element.querySelector('.overflow-y-auto');
-            if(commitsListWrapper) {
-                commitsListWrapper.classList.remove('overflow-y-auto', 'flex-1');
-                commitsListWrapper.style.height = 'auto';
-            }
-            
-            const branchName = document.getElementById('view-branch-name').textContent;
-            
-            const opt = {
-                margin:       10,
-                filename:     `rama-${branchName.replace(/\//g, '-')}.pdf`,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-            
-            // Mostrar estado de carga (opcional)
-            document.body.style.cursor = 'wait';
-            
-            html2pdf().set(opt).from(element).save().then(() => {
-                document.body.removeChild(wrapper);
-                document.body.style.cursor = 'default';
-            });
-        }
-
-        // --- Lógica de Commits ---
         function saveCommit(e) {
             e.preventDefault();
             if (!currentBranchId) return;
 
-            let hash = document.getElementById('input-commit-hash').value.trim();
-            const msg = document.getElementById('input-commit-msg').value.trim();
+            const hash = document.getElementById('input-commit-hash').value || generateId().substring(0, 7);
+            const message = document.getElementById('input-commit-msg').value;
 
-            if (!hash) hash = generateId().substring(0, 7); // Hash corto falso
+            state.commits.push({ id: generateId(), branchId: currentBranchId, hash, message, date: new Date().toISOString() });
 
-            const newCommit = {
-                id: generateId(),
-                branchId: currentBranchId,
-                hash: hash,
-                message: msg,
-                date: new Date().toISOString()
-            };
-
-            state.commits.unshift(newCommit); // Agregar al inicio (más reciente)
+            saveStateLocally();
             closeModal('commit-modal');
             renderCommits();
+        }
+
+        function toggleFolder(folderId, event) {
+            event.stopPropagation();
+            if(expandedFolders.has(folderId)) expandedFolders.delete(folderId);
+            else expandedFolders.add(folderId);
+            saveStateLocally();
+            renderTree();
+        }
+
+        function showFolderDetails(id) {
+            currentFolderId = id; currentBranchId = null;
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('branch-content').classList.add('hidden');
+            document.getElementById('folder-content').classList.remove('hidden');
+            
+            const folder = state.folders.find(f => f.id === id);
+            document.getElementById('view-folder-name').textContent = folder.name;
+            renderTree();
+        }
+
+        function showBranchDetails(id) {
+            currentBranchId = id; currentFolderId = null;
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('folder-content').classList.add('hidden');
+            document.getElementById('branch-content').classList.remove('hidden');
+
+            const branch = state.branches.find(b => b.id === id);
+            document.getElementById('view-branch-name').textContent = branch.name;
+            document.getElementById('view-branch-desc').textContent = branch.desc;
+
+            const parentEl = document.getElementById('view-branch-parent');
+            if (branch.parentId) {
+                const parent = state.branches.find(b => b.id === branch.parentId);
+                document.getElementById('view-branch-parent-name').textContent = parent ? parent.name : 'Desconocida';
+                parentEl.classList.remove('hidden');
+            } else { parentEl.classList.add('hidden'); }
+
+            renderTree();
+            renderCommits();
+        }
+
+        function renderTree() {
+            const container = document.getElementById('branch-tree-container');
+            container.innerHTML = '';
+            const rootFolders = state.folders.filter(f => !f.parentId);
+            const rootBranches = state.branches.filter(b => !b.folderId && !b.parentId);
+
+            rootFolders.forEach(f => renderFolder(f, container, 0));
+            
+            const rootBranchContainer = document.createElement('div');
+            rootBranchContainer.className = "root-branch mt-2";
+            rootBranches.forEach(b => renderBranch(b, rootBranchContainer, 0));
+            container.appendChild(rootBranchContainer);
+
+            lucide.createIcons();
+        }
+
+        function renderFolder(folder, container, level) {
+            const div = document.createElement('div');
+            div.style.paddingLeft = `${level * 16}px`;
+            const isExpanded = expandedFolders.has(folder.id);
+            const isSelected = currentFolderId === folder.id;
+
+            div.innerHTML = `
+                <div class="flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer group ${isSelected ? 'bg-slate-200 text-slate-900 font-medium' : 'text-slate-600 hover:bg-slate-100'}" onclick="showFolderDetails('${folder.id}')">
+                    <button onclick="toggleFolder('${folder.id}', event)" class="p-0.5 text-slate-400 hover:text-slate-600">
+                        <i data-lucide="${isExpanded ? 'chevron-down' : 'chevron-right'}" class="w-4 h-4"></i>
+                    </button>
+                    <i data-lucide="folder" class="w-4 h-4 text-slate-400 group-hover:text-amber-500 transition-colors ${isSelected ? 'text-amber-500' : ''}"></i>
+                    <span class="truncate text-sm">${folder.name}</span>
+                </div>
+            `;
+            container.appendChild(div);
+
+            if (isExpanded) {
+                const childrenContainer = document.createElement('div');
+                const subFolders = state.folders.filter(f => f.parentId === folder.id);
+                subFolders.forEach(sf => renderFolder(sf, childrenContainer, level + 1));
+
+                const folderBranches = state.branches.filter(b => b.folderId === folder.id && !b.parentId);
+                if(folderBranches.length > 0) {
+                    const bContainer = document.createElement('div');
+                    bContainer.className = "root-branch";
+                    folderBranches.forEach(b => renderBranch(b, bContainer, level + 1));
+                    childrenContainer.appendChild(bContainer);
+                }
+                container.appendChild(childrenContainer);
+            }
+        }
+
+        function renderBranch(branch, container, level) {
+            const div = document.createElement('div');
+            div.className = "branch-item";
+            div.style.paddingLeft = level > 0 ? '24px' : '8px';
+            const isSelected = currentBranchId === branch.id;
+
+            div.innerHTML = `
+                <div class="flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer group mb-1 ${isSelected ? 'bg-indigo-50 text-indigo-700 font-medium border border-indigo-100' : 'text-slate-600 hover:bg-slate-100 border border-transparent'}" onclick="showBranchDetails('${branch.id}')">
+                    <i data-lucide="git-commit" class="w-4 h-4 ${isSelected ? 'text-indigo-600' : 'text-slate-400'} shrink-0"></i>
+                    <span class="truncate text-sm">${branch.name}</span>
+                </div>
+            `;
+            container.appendChild(div);
+
+            const childBranches = state.branches.filter(b => b.parentId === branch.id);
+            if (childBranches.length > 0) {
+                const childrenContainer = document.createElement('div');
+                childBranches.forEach(cb => renderBranch(cb, childrenContainer, level + 1));
+                container.appendChild(childrenContainer);
+            }
         }
 
         function renderCommits() {
             const container = document.getElementById('commits-list');
             container.innerHTML = '';
-
-            const branchCommits = state.commits.filter(c => c.branchId === currentBranchId);
+            
+            const branchCommits = state.commits
+                .filter(c => c.branchId === currentBranchId)
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
 
             if (branchCommits.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-10 bg-slate-50 border border-slate-200 border-dashed rounded-lg">
-                        <p class="text-slate-500">Aún no hay commits en esta rama.</p>
-                    </div>`;
-                return;
+                container.innerHTML = '<div class="text-center py-10 text-slate-400"><i data-lucide="git-commit" class="w-12 h-12 mx-auto mb-3 opacity-20"></i><p>No hay commits registrados en esta rama.</p></div>';
+                lucide.createIcons(); return;
             }
 
-            branchCommits.forEach(commit => {
+            branchCommits.forEach((commit, index) => {
+                const isLast = index === branchCommits.length - 1;
                 const div = document.createElement('div');
-                div.className = 'flex gap-4 p-4 border border-slate-200 rounded-lg bg-white shadow-sm hover:shadow-md transition group';
-                
+                div.className = "flex gap-4 group";
                 div.innerHTML = `
-                    <div class="flex flex-col items-center pt-1">
-                        <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-50"></div>
-                        <div class="w-px h-full bg-slate-200 mt-2"></div>
+                    <div class="flex flex-col items-center">
+                        <div class="w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-emerald-50 mt-1.5"></div>
+                        ${!isLast ? '<div class="w-0.5 h-full bg-slate-200 mt-1"></div>' : ''}
                     </div>
-                    <div class="flex-1">
+                    <div class="flex-1 pb-6">
                         <div class="flex justify-between items-start">
                             <p class="text-slate-800 font-medium whitespace-pre-wrap">${commit.message}</p>
-                            <button onclick="deleteCommit('${commit.id}')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition px-2">
-                                <i data-lucide="trash" class="w-4 h-4"></i>
-                            </button>
+                            <button onclick="deleteCommit('${commit.id}')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition px-2"><i data-lucide="trash" class="w-4 h-4"></i></button>
                         </div>
                         <div class="mt-2 flex items-center gap-3 text-xs text-slate-500">
                             <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">${commit.hash}</span>
-                            <span>•</span>
-                            <span>${formatDate(commit.date)}</span>
+                            <span>•</span><span>${formatDate(commit.date)}</span>
                         </div>
                     </div>
                 `;
@@ -716,58 +671,77 @@
         }
 
         function deleteCommit(commitId) {
-            if(confirm('¿Eliminar este commit del registro?')) {
+            if(confirm('¿Eliminar este commit?')) {
                 state.commits = state.commits.filter(c => c.id !== commitId);
-                renderCommits();
+                saveStateLocally(); renderCommits();
             }
         }
 
-        // --- JSON Export / Import ---
-        function exportJSON() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "documentacion-ramas.json");
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
+        function editCurrentBranch() {
+            if(!currentBranchId) return;
+            const branch = state.branches.find(b => b.id === currentBranchId);
+            openModal('branch-modal');
+            document.getElementById('edit-branch-id').value = branch.id;
+            document.getElementById('input-branch-name').value = branch.name;
+            document.getElementById('input-branch-desc').value = branch.desc;
+            document.getElementById('input-branch-folder').value = branch.folderId || '';
+            document.getElementById('input-branch-parent').value = branch.parentId || '';
         }
 
-        function importJSON(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+        function deleteCurrentBranch() {
+            if(!currentBranchId) return;
+            if(confirm('¿Eliminar esta rama y TODOS sus commits?')) {
+                state.branches = state.branches.filter(b => b.id !== currentBranchId);
+                state.commits = state.commits.filter(c => c.branchId !== currentBranchId);
+                currentBranchId = null;
+                saveStateLocally();
+                document.getElementById('branch-content').classList.add('hidden');
+                document.getElementById('empty-state').classList.remove('hidden');
+                renderTree();
+            }
+        }
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const importedState = JSON.parse(e.target.result);
-                    if (importedState.branches && importedState.commits) {
-                        // Asegurar retrocompatibilidad con JSON antiguos
-                        if (!importedState.folders) importedState.folders = [];
-                        
-                        state = importedState;
-                        currentBranchId = null;
-                        currentFolderId = null;
-                        document.getElementById('empty-state').classList.remove('hidden');
-                        document.getElementById('branch-content').classList.add('hidden');
-                        document.getElementById('folder-content').classList.add('hidden');
-                        renderTree();
-                        alert('¡Datos importados correctamente!');
-                    } else {
-                        alert('El archivo JSON no tiene el formato correcto.');
-                    }
-                } catch (error) {
-                    alert('Error al leer el archivo JSON.');
-                }
-                // Resetear el input para poder importar el mismo archivo de nuevo si es necesario
-                event.target.value = '';
+        function editCurrentFolder() {
+            if(!currentFolderId) return;
+            const folder = state.folders.find(f => f.id === currentFolderId);
+            openModal('folder-modal');
+            document.getElementById('edit-folder-id').value = folder.id;
+            document.getElementById('input-folder-name').value = folder.name;
+            document.getElementById('input-folder-parent').value = folder.parentId || '';
+        }
+
+        function deleteCurrentFolder() {
+            if(!currentFolderId) return;
+            if(confirm('¿Eliminar carpeta? Ramas internas perderán esta agrupación.')) {
+                state.folders = state.folders.filter(f => f.id !== currentFolderId);
+                state.branches.forEach(b => { if(b.folderId === currentFolderId) b.folderId = null; });
+                currentFolderId = null;
+                saveStateLocally();
+                document.getElementById('folder-content').classList.add('hidden');
+                document.getElementById('empty-state').classList.remove('hidden');
+                renderTree();
+            }
+        }
+
+        function exportBranchPDF() {
+            if(!currentBranchId) return;
+            const branch = state.branches.find(b => b.id === currentBranchId);
+            const element = document.getElementById('branch-content').cloneNode(true);
+            const noPrintElements = element.querySelectorAll('.no-print');
+            noPrintElements.forEach(el => el.remove());
+
+            const opt = {
+                margin: 10,
+                filename: `Rama_${branch.name.replace(/\//g, '_')}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
-            reader.readAsText(file);
+            html2pdf().set(opt).from(element).save();
         }
 
-        // Inicialización
-        renderTree();
-
+        // Arrancar Backend
+        window.addEventListener('DOMContentLoaded', initBackendSystem);
     </script>
 </body>
 </html>

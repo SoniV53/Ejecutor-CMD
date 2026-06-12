@@ -14,7 +14,7 @@ const listDocs = (req, res) => {
     let targetPath = DOCS_ROOT;
     const urlParams = new URL(req.url, `http://${req.headers.host}`);
     const subDir = urlParams.searchParams.get('path') || '';
-    
+
     if (subDir) targetPath = path.join(DOCS_ROOT, subDir);
 
     try {
@@ -39,19 +39,50 @@ const saveDoc = (req, res) => {
         try {
             const { fileName, folder, content } = JSON.parse(body);
             const targetFolder = path.join(DOCS_ROOT, folder);
-            
+
             if (!fs.existsSync(targetFolder)) {
                 fs.mkdirSync(targetFolder, { recursive: true });
             }
 
             const filePath = path.join(targetFolder, fileName.endsWith('.txt') ? fileName : `${fileName}.txt`);
             fs.writeFileSync(filePath, content);
-            
+              
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ status: 'success', path: filePath }));
         } catch (e) {
             res.writeHead(500);
             res.end(JSON.stringify({ error: e.message }));
+        }
+    });
+};
+
+const saveJsonDoc = (req, res) => {
+    let body = '';
+    req.on('data', chunk => body += chunk.toString());
+    req.on('end', () => {
+        try {
+            const { fileName, folder, content } = JSON.parse(body);
+            const targetFolder = path.join(DOCS_ROOT, folder);
+
+            if (!fs.existsSync(targetFolder)) {
+                fs.mkdirSync(targetFolder, { recursive: true });
+            }
+
+            // Aseguramos la extensión .json
+            const cleanName = fileName.replace(/\.json$/i, ''); // Quitamos si ya traía .json
+            const filePath = path.join(targetFolder, `${cleanName}.json`);
+
+            // Escribimos el archivo garantizando que sea un JSON válido
+            console.log('fileName recibido:', fileName);
+            console.log('filePath final:', filePath);
+            fs.writeFileSync(filePath, JSON.stringify(JSON.parse(content), null, 2));
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'success', path: filePath }));
+        } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Error procesando JSON: ' + e.message }));
         }
     });
 };
@@ -79,13 +110,13 @@ const deleteItem = (req, res) => {
         try {
             const { itemPath } = JSON.parse(body);
             const fullPath = path.join(DOCS_ROOT, itemPath);
-            
+
             if (fs.lstatSync(fullPath).isDirectory()) {
                 fs.rmSync(fullPath, { recursive: true, force: true });
             } else {
                 fs.unlinkSync(fullPath);
             }
-            
+
             res.writeHead(200);
             res.end(JSON.stringify({ status: 'deleted' }));
         } catch (e) {
@@ -95,4 +126,4 @@ const deleteItem = (req, res) => {
     });
 };
 
-module.exports = { listDocs, saveDoc, readFile, deleteItem };
+module.exports = { listDocs, saveDoc, readFile, deleteItem,saveJsonDoc };
