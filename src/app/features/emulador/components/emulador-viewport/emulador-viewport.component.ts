@@ -20,6 +20,8 @@ export interface DeviceConfig {
   height: number;
   borderRadius: string;
   borderWidth: string;
+  borderRadiusPx: number;
+  borderWidthPx: number;
   hasNotch: boolean;
 }
 
@@ -32,6 +34,8 @@ export interface DeviceConfig {
   styleUrls: ['./emulador-viewport.component.css']
 })
 export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
+  readonly Math = Math;
+
   @ViewChild('workspaceRef') workspaceRef!: ElementRef<HTMLElement>;
   @ViewChild('deviceWrapperRef') deviceWrapperRef!: ElementRef<HTMLElement>;
   @ViewChild('deviceContainerRef') deviceContainerRef!: ElementRef<HTMLElement>;
@@ -40,6 +44,7 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
   @Input() currentDeviceKey = 'iphone14';
   @Input() isLandscape = false;
   @Input() currentZoom = 1.0;
+  @Input() appZoom = 1.0;
   @Input() isTouchEnabled = true;
 
   @Output() zoomChange = new EventEmitter<number>();
@@ -59,6 +64,8 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
       height: 852,
       borderRadius: '3.2rem',
       borderWidth: '12px',
+      borderRadiusPx: 51,
+      borderWidthPx: 12,
       hasNotch: true
     },
     pixel7: {
@@ -66,6 +73,8 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
       height: 915,
       borderRadius: '2.5rem',
       borderWidth: '10px',
+      borderRadiusPx: 40,
+      borderWidthPx: 10,
       hasNotch: false
     },
     ipad: {
@@ -73,6 +82,8 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
       height: 1024,
       borderRadius: '1.5rem',
       borderWidth: '18px',
+      borderRadiusPx: 24,
+      borderWidthPx: 18,
       hasNotch: false
     }
   };
@@ -426,13 +437,26 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
         } catch (err) {
           console.error(err);
         }
-        this.applyZoom(this.currentZoom);
+        this.syncWebviewZoom();
+      });
+    });
+
+    this.appFrame.addEventListener('did-navigate', () => {
+      this.ngZone.run(() => {
+        this.syncWebviewZoom();
+      });
+    });
+
+    this.appFrame.addEventListener('did-navigate-in-page', () => {
+      this.ngZone.run(() => {
+        this.syncWebviewZoom();
       });
     });
 
     this.appFrame.addEventListener('did-stop-loading', () => {
       this.ngZone.run(() => {
         this.isLoading = false;
+        this.syncWebviewZoom();
         if (this.appFrame && typeof this.appFrame.getURL === 'function') {
           this.urlUpdated.emit(this.appFrame.getURL());
         }
@@ -537,43 +561,66 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
       (workspace.clientWidth - 48) / (this.isLandscape ? config.height : config.width);
     const scaleH =
       (workspace.clientHeight - 48) / (this.isLandscape ? config.width : config.height);
-    this.currentZoom = Math.max(0.1, Math.min(scaleW, scaleH, 1.0));
+    this.currentZoom = Math.max(0.25, Math.min(scaleW, scaleH, 1.0));
     this.zoomChange.emit(this.currentZoom);
     this.applyZoom(this.currentZoom);
   }
 
+  syncWebviewZoom(): void {
+    if (!this.appFrame || typeof this.appFrame.setZoomFactor !== 'function') {
+      return;
+    }
+    try {
+      const effectiveZoom =
+        this.currentDeviceKey === 'responsive'
+          ? Math.max(0.25, Math.min(3.0, this.appZoom))
+          : Math.max(0.25, Math.min(3.0, this.currentZoom * this.appZoom));
+      this.appFrame.setZoomFactor(effectiveZoom);
+    } catch {
+      // El WebView aún no está listo para recibir setZoomFactor
+    }
+  }
+
+  applyAppZoom(appZoom: number): void {
+    this.appZoom = appZoom;
+    this.syncWebviewZoom();
+  }
+
   applyZoom(zoom: number): void {
     this.currentZoom = zoom;
-    setTimeout(() => {
-      const container = this.deviceContainerRef?.nativeElement;
-      const wrapper = this.deviceWrapperRef?.nativeElement;
-      if (!container || !wrapper) return;
+    const container = this.deviceContainerRef?.nativeElement;
+    const wrapper = this.deviceWrapperRef?.nativeElement;
+    if (!container || !wrapper) return;
 
-      // Mantener siempre el zoom interno del documento web en 1.0 (100%)
-      // para que el zoom solo acerque/aleje físicamente el dispositivo sin deformar la app interna
-      if (this.appFrame && typeof this.appFrame.setZoomFactor === 'function') {
-        try {
-          this.appFrame.setZoomFactor(1.0);
-        } catch {}
-      }
+    if (this.currentDeviceKey === 'responsive') {
+      container.style.transform = 'none';
+      container.style.width = '100%';
+      container.style.height = '100%';
+      wrapper.style.width = '100%';
+      wrapper.style.height = '100%';
+    } else {
+      const config = this.devices[this.currentDeviceKey];
+      if (config) {
+        const w = this.isLandscape ? config.height : config.width;
+        const h = this.isLandscape ? config.width : config.height;
+        const scaledW = Math.round(w * this.currentZoom);
+        const scaledH = Math.round(h * this.currentZoom);
+        const scaledBorder = Math.max(2, Math.round(config.borderWidthPx * this.currentZoom));
+        const scaledRadius = Math.round(config.borderRadiusPx * this.currentZoom);
 
-      if (this.currentDeviceKey === 'responsive') {
+        // Escalar dimensiones reales del DOM sin transform: scale() para evitar recorte en Electron WebView
         container.style.transform = 'none';
-        wrapper.style.width = '100%';
-        wrapper.style.height = '100%';
-      } else {
-        const config = this.devices[this.currentDeviceKey];
-        if (config) {
-          const w = this.isLandscape ? config.height : config.width;
-          const h = this.isLandscape ? config.width : config.height;
-
-          container.style.transform = `scale(${this.currentZoom})`;
-          wrapper.style.width = `${w * this.currentZoom}px`;
-          wrapper.style.height = `${h * this.currentZoom}px`;
-        }
+        container.style.width = `${scaledW}px`;
+        container.style.height = `${scaledH}px`;
+        container.style.borderWidth = `${scaledBorder}px`;
+        container.style.borderRadius = `${scaledRadius}px`;
+        wrapper.style.width = `${scaledW}px`;
+        wrapper.style.height = `${scaledH}px`;
       }
-      this.updateCentering();
-    }, 20);
+    }
+
+    this.syncWebviewZoom();
+    this.updateCentering();
   }
 
   applyDeviceStyles(deviceKey: string, isLandscape: boolean): void {
@@ -586,33 +633,11 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
 
     if (this.currentDeviceKey === 'responsive') {
       container.classList.add('mode-responsive');
-      container.style.width = '100%';
-      container.style.height = '100%';
-      wrapper.style.width = '100%';
-      wrapper.style.height = '100%';
-      container.style.transform = 'none';
     } else {
       container.classList.remove('mode-responsive');
-      const config = this.devices[this.currentDeviceKey];
-      if (config) {
-        const w = this.isLandscape ? config.height : config.width;
-        const h = this.isLandscape ? config.width : config.height;
-        container.style.width = `${w}px`;
-        container.style.height = `${h}px`;
-        container.style.borderRadius = config.borderRadius;
-        container.style.borderWidth = config.borderWidth;
-        container.style.transform = `scale(${this.currentZoom})`;
-        wrapper.style.width = `${w * this.currentZoom}px`;
-        wrapper.style.height = `${h * this.currentZoom}px`;
-      }
     }
 
-    if (this.appFrame && typeof this.appFrame.setZoomFactor === 'function') {
-      try {
-        this.appFrame.setZoomFactor(1.0);
-      } catch {}
-    }
-
+    this.applyZoom(this.currentZoom);
     this.updateTouchMode(this.isTouchEnabled);
 
     requestAnimationFrame(() => {
@@ -620,11 +645,11 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  applyDeviceAndAutoFit(deviceKey: string, isLandscape: boolean): void {
+  applyDeviceAndAutoFit(deviceKey: string, isLandscape: boolean, shouldAutoFit = false): void {
     this.applyDeviceStyles(deviceKey, isLandscape);
-    if (deviceKey !== 'responsive') {
+    if (shouldAutoFit && deviceKey !== 'responsive') {
       this.autoFit();
-    } else {
+    } else if (deviceKey === 'responsive') {
       this.currentZoom = 1.0;
       this.zoomChange.emit(1.0);
     }

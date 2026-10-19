@@ -24,6 +24,7 @@ export class EmuladorHeaderComponent implements AfterViewInit, OnChanges {
   @Input() isHistoryOpen = false;
   @Input() isMenuVisible = true;
   @Input() currentZoom = 1.0;
+  @Input() appZoom = 1.0;
   @Input() currentDeviceKey = 'iphone14';
   @Input() isLandscape = false;
   @Input() isTouchEnabled = true;
@@ -37,8 +38,12 @@ export class EmuladorHeaderComponent implements AfterViewInit, OnChanges {
   @Output() deleteHistoryItem = new EventEmitter<string>();
   @Output() toggleMenu = new EventEmitter<void>();
   @Output() updateZoom = new EventEmitter<number>();
+  @Output() setZoom = new EventEmitter<number>();
   @Output() autoFit = new EventEmitter<void>();
   @Output() resetZoom = new EventEmitter<void>();
+  @Output() updateAppZoom = new EventEmitter<number>();
+  @Output() setAppZoom = new EventEmitter<number>();
+  @Output() resetAppZoom = new EventEmitter<void>();
   @Output() toggleDeviceMode = new EventEmitter<void>();
   @Output() changeDevice = new EventEmitter<string>();
   @Output() toggleRotation = new EventEmitter<void>();
@@ -62,6 +67,32 @@ export class EmuladorHeaderComponent implements AfterViewInit, OnChanges {
 
   get zoomPercentage(): string {
     return `${Math.round(this.currentZoom * 100)}%`;
+  }
+
+  get zoomSliderValue(): number {
+    return Math.round(this.currentZoom * 100);
+  }
+
+  get appZoomPercentage(): string {
+    return `${Math.round(this.appZoom * 100)}%`;
+  }
+
+  get appZoomSliderValue(): number {
+    return Math.round(this.appZoom * 100);
+  }
+
+  onZoomSliderInput(event: Event): void {
+    const val = Number((event.target as HTMLInputElement).value);
+    if (!isNaN(val)) {
+      this.setZoom.emit(val / 100);
+    }
+  }
+
+  onAppZoomSliderInput(event: Event): void {
+    const val = Number((event.target as HTMLInputElement).value);
+    if (!isNaN(val)) {
+      this.setAppZoom.emit(val / 100);
+    }
   }
 
   goHome(): void {

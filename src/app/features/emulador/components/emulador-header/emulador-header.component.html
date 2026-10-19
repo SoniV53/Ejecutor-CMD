@@ -116,41 +116,108 @@
     </div>
 
     <div class="flex flex-wrap items-center justify-between gap-2 pb-1">
-      <div class="flex items-center gap-1 bg-[#0f172a] p-1 rounded-xl border border-slate-800 shrink-0">
-        <button
-          type="button"
-          (click)="updateZoom.emit(-0.1)"
-          class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+      <div class="flex flex-wrap items-center gap-2 shrink-0">
+        <!-- ZOOM DEL DISPOSITIVO (TAMAÑO FÍSICO) -->
+        <div
+          class="flex items-center gap-1.5 bg-[#0f172a] px-2 py-1 rounded-xl border border-slate-800 shrink-0"
+          title="Graduar tamaño del dispositivo en pantalla (Se guarda automáticamente)"
         >
-          <i data-lucide="zoom-out" class="w-4 h-4"></i>
-        </button>
-        <span id="zoomLabel" class="text-[10px] font-bold text-indigo-400 w-10 text-center">
-          {{ zoomPercentage }}
-        </span>
-        <button
-          type="button"
-          (click)="updateZoom.emit(0.1)"
-          class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+          <span class="text-[9px] font-black uppercase tracking-wider text-slate-500 px-1">
+            Dispositivo
+          </span>
+          <button
+            type="button"
+            (click)="updateZoom.emit(-0.05)"
+            class="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            title="Alejar dispositivo (-5%)"
+          >
+            <i data-lucide="zoom-out" class="w-3.5 h-3.5"></i>
+          </button>
+          <input
+            type="range"
+            min="30"
+            max="150"
+            step="1"
+            [value]="zoomSliderValue"
+            (input)="onZoomSliderInput($event)"
+            [disabled]="currentDeviceKey === 'responsive'"
+            class="w-20 md:w-24 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+          />
+          <span id="zoomLabel" class="text-[10px] font-bold text-indigo-400 w-9 text-center">
+            {{ zoomPercentage }}
+          </span>
+          <button
+            type="button"
+            (click)="updateZoom.emit(0.05)"
+            class="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            title="Acercar dispositivo (+5%)"
+          >
+            <i data-lucide="zoom-in" class="w-3.5 h-3.5"></i>
+          </button>
+          <div class="w-px h-4 bg-slate-700 mx-0.5"></div>
+          <button
+            type="button"
+            (click)="autoFit.emit()"
+            class="px-1.5 py-1 text-[9px] font-bold text-slate-400 hover:text-indigo-400 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer uppercase"
+            title="Auto-Ajustar dispositivo a la ventana"
+          >
+            Auto
+          </button>
+          <button
+            type="button"
+            (click)="resetZoom.emit()"
+            class="px-1.5 py-1 text-[9px] font-bold text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            title="Tamaño Físico 100%"
+          >
+            100%
+          </button>
+        </div>
+
+        <!-- ESCALA INTERNA DE LA APP (ZOOM DEL CONTENIDO WEB) -->
+        <div
+          class="flex items-center gap-1.5 bg-[#0f172a] px-2 py-1 rounded-xl border border-slate-800 shrink-0"
+          title="Graduar el zoom interno de la aplicación dentro del teléfono (Se guarda automáticamente)"
         >
-          <i data-lucide="zoom-in" class="w-4 h-4"></i>
-        </button>
-        <div class="w-px h-4 bg-slate-700 mx-1"></div>
-        <button
-          type="button"
-          (click)="autoFit.emit()"
-          class="p-1.5 text-slate-400 hover:text-indigo-400 rounded-lg hover:bg-slate-800 transition-colors"
-          title="Auto-Ajustar (Encajar)"
-        >
-          <i data-lucide="shrink" class="w-4 h-4"></i>
-        </button>
-        <button
-          type="button"
-          (click)="resetZoom.emit()"
-          class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-          title="Tamaño Original (100%)"
-        >
-          <i data-lucide="maximize" class="w-4 h-4"></i>
-        </button>
+          <span class="text-[9px] font-black uppercase tracking-wider text-slate-500 px-1">
+            Zoom App
+          </span>
+          <button
+            type="button"
+            (click)="updateAppZoom.emit(-0.05)"
+            class="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            title="Reducir zoom interno de la app (-5%)"
+          >
+            <i data-lucide="minus" class="w-3.5 h-3.5"></i>
+          </button>
+          <input
+            type="range"
+            min="50"
+            max="150"
+            step="1"
+            [value]="appZoomSliderValue"
+            (input)="onAppZoomSliderInput($event)"
+            class="w-16 md:w-20 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+          />
+          <span class="text-[10px] font-bold text-emerald-400 w-9 text-center">
+            {{ appZoomPercentage }}
+          </span>
+          <button
+            type="button"
+            (click)="updateAppZoom.emit(0.05)"
+            class="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            title="Aumentar zoom interno de la app (+5%)"
+          >
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+          </button>
+          <button
+            type="button"
+            (click)="resetAppZoom.emit()"
+            class="px-1.5 py-1 text-[9px] font-bold text-slate-400 hover:text-emerald-400 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            title="Restablecer zoom interno de la app a 100%"
+          >
+            100%
+          </button>
+        </div>
       </div>
 
       <div class="flex items-center gap-2 shrink-0 bg-[#0f172a] p-1 rounded-xl border border-slate-800">

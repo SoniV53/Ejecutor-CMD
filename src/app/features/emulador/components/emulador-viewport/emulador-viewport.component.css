@@ -20,14 +20,13 @@
 }
 
 #deviceWrapper {
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
   margin: auto;
   position: relative;
 }
 
 .device-mockup {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-radius 0.2s ease, border-width 0.2s ease;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
   background: black;
   position: relative;
