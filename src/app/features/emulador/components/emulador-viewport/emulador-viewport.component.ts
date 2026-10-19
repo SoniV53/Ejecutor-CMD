@@ -180,86 +180,245 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
       this.ngZone.run(() => {
         try {
           this.appFrame.insertCSS(this.invisibleScrollCSS);
+
+          const shouldEnableTouch = this.isTouchEnabled && this.currentDeviceKey !== 'responsive';
+
           const touchSimScript = `
             (function() {
-              if (window.__touchSimActive) return;
-              window.__touchSimActive = true;
-
-              window.__enableAdvancedTouch = ${this.isTouchEnabled};
-
-              const createTouchEvt = (type, originalEvent) => {
-                let touchObj;
-                try {
-                  touchObj = new Touch({
-                    identifier: Date.now(),
-                    target: originalEvent.target,
-                    clientX: originalEvent.clientX,
-                    clientY: originalEvent.clientY
-                  });
-                } catch(err) {
-                  touchObj = { ...originalEvent, identifier: Date.now(), target: originalEvent.target };
-                }
-
-                try {
-                  return new TouchEvent(type, {
-                    bubbles: true,
-                    cancelable: true,
-                    touches: type === 'touchend' ? [] : [touchObj],
-                    targetTouches: type === 'touchend' ? [] : [touchObj],
-                    changedTouches: [touchObj]
-                  });
-                } catch(err) {
-                  const evt = document.createEvent('Event');
-                  evt.initEvent(type, true, true);
-                  return evt;
+              const applyTouchClass = (enabled) => {
+                window.__enableAdvancedTouch = !!enabled;
+                if (enabled) {
+                  document.documentElement.classList.add('cf-touch-mode');
+                } else {
+                  document.documentElement.classList.remove('cf-touch-mode', 'cf-touch-active');
                 }
               };
 
-              const touchStyle = document.createElement('style');
-              touchStyle.textContent = \`
-                body {
-                  -webkit-user-select: none !important;
-                  -ms-user-select: none !important;
-                  user-select: none !important;
-                }
-                input, textarea, [contenteditable="true"] {
-                  -webkit-user-select: auto !important;
-                  -ms-user-select: auto !important;
-                  user-select: auto !important;
-                }
-              \`;
-              document.head.appendChild(touchStyle);
+              window.__setTouchMode = applyTouchClass;
 
-              let isSimulatingDrag = false;
+              if (!window.__touchSimActive) {
+                window.__touchSimActive = true;
 
-              document.addEventListener('mousedown', (e) => {
-                isSimulatingDrag = true;
-                e.target.dispatchEvent(createTouchEvt('touchstart', e));
-              }, true);
+                const normalCursorSvg = encodeURIComponent(
+                  '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">' +
+                  '<circle cx="14" cy="14" r="11" fill="rgba(100, 116, 139, 0.42)" stroke="rgba(255, 255, 255, 0.85)" stroke-width="2"/>' +
+                  '<circle cx="14" cy="14" r="12" fill="none" stroke="rgba(15, 23, 42, 0.45)" stroke-width="1"/>' +
+                  '</svg>'
+                );
 
-              document.addEventListener('mousemove', (e) => {
-                if (isSimulatingDrag && window.__enableAdvancedTouch) {
-                  e.target.dispatchEvent(createTouchEvt('touchmove', e));
-                }
-              }, true);
+                const activeCursorSvg = encodeURIComponent(
+                  '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">' +
+                  '<circle cx="14" cy="14" r="9.5" fill="rgba(99, 102, 241, 0.55)" stroke="rgba(255, 255, 255, 0.95)" stroke-width="2.2"/>' +
+                  '<circle cx="14" cy="14" r="11" fill="none" stroke="rgba(79, 70, 229, 0.6)" stroke-width="1"/>' +
+                  '</svg>'
+                );
 
-              document.addEventListener('mouseup', (e) => {
-                if (isSimulatingDrag) {
-                  isSimulatingDrag = false;
-                  if (window.__enableAdvancedTouch) {
-                    e.target.dispatchEvent(createTouchEvt('touchend', e));
+                const touchStyle = document.createElement('style');
+                touchStyle.id = 'cf-devtools-touch-style';
+                touchStyle.textContent = \`
+                  html.cf-touch-mode,
+                  html.cf-touch-mode *,
+                  html.cf-touch-mode a,
+                  html.cf-touch-mode button,
+                  html.cf-touch-mode input,
+                  html.cf-touch-mode select,
+                  html.cf-touch-mode textarea,
+                  html.cf-touch-mode [role="button"] {
+                    cursor: url("data:image/svg+xml;utf8,\${normalCursorSvg}") 14 14, pointer !important;
+                    -webkit-user-select: none !important;
+                    user-select: none !important;
                   }
-                }
-              }, true);
-
-              document.addEventListener('mouseleave', (e) => {
-                if (isSimulatingDrag) {
-                  isSimulatingDrag = false;
-                  if (window.__enableAdvancedTouch) {
-                    e.target.dispatchEvent(createTouchEvt('touchend', e));
+                  html.cf-touch-mode.cf-touch-active,
+                  html.cf-touch-mode.cf-touch-active * {
+                    cursor: url("data:image/svg+xml;utf8,\${activeCursorSvg}") 14 14, pointer !important;
                   }
-                }
-              });
+                  html.cf-touch-mode input,
+                  html.cf-touch-mode textarea,
+                  html.cf-touch-mode [contenteditable="true"] {
+                    -webkit-user-select: auto !important;
+                    user-select: auto !important;
+                  }
+                \`;
+                document.head.appendChild(touchStyle);
+
+                const createTouchEvt = (type, originalEvent, id) => {
+                  let touchObj;
+                  try {
+                    touchObj = new Touch({
+                      identifier: id,
+                      target: originalEvent.target,
+                      clientX: originalEvent.clientX,
+                      clientY: originalEvent.clientY,
+                      pageX: originalEvent.pageX,
+                      pageY: originalEvent.pageY,
+                      screenX: originalEvent.screenX,
+                      screenY: originalEvent.screenY,
+                      radiusX: 11.5,
+                      radiusY: 11.5,
+                      force: type === 'touchend' ? 0 : 1
+                    });
+                  } catch (err) {
+                    touchObj = { ...originalEvent, identifier: id, target: originalEvent.target };
+                  }
+                  try {
+                    return new TouchEvent(type, {
+                      bubbles: true,
+                      cancelable: true,
+                      composed: true,
+                      touches: type === 'touchend' ? [] : [touchObj],
+                      targetTouches: type === 'touchend' ? [] : [touchObj],
+                      changedTouches: [touchObj]
+                    });
+                  } catch (err) {
+                    const evt = document.createEvent('Event');
+                    evt.initEvent(type, true, true);
+                    return evt;
+                  }
+                };
+
+                const findScrollable = (el) => {
+                  let node = el;
+                  while (node && node !== document && node !== window) {
+                    if (node.shadowRoot) {
+                      const inner = node.shadowRoot.querySelector('.inner-scroll, [part="scroll"]');
+                      if (inner && (inner.scrollHeight > inner.clientHeight || inner.scrollWidth > inner.clientWidth)) {
+                        return inner;
+                      }
+                    }
+                    if (node instanceof Element) {
+                      const style = window.getComputedStyle(node);
+                      const canScrollY =
+                        (style.overflowY === 'auto' || style.overflowY === 'scroll' || style.overflowY === 'overlay') &&
+                        node.scrollHeight > node.clientHeight;
+                      const canScrollX =
+                        (style.overflowX === 'auto' || style.overflowX === 'scroll' || style.overflowX === 'overlay') &&
+                        node.scrollWidth > node.clientWidth;
+                      if (canScrollY || canScrollX) {
+                        return node;
+                      }
+                    }
+                    node = node.parentNode || node.host;
+                  }
+                  return document.scrollingElement || document.documentElement || document.body;
+                };
+
+                let isDragging = false;
+                let hasMoved = false;
+                let touchId = 1;
+                let startX = 0;
+                let startY = 0;
+                let lastX = 0;
+                let lastY = 0;
+                let vx = 0;
+                let vy = 0;
+                let lastTime = 0;
+                let momentumRaf = null;
+                let scrollTarget = null;
+                let initialTarget = null;
+
+                const stopMomentum = () => {
+                  if (momentumRaf) {
+                    cancelAnimationFrame(momentumRaf);
+                    momentumRaf = null;
+                  }
+                };
+
+                window.addEventListener('mousedown', (e) => {
+                  if (!window.__enableAdvancedTouch || e.button !== 0) return;
+                  stopMomentum();
+                  document.documentElement.classList.add('cf-touch-active');
+
+                  isDragging = true;
+                  hasMoved = false;
+                  touchId = Date.now();
+                  startX = lastX = e.clientX;
+                  startY = lastY = e.clientY;
+                  vx = 0;
+                  vy = 0;
+                  lastTime = performance.now();
+                  initialTarget = e.target;
+                  scrollTarget = findScrollable(e.target);
+
+                  if (e.target && e.target.tagName !== 'SELECT' && e.target.type !== 'range') {
+                    e.target.dispatchEvent(createTouchEvt('touchstart', e, touchId));
+                  }
+                }, true);
+
+                window.addEventListener('mousemove', (e) => {
+                  if (!isDragging || !window.__enableAdvancedTouch) return;
+
+                  const now = performance.now();
+                  const dt = Math.max(1, now - lastTime);
+                  const dx = e.clientX - lastX;
+                  const dy = e.clientY - lastY;
+
+                  if (!hasMoved && Math.hypot(e.clientX - startX, e.clientY - startY) > 6) {
+                    hasMoved = true;
+                  }
+
+                  if (hasMoved && scrollTarget) {
+                    scrollTarget.scrollTop -= dy;
+                    scrollTarget.scrollLeft -= dx;
+                    vx = (dx / dt) * 16;
+                    vy = (dy / dt) * 16;
+                  }
+
+                  lastX = e.clientX;
+                  lastY = e.clientY;
+                  lastTime = now;
+
+                  if (initialTarget) {
+                    initialTarget.dispatchEvent(createTouchEvt('touchmove', e, touchId));
+                  }
+                }, true);
+
+                const finishDrag = (e) => {
+                  if (!isDragging) return;
+                  isDragging = false;
+                  document.documentElement.classList.remove('cf-touch-active');
+
+                  if (window.__enableAdvancedTouch && initialTarget) {
+                    initialTarget.dispatchEvent(createTouchEvt('touchend', e, touchId));
+                  }
+
+                  if (window.__enableAdvancedTouch && hasMoved && scrollTarget && (Math.abs(vx) > 0.8 || Math.abs(vy) > 0.8)) {
+                    const target = scrollTarget;
+                    const step = () => {
+                      vx *= 0.93;
+                      vy *= 0.93;
+                      target.scrollLeft -= vx;
+                      target.scrollTop -= vy;
+                      if (Math.abs(vx) > 0.5 || Math.abs(vy) > 0.5) {
+                        momentumRaf = requestAnimationFrame(step);
+                      } else {
+                        momentumRaf = null;
+                      }
+                    };
+                    momentumRaf = requestAnimationFrame(step);
+                  }
+                };
+
+                window.addEventListener('mouseup', finishDrag, true);
+                window.addEventListener('mouseleave', finishDrag, true);
+
+                // Evitar clic accidental en botones/enlaces tras arrastrar para hacer scroll
+                window.addEventListener('click', (e) => {
+                  if (window.__enableAdvancedTouch && hasMoved) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    hasMoved = false;
+                  }
+                }, true);
+
+                // Prevenir arrastre nativo de imágenes o enlaces en modo touch
+                window.addEventListener('dragstart', (e) => {
+                  if (window.__enableAdvancedTouch) {
+                    e.preventDefault();
+                  }
+                }, true);
+              }
+
+              applyTouchClass(${shouldEnableTouch});
             })();
           `;
           this.appFrame.executeJavaScript(touchSimScript);
@@ -308,9 +467,12 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
 
   updateTouchMode(enabled: boolean): void {
     this.isTouchEnabled = enabled;
+    const effective = this.isTouchEnabled && this.currentDeviceKey !== 'responsive';
     if (this.appFrame && typeof this.appFrame.executeJavaScript === 'function') {
       try {
-        this.appFrame.executeJavaScript(`window.__enableAdvancedTouch = ${this.isTouchEnabled};`);
+        this.appFrame.executeJavaScript(
+          `if (window.__setTouchMode) { window.__setTouchMode(${effective}); }`
+        );
       } catch {
         // WebView aún no ha cargado un documento
       }
@@ -443,6 +605,8 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
         container.style.borderWidth = config.borderWidth;
       }
     }
+
+    this.updateTouchMode(this.isTouchEnabled);
 
     requestAnimationFrame(() => {
       this.updateCentering();

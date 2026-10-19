@@ -32,7 +32,7 @@ export class EmuladorComponent implements OnInit, AfterViewInit {
   isLandscape = false;
   currentZoom = 1.0;
   isConsoleOpen = false;
-  isTouchEnabled = false;
+  isTouchEnabled = true;
 
   showElectronToast = false;
   electronToastMessage = '';

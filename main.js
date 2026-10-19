@@ -1,7 +1,6 @@
-const { app, BrowserWindow, session, Tray, Menu } = require('electron');
+const { app, BrowserWindow, session, Tray, Menu, ipcMain, webContents } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { ipcMain } = require('electron');
 
 // Iniciamos el servidor de Node.js
 require('./server.js');
