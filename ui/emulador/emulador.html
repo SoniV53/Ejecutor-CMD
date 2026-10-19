@@ -1,18 +1,19 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ConsoleFlow - Device Emulator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700&display=swap');
-        
+
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #020617; 
+            background-color: #020617;
             color: #f1f5f9;
             height: 100vh;
             width: 100vw;
@@ -21,33 +22,38 @@
             background-image: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.05) 0%, transparent 50%);
         }
 
-        .code-font { font-family: 'Fira Code', monospace; }
-        
+        .code-font {
+            font-family: 'Fira Code', monospace;
+        }
+
         #workspace {
             display: flex;
-            align-items: flex-start; 
-            justify-content: flex-start; 
+            align-items: flex-start;
+            justify-content: flex-start;
             overflow: auto;
             flex: 1;
             position: relative;
-            scrollbar-width: none; /* Firefox */
+            scrollbar-width: none;
+            /* Firefox */
         }
-        
-        #workspace::-webkit-scrollbar { display: none; }
+
+        #workspace::-webkit-scrollbar {
+            display: none;
+        }
 
         #deviceWrapper {
             transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             flex-shrink: 0;
-            margin: auto; 
+            margin: auto;
             position: relative;
         }
 
         .device-mockup {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255,255,255,0.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
             background: black;
             position: relative;
-            transform-origin: top left; 
+            transform-origin: top left;
         }
 
         .mode-responsive {
@@ -56,24 +62,34 @@
             border-radius: 0 !important;
             border: 2px dashed #475569 !important;
             box-shadow: none !important;
-            resize: both !important; 
+            resize: both !important;
             overflow: hidden !important;
             background: white !important;
             min-width: 250px;
             min-height: 250px;
             transform: none !important;
         }
-        
-        .mode-responsive > #notch,
-        .mode-responsive > #statusBar,
-        .mode-responsive > #homeIndicator {
+
+        .mode-responsive>#notch,
+        .mode-responsive>#statusBar,
+        .mode-responsive>#homeIndicator {
             display: none !important;
         }
 
-        .animate-slide-up { animation: slideUp 0.6s ease-out forwards; }
+        .animate-slide-up {
+            animation: slideUp 0.6s ease-out forwards;
+        }
+
         @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         /* SCROLL INVISIBLE GLOBAL (Para la UI del emulador) */
@@ -81,56 +97,104 @@
             -ms-overflow-style: none !important;
             scrollbar-width: none !important;
         }
+
         *::-webkit-scrollbar {
             display: none !important;
             width: 0 !important;
             height: 0 !important;
         }
 
-        #mainHeader { transition: transform 0.3s ease-in-out, margin-top 0.3s ease-in-out; }
-        .header-hidden { transform: translateY(-100%); margin-top: -90px; }
-        
-        .dropdown-open { opacity: 1; transform: translateY(0); pointer-events: auto; }
-        .dropdown-closed { opacity: 0; transform: translateY(-10px); pointer-events: none; }
+        #mainHeader {
+            transition: transform 0.3s ease-in-out, margin-top 0.3s ease-in-out;
+        }
 
-        #floatingConsoleBtn { transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s; }
-        #floatingConsoleBtn:hover { transform: scale(1.1); }
+        .header-hidden {
+            transform: translateY(-100%);
+            margin-top: -90px;
+        }
+
+        .dropdown-open {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .dropdown-closed {
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
+        }
+
+        #floatingConsoleBtn {
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s;
+        }
+
+        #floatingConsoleBtn:hover {
+            transform: scale(1.1);
+        }
+
         .console-active-btn {
             background-color: #4f46e5 !important;
             color: white !important;
             box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4), 0 4px 6px -2px rgba(79, 70, 229, 0.2) !important;
         }
-        
-        #frameContainer { overflow: hidden !important; }
+
+        #frameContainer {
+            overflow: hidden !important;
+        }
+
+        #emu-view {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Forzamos que la barra sea un bloque independiente */
+        #emu-searchbar-container {
+            flex-shrink: 0;
+            /* Evita que se encoja */
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+        }
     </style>
 </head>
+
 <body class="flex flex-col h-screen relative">
 
-    <button id="floatingConsoleBtn" onclick="toggleConsole()" class="fixed bottom-6 left-6 z-[60] bg-slate-800 text-slate-400 p-3.5 rounded-full shadow-lg border border-slate-700 hover:text-white group">
+    <button id="floatingConsoleBtn" onclick="toggleConsole()"
+        class="fixed bottom-6 left-6 z-[60] bg-slate-800 text-slate-400 p-3.5 rounded-full shadow-lg border border-slate-700 hover:text-white group">
         <i data-lucide="terminal-square" class="w-6 h-6 transition-transform group-hover:-translate-y-0.5"></i>
     </button>
 
     <!-- TOAST DE ALERTA DE ELECTRON -->
-    <div id="toastElectron" class="fixed bottom-6 right-6 bg-[#0f172a] text-white p-5 rounded-2xl shadow-2xl z-[70] hidden border border-yellow-500/50 max-w-sm animate-slide-up">
+    <div id="toastElectron"
+        class="fixed bottom-6 right-6 bg-[#0f172a] text-white p-5 rounded-2xl shadow-2xl z-[70] hidden border border-yellow-500/50 max-w-sm animate-slide-up">
         <h4 class="font-bold text-yellow-400 mb-2 flex items-center gap-2 text-sm">
             <i data-lucide="alert-triangle" class="w-5 h-5"></i> Requiere configuración de Electron
         </h4>
         <p class="text-xs text-slate-400 leading-relaxed">
-            Se ha detectado Electron, pero la etiqueta webview falló. Asegúrate de agregar <code class="text-indigo-400 bg-indigo-500/10 px-1 rounded">webviewTag: true</code> en las <b>webPreferences</b> de tu <code class="text-indigo-400">main.js</code>.
+            Se ha detectado Electron, pero la etiqueta webview falló. Asegúrate de agregar <code
+                class="text-indigo-400 bg-indigo-500/10 px-1 rounded">webviewTag: true</code> en las
+            <b>webPreferences</b> de tu <code class="text-indigo-400">main.js</code>.
         </p>
-        <button onclick="document.getElementById('toastElectron').classList.add('hidden')" class="mt-4 w-full py-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 rounded-lg text-xs font-bold transition-colors">
+        <button onclick="document.getElementById('toastElectron').classList.add('hidden')"
+            class="mt-4 w-full py-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 rounded-lg text-xs font-bold transition-colors">
             Entendido
         </button>
     </div>
-    
-    <div id="toastMessage" class="fixed top-20 right-6 bg-slate-800 text-white p-4 rounded-xl shadow-2xl z-[70] hidden border border-slate-700 animate-slide-up transition-all">
+
+    <div id="toastMessage"
+        class="fixed top-20 right-6 bg-slate-800 text-white p-4 rounded-xl shadow-2xl z-[70] hidden border border-slate-700 animate-slide-up transition-all">
         <div class="flex items-center gap-3">
             <i data-lucide="info" class="w-5 h-5 text-indigo-400"></i>
             <p id="toastText" class="text-sm text-slate-200"></p>
         </div>
     </div>
 
-    <button id="btnShowMenu" onclick="toggleMenu()" class="fixed top-4 left-4 z-[60] bg-indigo-600 p-2.5 rounded-xl shadow-lg opacity-0 pointer-events-none transition-all">
+    <button id="btnShowMenu" onclick="toggleMenu()"
+        class="fixed top-4 left-4 z-[60] bg-indigo-600 p-2.5 rounded-xl shadow-lg opacity-0 pointer-events-none transition-all">
         <i data-lucide="chevrons-down" class="text-white w-5 h-5"></i>
     </button>
 
@@ -138,7 +202,9 @@
         <div class="px-4 md:px-6 py-3 flex flex-col gap-3">
             <div class="flex items-center justify-between gap-4">
                 <div class="flex items-center gap-2 md:gap-4 shrink-0">
-                    <button onclick="toggleMenu()" class="p-2 rounded-xl transition-all hover:bg-slate-800 text-slate-400 hover:text-white" title="Ocultar Menú">
+                    <button onclick="toggleMenu()"
+                        class="p-2 rounded-xl transition-all hover:bg-slate-800 text-slate-400 hover:text-white"
+                        title="Ocultar Menú">
                         <i data-lucide="chevrons-up" class="w-5 h-5"></i>
                     </button>
                     <button onclick="window.parent.switchView('hub-view')" class="...">
@@ -146,74 +212,104 @@
                     </button>
                 </div>
 
-                <div class="flex-1 max-w-2xl flex items-center gap-2 relative">
-                    <div class="relative w-full">
-                        <input type="text" id="urlInput" value="" placeholder="http://localhost:8100" 
-                            class="w-full bg-[#0f172a] border border-slate-800 rounded-xl pl-4 pr-10 py-2 text-sm code-font focus:outline-none focus:border-indigo-500 transition-all text-white"
-                            onkeydown="if(event.key === 'Enter') navigateToUrl()"
-                            onfocus="toggleHistory(true)"
-                            onblur="setTimeout(() => toggleHistory(false), 200)">
-                        
-                        <button onclick="toggleHistory(true)" class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white">
-                            <i data-lucide="chevron-down" class="w-4 h-4"></i>
-                        </button>
+                <div id="emu-searchbar-container"
+                    class="w-full max-w-2xl mx-auto flex items-center justify-center relative z-20">
 
-                        <div id="historyDropdown" class="absolute top-full left-0 right-0 mt-2 bg-[#0f172a] border border-slate-800 rounded-xl shadow-2xl z-50 transition-all duration-200 dropdown-closed overflow-hidden">
-                            <div class="px-3 py-2 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
-                                <span class="text-xs font-semibold text-slate-400">Historial Reciente</span>
-                                <button onclick="clearHistory()" class="text-xs text-red-400 hover:text-red-300">Limpiar</button>
+                    <div class="flex-1 w-full flex items-center gap-2 relative">
+                        <div class="relative w-full">
+                            <input type="text" id="urlInput" value="" placeholder="http://localhost:8100"
+                                class="w-full bg-[#0f172a] border border-slate-800 rounded-xl pl-4 pr-10 py-2 text-sm code-font focus:outline-none focus:border-indigo-500 transition-all text-white shadow-inner"
+                                onkeydown="if(event.key === 'Enter' && typeof navigateToUrl === 'function') navigateToUrl()"
+                                onfocus="if(typeof toggleHistory === 'function') toggleHistory(true)"
+                                onblur="setTimeout(() => { if(typeof toggleHistory === 'function') toggleHistory(false) }, 200)">
+
+                            <button onclick="if(typeof toggleHistory === 'function') toggleHistory(true)"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white cursor-pointer">
+                                <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                            </button>
+
+                            <div id="historyDropdown"
+                                class="absolute top-full left-0 right-0 mt-2 bg-[#0f172a] border border-slate-800 rounded-xl shadow-2xl z-50 transition-all duration-200 dropdown-closed overflow-hidden">
+                                <div
+                                    class="px-3 py-2 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                                    <span class="text-xs font-semibold text-slate-400">Historial Reciente</span>
+                                    <button onclick="if(typeof clearHistory === 'function') clearHistory()"
+                                        class="text-xs text-red-400 hover:text-red-300 cursor-pointer">Limpiar</button>
+                                </div>
+                                <ul id="historyList" class="max-h-48 overflow-y-auto"></ul>
                             </div>
-                            <ul id="historyList" class="max-h-48 overflow-y-auto"></ul>
                         </div>
+
+                        <button onclick="if(typeof navigateToUrl === 'function') navigateToUrl()"
+                            class="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-xl transition-colors shadow-lg shrink-0 cursor-pointer">
+                            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                        </button>
+                        <button onclick="if(typeof refreshFrame === 'function') refreshFrame()"
+                            class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-xl transition-colors border border-slate-700 shrink-0 cursor-pointer">
+                            <i data-lucide="rotate-cw" class="w-5 h-5"></i>
+                        </button>
                     </div>
 
-                    <button onclick="navigateToUrl()" class="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-xl transition-colors shadow-lg shrink-0">
-                        <i data-lucide="arrow-right" class="w-5 h-5"></i>
-                    </button>
-                    <button onclick="refreshFrame()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-xl transition-colors border border-slate-700 shrink-0">
-                        <i data-lucide="rotate-cw" class="w-5 h-5"></i>
-                    </button>
                 </div>
             </div>
 
             <div class="flex items-center justify-between gap-2 overflow-x-auto pb-1">
                 <div class="flex items-center gap-1 bg-[#0f172a] p-1 rounded-xl border border-slate-800 shrink-0">
-                    <button onclick="updateZoom(-0.1)" class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors">
+                    <button onclick="updateZoom(-0.1)"
+                        class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors">
                         <i data-lucide="zoom-out" class="w-4 h-4"></i>
                     </button>
                     <span id="zoomLabel" class="text-[10px] font-bold text-indigo-400 w-10 text-center">100%</span>
-                    <button onclick="updateZoom(0.1)" class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors">
+                    <button onclick="updateZoom(0.1)"
+                        class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors">
                         <i data-lucide="zoom-in" class="w-4 h-4"></i>
                     </button>
                     <div class="w-px h-4 bg-slate-700 mx-1"></div>
-                    <button onclick="autoFit()" class="p-1.5 text-slate-400 hover:text-indigo-400 rounded-lg hover:bg-slate-800 transition-colors" title="Auto-Ajustar (Encajar)">
+                    <button onclick="autoFit()"
+                        class="p-1.5 text-slate-400 hover:text-indigo-400 rounded-lg hover:bg-slate-800 transition-colors"
+                        title="Auto-Ajustar (Encajar)">
                         <i data-lucide="shrink" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="resetZoom()" class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors" title="Tamaño Original (100%)">
+                    <button onclick="resetZoom()"
+                        class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                        title="Tamaño Original (100%)">
                         <i data-lucide="maximize" class="w-4 h-4"></i>
                     </button>
                 </div>
 
                 <div class="flex items-center gap-2 shrink-0 bg-[#0f172a] p-1 rounded-xl border border-slate-800">
-                    <button onclick="toggleDeviceMode()" class="p-1.5 text-slate-400 hover:text-white" title="Alternar Modo">
+                    <button onclick="toggleDeviceMode()" class="p-1.5 text-slate-400 hover:text-white"
+                        title="Alternar Modo">
                         <i data-lucide="smartphone-charging" class="w-4 h-4"></i>
                     </button>
                     <div class="w-px h-4 bg-slate-700"></div>
-                    <select id="deviceSelector" onchange="changeDevice()" class="bg-transparent text-[10px] font-bold text-slate-300 outline-none px-2 py-1 cursor-pointer">
+                    <select id="deviceSelector" onchange="changeDevice()"
+                        class="bg-transparent text-[10px] font-bold text-slate-300 outline-none px-2 py-1 cursor-pointer">
                         <option value="iphone14">iPhone 14 Pro</option>
                         <option value="pixel7">Pixel 7</option>
                         <option value="ipad">iPad Mini</option>
                         <option value="responsive">Responsive</option>
                     </select>
                     <div class="w-px h-4 bg-slate-700"></div>
-                    <button onclick="toggleRotation()" id="btnRotate" class="p-1.5 text-slate-400 hover:text-white rounded-lg transition-all">
-                        <i data-lucide="smartphone" class="w-4 h-4 transition-transform duration-300" id="rotateIcon"></i>
+                    <button onclick="toggleRotation()" id="btnRotate"
+                        class="p-1.5 text-slate-400 hover:text-white rounded-lg transition-all">
+                        <i data-lucide="smartphone" class="w-4 h-4 transition-transform duration-300"
+                            id="rotateIcon"></i>
                     </button>
                 </div>
 
-                <div class="flex items-center gap-1">
-                    <button onclick="toggleConsole()" id="btnHeaderConsole" class="flex items-center gap-2 bg-slate-800 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-slate-700">
-                        <i data-lucide="terminal" class="w-4 h-4"></i> <span id="devToolsLabel" class="hidden sm:inline">DevTools Nativo</span>
+                <div class="flex items-center gap-2 shrink-0">
+                    <!-- NUEVO BOTÓN PARA ACTIVAR/DESACTIVAR TOUCH -->
+                    <button onclick="toggleTouchMode()" id="btnToggleTouch"
+                        class="flex items-center gap-2 bg-indigo-600/20 text-indigo-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-slate-700 hover:bg-slate-800 hover:text-white">
+                        <i data-lucide="hand" class="w-4 h-4"></i> <span id="touchLabel" class="hidden sm:inline">Touch:
+                            ON</span>
+                    </button>
+
+                    <button onclick="toggleConsole()" id="btnHeaderConsole"
+                        class="flex items-center gap-2 bg-slate-800 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-slate-700">
+                        <i data-lucide="terminal" class="w-4 h-4"></i> <span id="devToolsLabel"
+                            class="hidden sm:inline">DevTools Nativo</span>
                     </button>
                 </div>
             </div>
@@ -222,12 +318,15 @@
 
     <main id="workspace" class="bg-[#020617]">
         <div id="deviceWrapper" class="animate-slide-up">
-            <div id="deviceContainer" class="device-mockup border-slate-900 rounded-[3rem] flex flex-col overflow-hidden w-[393px] h-[852px] border-[12px]">
-                <div id="notch" class="absolute top-0 inset-x-0 h-6 bg-slate-900 rounded-b-2xl w-28 mx-auto z-10 flex justify-center items-end pb-1 gap-1.5">
+            <div id="deviceContainer"
+                class="device-mockup border-slate-900 rounded-[3rem] flex flex-col overflow-hidden w-[393px] h-[852px] border-[12px]">
+                <div id="notch"
+                    class="absolute top-0 inset-x-0 h-6 bg-slate-900 rounded-b-2xl w-28 mx-auto z-10 flex justify-center items-end pb-1 gap-1.5">
                     <div class="w-10 h-1 bg-black rounded-full opacity-40"></div>
                     <div class="w-1 h-1 bg-black rounded-full opacity-40"></div>
                 </div>
-                <div id="statusBar" class="h-6 w-full bg-black text-white text-[9px] font-bold flex justify-between items-center px-6 shrink-0">
+                <div id="statusBar"
+                    class="h-6 w-full bg-black text-white text-[9px] font-bold flex justify-between items-center px-6 shrink-0">
                     <span id="clock">9:41</span>
                     <div class="flex gap-1.5 items-center">
                         <i data-lucide="signal" class="w-2.5 h-2.5"></i>
@@ -236,9 +335,11 @@
                     </div>
                 </div>
                 <div class="flex-1 w-full bg-white relative" id="frameContainer">
-                    <div id="loadingOverlay" class="absolute inset-0 bg-slate-50 flex flex-col items-center justify-center z-20 hidden">
+                    <div id="loadingOverlay"
+                        class="absolute inset-0 bg-slate-50 flex flex-col items-center justify-center z-20 hidden">
                         <i data-lucide="loader-2" class="w-6 h-6 text-indigo-500 animate-spin mb-3"></i>
-                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Cargando aplicación...</p>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Cargando aplicación...
+                        </p>
                     </div>
                 </div>
                 <div id="homeIndicator" class="h-5 w-full bg-black shrink-0 flex justify-center items-center">
@@ -251,7 +352,7 @@
     <script>
         const isElectron = window.navigator.userAgent.toLowerCase().includes('electron');
         let appFrame;
-        
+
         const devices = {
             iphone14: { width: 393, height: 852, borderRadius: '3.2rem', borderWidth: '12px', hasNotch: true },
             pixel7: { width: 412, height: 915, borderRadius: '2.5rem', borderWidth: '10px', hasNotch: false },
@@ -265,6 +366,7 @@
         let lastDeviceKey = 'iphone14';
         let currentZoom = 1.0;
         let isConsoleOpen = false;
+        let isTouchEnabled = true; // ESTADO GLOBAL PARA EL TOUCH
 
         const urlInput = document.getElementById('urlInput');
         const loadingOverlay = document.getElementById('loadingOverlay');
@@ -283,11 +385,12 @@
         const historyList = document.getElementById('historyList');
         const floatingConsoleBtn = document.getElementById('floatingConsoleBtn');
         const btnHeaderConsole = document.getElementById('btnHeaderConsole');
+        const btnToggleTouch = document.getElementById('btnToggleTouch');
+        const touchLabel = document.getElementById('touchLabel');
         const frameContainer = document.getElementById('frameContainer');
 
         // ==========================================
         // CSS MAESTRO DE SCROLL (Invisible 100%)
-        // Ataca el Root global y el Shadow DOM de Ionic
         // ==========================================
         const invisibleScrollCSS = `
             ::-webkit-scrollbar, *::-webkit-scrollbar {
@@ -301,7 +404,6 @@
                 scrollbar-width: none !important;
                 -ms-overflow-style: none !important;
             }
-            /* Atacar y perforar el Shadow DOM de Ionic */
             ion-content::part(scroll)::-webkit-scrollbar,
             .scroll-y::-webkit-scrollbar,
             .inner-scroll::-webkit-scrollbar,
@@ -319,6 +421,31 @@
         `;
 
         // ==========================================
+        // LÓGICA DE ACTIVACIÓN/DESACTIVACIÓN DEL TOUCH
+        // ==========================================
+        function toggleTouchMode() {
+            isTouchEnabled = !isTouchEnabled;
+
+            if (isTouchEnabled) {
+                btnToggleTouch.classList.add('bg-indigo-600/20', 'text-indigo-400');
+                btnToggleTouch.classList.remove('bg-slate-800', 'text-slate-300');
+                btnToggleTouch.innerHTML = `<i data-lucide="hand" class="w-4 h-4"></i> <span id="touchLabel" class="hidden sm:inline">Touch: ON</span>`;
+            } else {
+                btnToggleTouch.classList.remove('bg-indigo-600/20', 'text-indigo-400');
+                btnToggleTouch.classList.add('bg-slate-800', 'text-slate-300');
+                btnToggleTouch.innerHTML = `<i data-lucide="mouse-pointer-2" class="w-4 h-4"></i> <span id="touchLabel" class="hidden sm:inline">Touch: OFF</span>`;
+            }
+            lucide.createIcons();
+
+            // Inyectar el estado actualizado en el webview
+            if (appFrame) {
+                appFrame.executeJavaScript(`window.__enableAdvancedTouch = ${isTouchEnabled};`);
+            }
+        }
+
+        toggleTouchMode();
+
+        // ==========================================
         // INICIALIZACIÓN DEL WEBVIEW (NATIVO EXCLUSIVO)
         // ==========================================
         function initAppFrame() {
@@ -327,7 +454,6 @@
             }
 
             if (!isElectron) {
-                // Si alguien lo abre en Chrome web normal, advertimos.
                 document.getElementById('toastElectron').classList.remove('hidden');
                 document.querySelector('#toastElectron p').innerText = "Este emulador está configurado exclusivamente para correr en Electron usando el motor WebView.";
                 return;
@@ -336,21 +462,22 @@
             appFrame = document.createElement('webview');
             appFrame.setAttribute('allowpopups', 'true');
             appFrame.id = "appFrame";
-            // allow-pointer-events previene algunos bloqueos visuales
             appFrame.className = `absolute inset-0 w-full h-full border-0 bg-white z-10`;
             frameContainer.appendChild(appFrame);
 
             appFrame.addEventListener('did-start-loading', () => loadingOverlay.classList.remove('hidden'));
 
             appFrame.addEventListener('dom-ready', () => {
-                // Inyectamos el CSS blindado para matar el scrollbar
                 appFrame.insertCSS(invisibleScrollCSS);
 
-                // --- INYECCIÓN DEL MOTOR TÁCTIL ---
+                // --- INYECCIÓN DEL MOTOR TÁCTIL MODIFICADO ---
                 const touchSimScript = `
                     (function() {
                         if (window.__touchSimActive) return;
                         window.__touchSimActive = true;
+                        
+                        // Estado inyectado que controlará el toggle
+                        window.__enableAdvancedTouch = ${isTouchEnabled};
 
                         const createTouchEvt = (type, originalEvent) => {
                             let touchObj; 
@@ -380,7 +507,6 @@
                             }
                         };
 
-                        // Evitar selección nativa de texto al arrastrar el ratón
                         const touchStyle = document.createElement('style');
                         touchStyle.textContent = \`
                             body {
@@ -400,11 +526,13 @@
 
                         document.addEventListener('mousedown', (e) => { 
                             isSimulatingDrag = true;
+                            // touchstart siempre activo según lo solicitado
                             e.target.dispatchEvent(createTouchEvt('touchstart', e)); 
                         }, true);
 
                         document.addEventListener('mousemove', (e) => {
-                            if (isSimulatingDrag) {
+                            // touchmove solo se dispara si el toggle está activo
+                            if (isSimulatingDrag && window.__enableAdvancedTouch) {
                                 e.target.dispatchEvent(createTouchEvt('touchmove', e));
                             }
                         }, true);
@@ -412,32 +540,39 @@
                         document.addEventListener('mouseup', (e) => { 
                             if (isSimulatingDrag) {
                                 isSimulatingDrag = false;
-                                e.target.dispatchEvent(createTouchEvt('touchend', e)); 
+                                // touchend solo se dispara si el toggle está activo
+                                if (window.__enableAdvancedTouch) {
+                                    e.target.dispatchEvent(createTouchEvt('touchend', e)); 
+                                }
                             }
                         }, true);
                         
                         document.addEventListener('mouseleave', (e) => {
                             if (isSimulatingDrag) {
                                 isSimulatingDrag = false;
-                                e.target.dispatchEvent(createTouchEvt('touchend', e));
+                                // touchend al salir solo se dispara si el toggle está activo
+                                if (window.__enableAdvancedTouch) {
+                                    e.target.dispatchEvent(createTouchEvt('touchend', e));
+                                }
                             }
                         });
                     })();
                 `;
                 appFrame.executeJavaScript(touchSimScript);
+                applyZoom();
             });
 
             appFrame.addEventListener('did-stop-loading', () => {
                 loadingOverlay.classList.add('hidden');
                 urlInput.value = appFrame.getURL();
             });
-            
+
             appFrame.addEventListener('did-fail-load', () => {
                 loadingOverlay.classList.add('hidden');
                 showToast("No se pudo cargar la URL.");
             });
-            
-            applyZoom(); 
+
+
         }
 
         // ==========================================
@@ -452,7 +587,7 @@
                 btnHeaderConsole.classList.remove('bg-indigo-600/20', 'text-indigo-400');
                 floatingConsoleBtn.classList.remove('console-active-btn');
             } else {
-                appFrame.openDevTools(); 
+                appFrame.openDevTools();
                 isConsoleOpen = true;
                 btnHeaderConsole.classList.add('bg-indigo-600/20', 'text-indigo-400');
                 floatingConsoleBtn.classList.add('console-active-btn');
@@ -469,7 +604,7 @@
                     if (!response.ok) throw new Error("Error de red");
                     return await response.json();
                 } catch (e) {
-                    return { history: JSON.parse(localStorage.getItem('temp_history')) || []};
+                    return { history: JSON.parse(localStorage.getItem('temp_history')) || [] };
                 }
             },
             async get() {
@@ -481,7 +616,7 @@
                 let history = data.history || [];
                 history = history.filter(item => item !== url);
                 history.unshift(url);
-                if(history.length > 15) history.pop();
+                if (history.length > 15) history.pop();
                 data.history = history;
 
                 try {
@@ -496,7 +631,7 @@
         async function renderHistoryList() {
             const history = await HistoryAPI.get();
             historyList.innerHTML = '';
-            if(history.length === 0) {
+            if (history.length === 0) {
                 historyList.innerHTML = '<li class="px-4 py-3 text-sm text-slate-500 italic text-center">No hay búsquedas recientes</li>';
                 return;
             }
@@ -511,7 +646,7 @@
         }
 
         function toggleHistory(show) {
-            if(show) {
+            if (show) {
                 renderHistoryList();
                 historyDropdown.classList.remove('dropdown-closed');
                 historyDropdown.classList.add('dropdown-open');
@@ -526,8 +661,8 @@
             HistoryAPI.getFullData().then(data => {
                 data.history = [];
                 fetch('/dataEmulador', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data, null, 2) })
-                .catch(() => {})
-                .finally(() => { toggleHistory(true); });
+                    .catch(() => { })
+                    .finally(() => { toggleHistory(true); });
             });
         }
 
@@ -543,35 +678,35 @@
         // ==========================================
         function toggleMenu() {
             isMenuVisible = !isMenuVisible;
-            if (isMenuVisible) { mainHeader.classList.remove('header-hidden'); btnShowMenu.classList.add('opacity-0', 'pointer-events-none'); } 
+            if (isMenuVisible) { mainHeader.classList.remove('header-hidden'); btnShowMenu.classList.add('opacity-0', 'pointer-events-none'); }
             else { mainHeader.classList.add('header-hidden'); btnShowMenu.classList.remove('opacity-0', 'pointer-events-none'); }
             setTimeout(updateCentering, 350);
         }
 
         function updateCentering() {
-            if (currentDeviceKey === 'responsive') { 
-                wrapper.style.margin = '0'; 
-                return; 
+            if (currentDeviceKey === 'responsive') {
+                wrapper.style.margin = '0';
+                return;
             }
             const availableW = workspace.clientWidth;
             const availableH = workspace.clientHeight;
-            
+
             const wWrap = parseFloat(wrapper.style.width) || 0;
             const hWrap = parseFloat(wrapper.style.height) || 0;
-            
+
             const mTop = hWrap <= availableH ? 'auto' : '0px';
             const mBottom = hWrap <= availableH ? 'auto' : '0px';
             const mLeft = wWrap <= availableW ? 'auto' : '0px';
             const mRight = wWrap <= availableW ? 'auto' : '0px';
-            
+
             wrapper.style.margin = `${mTop} ${mRight} ${mBottom} ${mLeft}`;
         }
 
         function autoFit() {
-            if (currentDeviceKey === 'responsive') { 
-                currentZoom = 1.0; 
-                applyZoom(); 
-                return; 
+            if (currentDeviceKey === 'responsive') {
+                currentZoom = 1.0;
+                applyZoom();
+                return;
             }
             const config = devices[currentDeviceKey];
             const scaleW = (workspace.clientWidth - 40) / (isLandscape ? config.height : config.width);
@@ -585,39 +720,41 @@
             currentZoom = Math.max(0.1, Math.min(2, currentZoom + delta));
             applyZoom();
         }
-        
-        function resetZoom() { 
-            currentZoom = 1.0; 
-            applyZoom(); 
+
+        function resetZoom() {
+            currentZoom = 1.0;
+            applyZoom();
         }
 
         function applyZoom() {
-            if (currentDeviceKey === 'responsive') {
-                container.style.transform = 'none'; 
-                wrapper.style.width = '100%'; 
-                wrapper.style.height = '100%'; 
-                if(appFrame && appFrame.setZoomFactor) appFrame.setZoomFactor(1);
-            } else {
-                const config = devices[currentDeviceKey];
-                const w = isLandscape ? config.height : config.width;
-                const h = isLandscape ? config.width : config.height;
-                
-                container.style.transform = `scale(${currentZoom})`;
-                
-                wrapper.style.width = `${w * currentZoom}px`;
-                wrapper.style.height = `${h * currentZoom}px`;
-                
-                if(appFrame && appFrame.setZoomFactor) appFrame.setZoomFactor(currentZoom); 
-            }
-            zoomLabel.innerText = Math.round(currentZoom * 100) + '%';
-            updateCentering();
+            setTimeout(() => {
+                if (currentDeviceKey === 'responsive') {
+                    container.style.transform = 'none';
+                    wrapper.style.width = '100%';
+                    wrapper.style.height = '100%';
+                    if (appFrame && appFrame.setZoomFactor) appFrame.setZoomFactor(1);
+                } else {
+                    const config = devices[currentDeviceKey];
+                    const w = isLandscape ? config.height : config.width;
+                    const h = isLandscape ? config.width : config.height;
+
+                    container.style.transform = `scale(${currentZoom})`;
+
+                    wrapper.style.width = `${w * currentZoom}px`;
+                    wrapper.style.height = `${h * currentZoom}px`;
+
+                    if (appFrame && appFrame.setZoomFactor) appFrame.setZoomFactor(currentZoom);
+                }
+                zoomLabel.innerText = Math.round(currentZoom * 100) + '%';
+                updateCentering();
+            }, 50);
         }
 
         async function navigateToUrl() {
             let url = urlInput.value.trim();
-            if (!url) return; 
+            if (!url) return;
             if (!url.startsWith('http://') && !url.startsWith('https://')) url = 'http://' + url;
-            
+
             await HistoryAPI.save(url);
             loadingOverlay.classList.remove('hidden');
             if (appFrame) appFrame.src = url;
@@ -631,81 +768,84 @@
             }
         }
 
-        function changeDevice() { 
-            currentDeviceKey = deviceSelector.value; 
+        function changeDevice() {
+            currentDeviceKey = deviceSelector.value;
             if (currentDeviceKey !== 'responsive') {
-                lastDeviceKey = currentDeviceKey; 
+                lastDeviceKey = currentDeviceKey;
             }
             currentZoom = 1.0;
-            applyDeviceStyles(); 
+            applyDeviceStyles();
             autoFit();
         }
-        
-        function toggleDeviceMode() { 
-            currentDeviceKey = (currentDeviceKey === 'responsive') ? lastDeviceKey : 'responsive'; 
-            deviceSelector.value = currentDeviceKey; 
+
+        function toggleDeviceMode() {
+            currentDeviceKey = (currentDeviceKey === 'responsive') ? lastDeviceKey : 'responsive';
+            deviceSelector.value = currentDeviceKey;
             currentZoom = 1.0;
-            applyDeviceStyles(); 
-            if(currentDeviceKey !== 'responsive') autoFit();
+            applyDeviceStyles();
+            if (currentDeviceKey !== 'responsive') autoFit();
         }
-        
-        function toggleRotation() { 
-            if (currentDeviceKey === 'responsive') return; 
-            isLandscape = !isLandscape; 
-            rotateIcon.style.transform = isLandscape ? 'rotate(90deg)' : 'rotate(0deg)'; 
+
+        function toggleRotation() {
+            if (currentDeviceKey === 'responsive') return;
+            isLandscape = !isLandscape;
+            rotateIcon.style.transform = isLandscape ? 'rotate(90deg)' : 'rotate(0deg)';
             currentZoom = 1.0;
-            applyDeviceStyles(); 
+            applyDeviceStyles();
             autoFit();
         }
 
         function applyDeviceStyles() {
             const config = devices[currentDeviceKey];
             if (currentDeviceKey === 'responsive') {
-                container.classList.add('mode-responsive'); 
+                container.classList.add('mode-responsive');
                 rotateIcon.classList.add('opacity-30');
-                container.style.width = '100%'; 
+                container.style.width = '100%';
                 container.style.height = '100%';
                 wrapper.style.width = '100%';
                 wrapper.style.height = '100%';
                 container.style.transform = 'none';
             } else {
-                container.classList.remove('mode-responsive'); 
+                container.classList.remove('mode-responsive');
                 rotateIcon.classList.remove('opacity-30');
-                
+
                 const w = config.width, h = config.height;
-                container.style.width = isLandscape ? h + 'px' : w + 'px'; 
+                container.style.width = isLandscape ? h + 'px' : w + 'px';
                 container.style.height = isLandscape ? w + 'px' : h + 'px';
-                container.style.borderRadius = config.borderRadius; 
+                container.style.borderRadius = config.borderRadius;
                 container.style.borderWidth = config.borderWidth;
-                
-                if (config.hasNotch && !isLandscape) notch.classList.remove('hidden'); 
+
+                if (config.hasNotch && !isLandscape) notch.classList.remove('hidden');
                 else notch.classList.add('hidden');
-                
-                statusBar.classList.remove('hidden'); 
+
+                statusBar.classList.remove('hidden');
                 homeIndicator.classList.remove('hidden');
             }
-            
+
             requestAnimationFrame(() => { updateCentering(); });
         }
 
         setInterval(() => {
             const now = new Date();
-            if(document.getElementById('clock')) document.getElementById('clock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            if (document.getElementById('clock')) document.getElementById('clock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }, 1000);
 
         lucide.createIcons();
 
         window.addEventListener('load', () => {
-            initAppFrame();
-            renderHistoryList(); 
-            applyDeviceStyles();
-            if(urlInput.value) navigateToUrl();
+            setTimeout(() => {
+                initAppFrame();
+                renderHistoryList();
+                applyDeviceStyles();
+                if (urlInput.value) navigateToUrl();
+            }, 100);
         });
-        
-        window.addEventListener('resize', () => { 
-            updateCentering(); 
+
+        window.addEventListener('resize', () => {
+            setTimeout(() => { updateCentering(); }, 100);
         });
 
     </script>
 </body>
+
 </html>

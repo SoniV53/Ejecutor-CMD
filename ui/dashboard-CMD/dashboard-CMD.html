@@ -113,10 +113,10 @@
             <div class="flex items-center gap-2 md:gap-3 w-full sm:w-auto justify-between sm:justify-end">
                 <!-- Selector de Vistas -->
                 <div class="flex items-center bg-slate-900/80 rounded-xl p-1 border border-slate-800">
-                    <button onclick="setViewMode('list')" id="btnViewList" class="p-2 rounded-lg bg-slate-800 text-white shadow-sm transition-all" title="Vista de Lista">
+                    <button onclick="setViewMode('list')" id="btnViewList" class="p-1.5 md:p-2 rounded-lg text-slate-500 hover:text-white transition-all" title="Vista de Lista">
                         <i data-lucide="list" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="setViewMode('card')" id="btnViewCard" class="p-2 rounded-lg text-slate-500 hover:text-white transition-all" title="Vista de Tarjetas">
+                    <button onclick="setViewMode('card')" id="btnViewCard" class="p-1.5 md:p-2 rounded-lg bg-slate-800 text-white shadow-sm transition-all" title="Vista de Tarjetas">
                         <i data-lucide="layout-grid" class="w-4 h-4"></i>
                     </button>
                 </div>
@@ -317,7 +317,7 @@
         let consoleMin = false;
         
         // Vista por defecto: 'list' o 'card'
-        let viewMode = 'list';
+        let viewMode = 'card';
         
         // Control del Sidebar
         let sidebarOpenMobile = false;

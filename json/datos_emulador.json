@@ -1,5 +1,7 @@
 {
   "history": [
-    "http://localhost:8100/"
+    "http://localhost:3000/",
+    "http://localhost:3000/emulador",
+    "https://www.youtube.com/"
   ]
 }

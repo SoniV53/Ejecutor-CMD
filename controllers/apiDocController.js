@@ -4,6 +4,7 @@ const path = require('path');
 // Directorio base para las documentaciones de API
 const BASE_DIR = process.env.PORTABLE_EXECUTABLE_DIR || path.join(__dirname, '..');
 const DOCS_ROOT = path.join(BASE_DIR, 'api_docs');
+const DOCS_ROOT_JSON = path.join(BASE_DIR, 'json');
 
 // Asegurar que la carpeta raíz de docs exista
 if (!fs.existsSync(DOCS_ROOT)) {
@@ -63,7 +64,7 @@ const saveJsonDoc = (req, res) => {
     req.on('end', () => {
         try {
             const { fileName, folder, content } = JSON.parse(body);
-            const targetFolder = path.join(DOCS_ROOT, folder);
+            const targetFolder = path.join(DOCS_ROOT_JSON, folder);
 
             if (!fs.existsSync(targetFolder)) {
                 fs.mkdirSync(targetFolder, { recursive: true });
