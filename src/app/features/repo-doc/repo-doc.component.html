@@ -1,0 +1,58 @@
+<div class="bg-slate-50 h-screen flex overflow-hidden text-slate-800 font-sans">
+  <app-repo-sidebar-tree
+    [state]="state"
+    [currentBranchId]="currentBranchId"
+    [currentFolderId]="currentFolderId"
+    [expandedFolders]="expandedFolders"
+    [fileStatusText]="fileStatusText"
+    [fileSynced]="fileSynced"
+    (openNewFolderModal)="openNewFolderModal()"
+    (openNewBranchModal)="openNewBranchModal()"
+    (toggleFolder)="toggleFolder($event)"
+    (selectFolder)="showFolderDetails($event)"
+    (selectBranch)="showBranchDetails($event)"
+    (createNewFile)="crearNuevoArchivo()"
+    (openFileModal)="abrirArchivo()"
+    (saveFileForced)="guardarArchivoForzado()"
+    (saveFileAs)="guardarArchivoComo()"
+  ></app-repo-sidebar-tree>
+
+  <app-repo-branch-detail
+    [currentFolder]="currentFolder"
+    [currentBranch]="currentBranch"
+    [parentBranchName]="parentBranchName"
+    [commits]="state.commits"
+    (editFolder)="editCurrentFolder()"
+    (deleteFolder)="deleteCurrentFolder()"
+    (editBranch)="editCurrentBranch()"
+    (deleteBranch)="deleteCurrentBranch()"
+    (openCommitModal)="showCommitModal = true"
+    (deleteCommit)="deleteCommit($event)"
+  ></app-repo-branch-detail>
+
+  <app-repo-modals
+    [showBranchModal]="showBranchModal"
+    [editingBranch]="editingBranch"
+    [showFolderModal]="showFolderModal"
+    [editingFolder]="editingFolder"
+    [showCommitModal]="showCommitModal"
+    [showFilenameModal]="showFilenameModal"
+    [filenameModalTitle]="filenameModalTitle"
+    [filenamePlaceholder]="filenamePlaceholder"
+    [showOpenModal]="showOpenModal"
+    [jsonFiles]="jsonFiles"
+    [activeFileName]="activeFileName"
+    [folders]="state.folders"
+    [branches]="state.branches"
+    (closeBranchModal)="showBranchModal = false; editingBranch = null"
+    (saveBranch)="onSaveBranch($event)"
+    (closeFolderModal)="showFolderModal = false; editingFolder = null"
+    (saveFolder)="onSaveFolder($event)"
+    (closeCommitModal)="showCommitModal = false"
+    (saveCommit)="onSaveCommit($event)"
+    (closeFilenameModal)="showFilenameModal = false"
+    (confirmFilename)="onConfirmFilename($event)"
+    (closeOpenModal)="showOpenModal = false"
+    (selectFileToOpen)="selectFileToOpen($event)"
+  ></app-repo-modals>
+</div>

@@ -1,0 +1,35 @@
+:host {
+  display: contents;
+}
+
+.glass-sidebar {
+  background: #0b1120;
+  border-right: 1px solid #1e293b;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 10px;
+}
+
+.item-row {
+  border: 1px solid transparent;
+}
+
+.item-row.active-file {
+  background: rgba(79, 70, 229, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.item-row:hover:not(.active-file) {
+  background: #1e293b;
+}

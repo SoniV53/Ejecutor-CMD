@@ -1,0 +1,24 @@
+<div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-6 animate-in zoom-in duration-200">
+    <div class="flex justify-between items-center mb-4 text-blue-600">
+      <h3 class="font-bold flex items-center gap-2 tracking-tight">
+        <i data-lucide="wand-2" class="w-5 h-5"></i> Importar Angular
+      </h3>
+      <button type="button" (click)="closeModal.emit()">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <textarea
+      [(ngModel)]="importText"
+      placeholder="&#64;Input() value: string;"
+      class="w-full h-44 p-4 bg-slate-50 rounded-2xl outline-none font-mono text-xs border border-slate-200 focus:ring-2 focus:ring-blue-100 transition-all mb-4"
+    ></textarea>
+    <button
+      type="button"
+      (click)="processImport()"
+      class="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700"
+    >
+      Procesar Código
+    </button>
+  </div>
+</div>

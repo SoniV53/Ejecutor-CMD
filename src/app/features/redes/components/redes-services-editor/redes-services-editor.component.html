@@ -1,0 +1,297 @@
+<div
+  *ngIf="node.type === 'router' || node.type === 'switch'"
+  class="space-y-6 lg:space-y-10 mt-6 lg:mt-10"
+>
+  <!-- Section 7: Seguridad y Administración -->
+  <section class="bg-slate-900/30 p-4 lg:p-6 rounded-3xl border border-slate-800 shadow-xl shadow-emerald-950/5">
+    <div class="flex justify-between items-center mb-6">
+      <h3 class="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        Seguridad y Administración
+      </h3>
+      <div class="flex items-center gap-2">
+        <span class="text-[9px] font-bold text-slate-500 uppercase">Activar</span>
+        <button
+          type="button"
+          (click)="toggleSecurity()"
+          class="w-10 h-5 rounded-full relative transition-colors"
+          [ngClass]="security.enabled ? 'bg-emerald-500' : 'bg-slate-700'"
+        >
+          <div
+            class="w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-all"
+            [ngClass]="security.enabled ? 'left-5' : 'left-1'"
+          ></div>
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="security.enabled" class="space-y-4">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-slate-950 p-4 lg:p-5 rounded-2xl border border-slate-900">
+        <div>
+          <label class="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">
+            Enable Secret (Privilegiado)
+          </label>
+          <input
+            type="text"
+            placeholder="Ej: Cisco30"
+            [(ngModel)]="security.enableSecret"
+            (ngModelChange)="emitChange()"
+            class="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-emerald-500"
+          />
+        </div>
+        <div>
+          <label class="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">
+            Console Password (Usuario)
+          </label>
+          <input
+            type="text"
+            placeholder="Ej: User30"
+            [(ngModel)]="security.consolePassword"
+            (ngModelChange)="emitChange()"
+            class="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-emerald-500"
+          />
+        </div>
+        <div>
+          <label class="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">
+            VTY Password (Telnet/SSH)
+          </label>
+          <div class="flex gap-2">
+            <input
+              type="text"
+              placeholder="Rango (Ej: 0 2)"
+              [(ngModel)]="security.vtyLines"
+              (ngModelChange)="emitChange()"
+              class="w-1/3 bg-slate-900 border-none rounded p-2 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-emerald-500 lg:text-center"
+            />
+            <input
+              type="text"
+              placeholder="Ej: Telnet30"
+              [(ngModel)]="security.vtyPassword"
+              (ngModelChange)="emitChange()"
+              class="w-2/3 bg-slate-900 border-none rounded p-2 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Switch SVI Admin VLAN -->
+      <div *ngIf="node.type === 'switch'" class="bg-slate-950 p-4 lg:p-5 rounded-2xl border border-slate-900">
+        <div class="flex flex-col lg:flex-row justify-between lg:items-center mb-4 gap-3">
+          <label class="text-[10px] font-bold text-slate-400 block uppercase tracking-widest">
+            IP de Administración (SVI / VLAN)
+          </label>
+          <div class="flex items-center gap-2">
+            <span class="text-[8px] font-bold text-slate-600 uppercase">Habilitar SVI</span>
+            <button
+              type="button"
+              (click)="toggleAdminVlan()"
+              class="w-8 h-4 rounded-full relative transition-colors"
+              [ngClass]="security.adminVlan.enabled ? 'bg-emerald-500' : 'bg-slate-700'"
+            >
+              <div
+                class="w-2.5 h-2.5 bg-white rounded-full absolute top-[3px] transition-all"
+                [ngClass]="security.adminVlan.enabled ? 'left-[18px]' : 'left-1'"
+              ></div>
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="security.adminVlan.enabled" class="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:items-end">
+          <div class="col-span-1 lg:col-span-2">
+            <label class="text-[8px] font-bold text-slate-600 block mb-1 uppercase tracking-tighter">VLAN ID</label>
+            <input
+              type="text"
+              placeholder="Ej: 900"
+              [(ngModel)]="security.adminVlan.id"
+              (ngModelChange)="emitChange()"
+              class="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-emerald-500 lg:text-center"
+            />
+          </div>
+          <div class="col-span-1 lg:col-span-5">
+            <label class="text-[8px] font-bold text-slate-600 block mb-1 uppercase tracking-tighter">IP Address</label>
+            <input
+              type="text"
+              placeholder="Ej: 192.168.70.2"
+              [(ngModel)]="security.adminVlan.ip"
+              (ngModelChange)="emitChange()"
+              class="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+          </div>
+          <div class="col-span-1 lg:col-span-5">
+            <label class="text-[8px] font-bold text-slate-600 block mb-1 uppercase tracking-tighter">Subnet Mask</label>
+            <input
+              type="text"
+              placeholder="Ej: 255.255.255.0"
+              [(ngModel)]="security.adminVlan.mask"
+              (ngModelChange)="emitChange()"
+              class="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+          </div>
+          <p class="col-span-1 lg:col-span-12 text-[9px] text-slate-500 italic mt-1">
+            Nota: Asegúrese de que la VLAN {{ security.adminVlan.id || '900' }} esté añadida también en la lista general de VLANs del switch (arriba) para permitir su tráfico en el troncal.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 8: Servidor DHCP (IPv4) -->
+  <section class="bg-slate-900/30 p-4 lg:p-6 rounded-3xl border border-slate-800 shadow-xl shadow-yellow-950/5">
+    <div class="flex flex-col lg:flex-row justify-between lg:items-center mb-6 gap-4">
+      <h3 class="text-[10px] font-black text-yellow-500 uppercase tracking-widest flex items-center gap-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-yellow-500">
+          <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+          <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+          <line x1="6" y1="6" x2="6.01" y2="6"/>
+          <line x1="6" y1="18" x2="6.01" y2="18"/>
+        </svg>
+        Servidor DHCP (IPv4)
+      </h3>
+      <div class="flex gap-2">
+        <button
+          type="button"
+          (click)="addDhcpExclusion()"
+          class="no-print text-[9px] font-bold bg-slate-800 border border-slate-700 px-3 py-2 lg:py-1.5 rounded-xl lg:rounded-full uppercase hover:bg-slate-700 transition-all text-slate-300 w-full lg:w-auto text-center"
+        >
+          + Exclusión
+        </button>
+
+        <button
+          type="button"
+          (click)="addDhcpPool()"
+          class="no-print text-[9px] font-bold bg-yellow-600 px-3 py-2 lg:py-1.5 rounded-xl lg:rounded-full uppercase hover:scale-105 active:scale-95 transition-all text-white shadow-[0_0_10px_rgba(202,138,4,0.3)] w-full lg:w-auto text-center"
+        >
+          + Añadir Pool
+        </button>
+      </div>
+    </div>
+
+    <div class="space-y-6">
+      <!-- Lista de Exclusiones -->
+      <div
+        *ngIf="dhcp.excludedAddresses.length > 0"
+        class="bg-slate-950 p-4 rounded-2xl border border-slate-900"
+      >
+        <label class="text-[9px] font-black text-slate-400 block mb-3 uppercase tracking-widest">
+          Direcciones Excluidas
+        </label>
+        <div class="space-y-2">
+          <div
+            *ngFor="let ex of dhcp.excludedAddresses; let idx = index"
+            class="flex flex-col lg:flex-row gap-3 lg:items-center group border-b border-slate-800 pb-3 mb-3 lg:border-none lg:pb-0 lg:mb-0"
+          >
+            <input
+              type="text"
+              placeholder="IP Inicial (Ej: 192.168.70.1)"
+              [(ngModel)]="ex.startIp"
+              (ngModelChange)="emitChange()"
+              class="w-full lg:w-1/2 bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-yellow-500"
+            />
+            <input
+              type="text"
+              placeholder="IP Final (Opcional) (Ej: 192.168.70.20)"
+              [(ngModel)]="ex.endIp"
+              (ngModelChange)="emitChange()"
+              class="w-full lg:w-1/2 bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-yellow-500"
+            />
+            <button
+              type="button"
+              (click)="removeDhcpExclusion(idx)"
+              class="text-slate-600 bg-slate-900 lg:bg-transparent p-2 lg:p-0 rounded hover:text-red-500 shrink-0 self-end lg:self-auto"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lg:w-[14px] lg:h-[14px]">
+                <path d="M3 6h18"/>
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                <line x1="10" y1="11" x2="10" y2="17"/>
+                <line x1="14" y1="11" x2="14" y2="17"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista de Pools -->
+      <div class="space-y-3">
+        <div
+          *ngFor="let pool of dhcp.pools; let idx = index"
+          class="grid grid-cols-1 lg:grid-cols-12 gap-3 bg-slate-950 p-4 rounded-2xl border border-slate-900 lg:items-end group hover:border-slate-700 transition-all"
+        >
+          <div class="col-span-1 lg:col-span-3">
+            <label class="text-[8px] font-bold text-slate-600 block mb-1 uppercase">Nombre del Pool</label>
+            <input
+              type="text"
+              [(ngModel)]="pool.name"
+              (ngModelChange)="emitChange()"
+              placeholder="Ej: admin"
+              class="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-yellow-500"
+            />
+          </div>
+          <div class="col-span-1 lg:col-span-4">
+            <label class="text-[8px] font-bold text-slate-600 block mb-1 uppercase">Red (Network + Mask)</label>
+            <div class="flex flex-col lg:flex-row gap-2">
+              <input
+                type="text"
+                [(ngModel)]="pool.networkIp"
+                (ngModelChange)="emitChange()"
+                placeholder="192.168.70.0"
+                class="w-full lg:w-1/2 bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-yellow-500"
+              />
+              <input
+                type="text"
+                [(ngModel)]="pool.mask"
+                (ngModelChange)="emitChange()"
+                placeholder="255.255.255.0"
+                class="w-full lg:w-1/2 bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-yellow-500"
+              />
+            </div>
+          </div>
+          <div class="col-span-1 lg:col-span-2">
+            <label class="text-[8px] font-bold text-slate-600 block mb-1 uppercase tracking-tighter">Default Router</label>
+            <input
+              type="text"
+              [(ngModel)]="pool.defaultRouter"
+              (ngModelChange)="emitChange()"
+              placeholder="192.168.70.1"
+              class="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-yellow-500"
+            />
+          </div>
+          <div class="col-span-1 lg:col-span-2">
+            <label class="text-[8px] font-bold text-slate-600 block mb-1 uppercase tracking-tighter">DNS Server</label>
+            <input
+              type="text"
+              [(ngModel)]="pool.dnsServer"
+              (ngModelChange)="emitChange()"
+              placeholder="8.8.8.8"
+              class="w-full bg-slate-900 border-none rounded p-2 lg:p-1.5 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-yellow-500"
+            />
+          </div>
+          <div class="col-span-1 lg:col-span-1 flex justify-end lg:justify-center mt-2 lg:mt-0 pt-2 lg:pt-0 border-t border-slate-800 lg:border-none lg:pb-1 no-print">
+            <button
+              type="button"
+              (click)="removeDhcpPool(idx)"
+              class="text-slate-600 bg-slate-900 lg:bg-transparent p-2 lg:p-0 rounded lg:rounded-none hover:text-red-500 transition-colors"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lg:w-[14px] lg:h-[14px]">
+                <path d="M3 6h18"/>
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                <line x1="10" y1="11" x2="10" y2="17"/>
+                <line x1="14" y1="11" x2="14" y2="17"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <p
+          *ngIf="dhcp.pools.length === 0"
+          class="text-xs text-slate-600 italic text-center py-4"
+        >
+          No hay pools DHCP configurados.
+        </p>
+      </div>
+    </div>
+  </section>
+</div>

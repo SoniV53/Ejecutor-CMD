@@ -1,0 +1,109 @@
+<div class="flex h-screen overflow-hidden relative w-full bg-slate-950 text-slate-100">
+  <!-- SIDEBAR (Izquierdo) -->
+  <app-redes-sidebar
+    [nodes]="nodes"
+    [selectedNodeId]="selectedNodeId"
+    [showSidebar]="showSidebar"
+    (closeSidebar)="showSidebar = false"
+    (selectTemplate)="loadTemplate($event)"
+    (addNode)="addNode($event)"
+    (selectNode)="selectNode($event)"
+    (deleteNode)="deleteNode($event)"
+    (saveJson)="downloadJSON()"
+    (importJson)="handleImport($event)"
+    (printPdf)="print()"
+  ></app-redes-sidebar>
+
+  <!-- MAIN AREA -->
+  <div class="flex-1 flex flex-col overflow-hidden bg-slate-950 w-full relative">
+    <!-- Cabecera Móvil -->
+    <div class="lg:hidden flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900 z-10 no-print">
+      <button
+        type="button"
+        (click)="showSidebar = true"
+        class="p-2 -ml-2 text-slate-300 hover:text-white"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+      <span class="font-black text-blue-500 text-sm tracking-widest uppercase">CISCO PRO</span>
+      <button
+        type="button"
+        (click)="toggleCli()"
+        class="p-2 -mr-2 rounded-lg transition-colors"
+        [ngClass]="showCli ? 'text-green-500 bg-green-500/10' : 'text-slate-400 hover:text-white'"
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="4 17 10 11 4 5"></polyline>
+          <line x1="12" y1="19" x2="20" y2="19"></line>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Empty State cuando no hay nodo seleccionado -->
+    <div
+      *ngIf="!selectedNode; else editorView"
+      class="flex-1 flex flex-col items-center justify-center text-slate-800 p-8 text-center"
+    >
+      <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-10 mb-6">
+        <rect x="9" y="16" width="6" height="6" rx="1"/>
+        <rect x="9" y="2" width="6" height="6" rx="1"/>
+        <rect x="2" y="16" width="6" height="6" rx="1"/>
+        <rect x="16" y="16" width="6" height="6" rx="1"/>
+        <path d="M12 8v4"/>
+        <path d="M12 12H5v4"/>
+        <path d="M12 12h7v4"/>
+      </svg>
+      <h2 class="text-xl font-black uppercase tracking-widest opacity-20 italic text-slate-100">
+        Configuración Cisco
+      </h2>
+      <p class="text-xs opacity-20 mt-2 text-slate-100">
+        Selecciona un dispositivo del menú para editar su configuración.
+      </p>
+    </div>
+
+    <!-- Editor + Consola CLI -->
+    <ng-template #editorView>
+      <div *ngIf="selectedNode as node" class="flex flex-1 overflow-hidden relative">
+        <!-- EDITOR (Centro) -->
+        <div class="flex-1 p-4 lg:p-8 overflow-y-auto print-area scrollbar-hide">
+          <div class="max-w-4xl mx-auto lg:mx-0">
+            <!-- Secciones 1-4: Hostname, Interfaces Físicas, Subinterfaces, VLANs, Troncales -->
+            <app-redes-interfaces-editor
+              [node]="node"
+              [allNodes]="nodes"
+              [showCli]="showCli"
+              (nodeChange)="onNodeChange($event)"
+              (toggleCli)="toggleCli()"
+            ></app-redes-interfaces-editor>
+
+            <!-- Secciones 5-6: Enrutamiento Base y Traductor Multi-Protocolo (Router) -->
+            <app-redes-routing-editor
+              [node]="node"
+              [allNodes]="nodes"
+              (nodeChange)="onNodeChange($event)"
+            ></app-redes-routing-editor>
+
+            <!-- Secciones 7-8: Seguridad, SVI y Servidor DHCP (Router y Switch) -->
+            <app-redes-services-editor
+              [node]="node"
+              (nodeChange)="onNodeChange($event)"
+            ></app-redes-services-editor>
+
+            <div class="h-10"></div>
+          </div>
+        </div>
+
+        <!-- CONSOLE CLI RESPONSIVO (Derecha) -->
+        <app-redes-cli-console
+          *ngIf="showCli"
+          [configText]="currentCliConfig"
+          (closeCli)="showCli = false"
+        ></app-redes-cli-console>
+      </div>
+    </ng-template>
+  </div>
+</div>

@@ -1,11 +1,10 @@
-Dependencias
-
+# Dependencias
 node_modules/
+.angular/
 
-Directorio de distribución / compilación
-
+# Directorio de distribución / compilación
 dist/
 
+# Datos locales
 json/
-
 api_docs/

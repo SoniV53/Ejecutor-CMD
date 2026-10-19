@@ -1,0 +1,662 @@
+<div *ngIf="node.type === 'router'" class="space-y-6 lg:space-y-10 mt-6 lg:mt-10">
+  <!-- Section 5: Protocolo de Enrutamiento Básico (Single-Protocol) -->
+  <section class="bg-slate-900/30 p-4 lg:p-6 rounded-3xl border border-slate-800 relative shadow-xl shadow-black/20">
+    <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-6 gap-4">
+      <h3 class="text-[10px] font-black text-orange-400 uppercase tracking-widest flex items-center gap-2">
+        <div class="w-1.5 h-1.5 rounded-full bg-orange-400"></div>
+        Configuración Base (Single-Protocol)
+      </h3>
+      <select
+        [(ngModel)]="node.properties.protocol"
+        (ngModelChange)="emitChange()"
+        class="w-full lg:w-auto bg-slate-800 border border-slate-700 rounded-lg text-xs lg:text-[9px] font-bold text-slate-100 px-3 py-2 lg:py-1 outline-none focus:border-orange-500"
+      >
+        <option value="none">Desactivado</option>
+        <option value="static">Rutas Estáticas</option>
+        <option value="ospf">OSPF (Multi-Área)</option>
+        <option value="eigrp">EIGRP (Captura Local)</option>
+        <option value="rip">RIP (Dinámico)</option>
+        <option value="bgp">BGP (Exterior Gateway)</option>
+      </select>
+    </div>
+
+    <!-- STATIC ROUTES -->
+    <div *ngIf="node.properties.protocol === 'static'" class="space-y-4">
+      <div class="bg-blue-900/20 border border-blue-500/30 p-3 rounded-xl mb-4 flex gap-3 items-start">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400 shrink-0 mt-0.5">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <p class="text-[9px] text-blue-200 leading-relaxed font-bold italic">
+          RECORDATORIO IMPORTANTE: Las rutas estáticas requieren que el "Siguiente Salto" (Next Hop) sea una IP alcanzable.
+        </p>
+      </div>
+
+      <div class="bg-slate-950 p-4 lg:p-5 rounded-2xl border border-slate-900 border-dashed">
+        <p class="text-[10px] font-bold text-slate-500 uppercase mb-4 tracking-widest">
+          Captura Automática de LANs Remotas
+        </p>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-3 lg:items-end">
+          <div class="col-span-1">
+            <label class="text-[8px] font-bold text-slate-600 block mb-1 uppercase tracking-tighter">Router Remoto</label>
+            <select
+              [(ngModel)]="remoteRouterId"
+              class="w-full bg-slate-900 border-none rounded p-2 text-xs text-slate-100 outline-none focus:ring-1 focus:ring-orange-500"
+            >
+              <option value="">Selecciona...</option>
+              <option *ngFor="let r of otherRouters" [value]="r.id">{{ r.name }}</option>
+            </select>
+          </div>
+          <div class="col-span-1">
+            <label class="text-[8px] font-bold text-slate-600 block mb-1 uppercase tracking-tighter">Next Hop (Via)</label>
+            <input
+              type="text"
+              [(ngModel)]="nextHopIp"
+              placeholder="50.1.15.2"
+              class="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono text-slate-100 outline-none"
+            />
+          </div>
+          <div class="col-span-1 lg:col-span-2 mt-2 lg:mt-0">
+            <button
+              type="button"
+              (click)="captureRemoteLans()"
+              class="w-full bg-orange-600 text-white py-3 lg:py-2 rounded-lg text-xs lg:text-[10px] font-black uppercase hover:bg-orange-500 transition-all shadow-lg"
+            >
+              Capturar LANs Remotas
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <div
+          *ngFor="let r of node.properties.protocolData.staticRoutes || []; let i = index"
+          class="flex items-center justify-between bg-slate-900/50 p-3 rounded-xl border border-slate-800"
+        >
+          <div class="flex-1 overflow-x-auto scrollbar-hide">
+            <div *ngIf="r.label" class="flex items-center gap-1.5 mb-1.5">
+              <span class="text-[8px] font-bold text-slate-500 uppercase">{{ r.label.split(' (')[0] }}</span>
+              <span
+                *ngIf="r.label.includes('(Subinterfaz)')"
+                class="text-[7px] font-black bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-500/30 uppercase whitespace-nowrap"
+              >
+                Subinterfaz
+              </span>
+              <span
+                *ngIf="r.label.includes('(Física)')"
+                class="text-[7px] font-black bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700 uppercase whitespace-nowrap"
+              >
+                Física
+              </span>
+            </div>
+            <div class="font-mono text-[11px] text-orange-400 whitespace-nowrap">
+              <span class="text-slate-600">ip route</span> {{ r.network }} {{ r.mask }} {{ r.nextHop }}
+            </div>
+          </div>
+          <button
+            type="button"
+            (click)="removeStaticRoute(i)"
+            class="text-slate-500 hover:text-red-500 transition-colors ml-4 shrink-0 bg-slate-950 lg:bg-transparent p-2 lg:p-0 rounded"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lg:w-[14px] lg:h-[14px]">
+              <path d="M3 6h18"/>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+              <line x1="10" y1="11" x2="10" y2="17"/>
+              <line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BGP -->
+    <div *ngIf="node.properties.protocol === 'bgp'" class="space-y-4">
+      <div class="bg-purple-900/20 border border-purple-500/30 p-3 rounded-xl mb-4 flex gap-3 items-start">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-purple-400 shrink-0 mt-0.5">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <p class="text-[9px] text-purple-200 leading-relaxed font-bold italic">
+          BGP es un protocolo exterior (EGP). Configura tu ASN y los vecinos (Neighbors) manualmente para establecer vecindad.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-slate-950 p-4 lg:p-5 rounded-2xl border border-slate-900 lg:items-end">
+        <div>
+          <label class="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">ASN Local</label>
+          <input
+            type="text"
+            [(ngModel)]="node.properties.protocolData.bgpAsn"
+            (ngModelChange)="emitChange()"
+            class="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-purple-500"
+          />
+        </div>
+        <div class="lg:col-span-2">
+          <button
+            type="button"
+            (click)="captureBgpNetworks()"
+            class="w-full bg-purple-600 text-white py-3 lg:py-2 rounded-lg text-xs lg:text-[10px] font-black uppercase hover:bg-purple-500 transition-all shadow-lg flex items-center justify-center gap-2"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lg:w-[12px] lg:h-[12px]">
+              <path d="M21 2v6h-6"/>
+              <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+              <path d="M3 22v-6h6"/>
+              <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+            </svg>
+            Capturar Redes BGP
+          </button>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <div
+          *ngFor="let n of node.properties.protocolData.bgpNetworks || []; let i = index"
+          class="flex items-center justify-between bg-slate-900/30 p-3 rounded-xl border border-slate-800"
+        >
+          <div class="overflow-x-auto scrollbar-hide">
+            <div class="text-[8px] font-bold text-slate-500 uppercase mb-1">{{ n.label }}</div>
+            <div class="font-mono text-[11px] text-purple-400 whitespace-nowrap">
+              <span class="text-slate-600">network</span> {{ n.network }} <span class="text-slate-600">mask</span> {{ n.mask }}
+            </div>
+          </div>
+          <button
+            type="button"
+            (click)="removeBgpNetwork(i)"
+            class="text-slate-600 hover:text-red-500 shrink-0 ml-4 bg-slate-950 lg:bg-transparent p-2 lg:p-0 rounded"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lg:w-[14px] lg:h-[14px]">
+              <path d="M3 6h18"/>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+              <line x1="10" y1="11" x2="10" y2="17"/>
+              <line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- BGP Neighbors Section -->
+      <div class="bg-slate-950 p-4 lg:p-5 rounded-2xl border border-slate-900 mt-6">
+        <label class="text-[10px] font-bold text-slate-400 block mb-3 uppercase tracking-widest">Vecinos BGP (Neighbors)</label>
+        <div class="flex flex-col lg:flex-row gap-3 lg:items-end mb-4">
+          <div class="flex-1">
+            <label class="text-[8px] font-bold text-slate-500 block mb-1 uppercase">IP Vecino</label>
+            <input
+              type="text"
+              [(ngModel)]="bgpNeighborIp"
+              placeholder="Ej: 50.1.15.2"
+              class="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-purple-500"
+            />
+          </div>
+          <div class="flex-1">
+            <label class="text-[8px] font-bold text-slate-500 block mb-1 uppercase">Remote AS</label>
+            <input
+              type="text"
+              [(ngModel)]="bgpNeighborAs"
+              placeholder="Ej: 200"
+              class="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono text-slate-100 outline-none focus:ring-1 focus:ring-purple-500"
+            />
+          </div>
+          <button
+            type="button"
+            (click)="addBgpNeighbor()"
+            class="bg-purple-600 text-white py-3 lg:py-2 px-4 rounded-lg text-xs lg:text-[10px] font-black uppercase hover:bg-purple-500 transition-all w-full lg:w-auto"
+          >
+            Añadir
+          </button>
+        </div>
+
+        <div class="space-y-2">
+          <div
+            *ngFor="let n of node.properties.protocolData.bgpNeighbors || []; let i = index"
+            class="flex items-center justify-between bg-slate-900/50 p-3 lg:p-2 lg:px-3 rounded-lg border border-slate-800"
+          >
+            <div class="font-mono text-[10px] text-purple-300">
+              <span class="text-slate-500">neighbor</span> {{ n.ip }} <span class="text-slate-500">remote-as</span> {{ n.remoteAs }}
+            </div>
+            <button
+              type="button"
+              (click)="removeBgpNeighbor(i)"
+              class="text-slate-600 hover:text-red-500"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lg:w-[12px] lg:h-[12px]">
+                <path d="M3 6h18"/>
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                <line x1="10" y1="11" x2="10" y2="17"/>
+                <line x1="14" y1="11" x2="14" y2="17"/>
+              </svg>
+            </button>
+          </div>
+          <p
+            *ngIf="!node.properties.protocolData.bgpNeighbors || node.properties.protocolData.bgpNeighbors.length === 0"
+            class="text-[9px] text-slate-600 italic"
+          >
+            No hay vecinos configurados. BGP requiere configuración manual.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- OSPF -->
+    <div *ngIf="node.properties.protocol === 'ospf'" class="space-y-4">
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 bg-slate-950 p-4 lg:p-5 rounded-2xl border border-slate-900 lg:items-end">
+        <div>
+          <label class="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">Process ID</label>
+          <input
+            type="text"
+            [(ngModel)]="node.properties.protocolData.ospfProcessId"
+            (ngModelChange)="emitChange()"
+            class="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono text-slate-100 outline-none"
+          />
+        </div>
+        <div>
+          <label class="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest lg:text-center">Área x Defecto</label>
+          <input
+            type="text"
+            [(ngModel)]="node.properties.protocolData.ospfArea"
+            (ngModelChange)="emitChange()"
+            class="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono text-slate-100 outline-none lg:text-center"
+          />
+        </div>
+        <div class="lg:col-span-2 mt-2 lg:mt-0">
+          <button
+            type="button"
+            (click)="captureOspfNetworks()"
+            class="w-full bg-red-600 text-white py-3 lg:py-2 rounded-lg text-xs lg:text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-red-500 transition-all"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lg:w-[12px] lg:h-[12px]">
+              <path d="M21 2v6h-6"/>
+              <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+              <path d="M3 22v-6h6"/>
+              <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+            </svg>
+            Capturar Redes Locales
+          </button>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <div
+          *ngFor="let n of node.properties.protocolData.ospfNetworks || []; let i = index"
+          class="flex items-center justify-between bg-slate-900/30 p-3 rounded-xl border border-slate-800"
+        >
+          <div class="overflow-x-auto scrollbar-hide">
+            <div class="text-[8px] font-bold text-slate-500 uppercase mb-1">{{ n.label }}</div>
+            <div class="font-mono text-[11px] text-red-400 flex items-center gap-3 whitespace-nowrap">
+              <span class="text-slate-600 shrink-0">network {{ n.network }} {{ n.wildcard }} area</span>
+              <input
+                type="text"
+                [(ngModel)]="n.area"
+                (ngModelChange)="emitChange()"
+                class="w-12 bg-slate-900 border border-slate-800 rounded p-1 text-[10px] text-white outline-none focus:border-red-500 text-center"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            (click)="removeOspfNetwork(i)"
+            class="text-slate-600 hover:text-red-500 shrink-0 ml-4 bg-slate-950 lg:bg-transparent p-2 lg:p-0 rounded"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lg:w-[14px] lg:h-[14px]">
+              <path d="M3 6h18"/>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+              <line x1="10" y1="11" x2="10" y2="17"/>
+              <line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- EIGRP -->
+    <div *ngIf="node.properties.protocol === 'eigrp'" class="space-y-4">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-slate-950 p-4 lg:p-5 rounded-2xl border border-slate-900 lg:items-end">
+        <div>
+          <label class="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">ASN</label>
+          <input
+            type="text"
+            [(ngModel)]="node.properties.protocolData.eigrpAsn"
+            (ngModelChange)="emitChange()"
+            class="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono text-slate-100 outline-none"
+          />
+        </div>
+        <div class="lg:col-span-2 mt-2 lg:mt-0">
+          <button
+            type="button"
+            (click)="captureEigrpNetworks()"
+            class="w-full bg-blue-600 text-white py-3 lg:py-2 rounded-lg text-xs lg:text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-blue-500"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lg:w-[12px] lg:h-[12px]">
+              <path d="M21 2v6h-6"/>
+              <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+              <path d="M3 22v-6h6"/>
+              <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+            </svg>
+            Capturar Redes Locales
+          </button>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <div
+          *ngFor="let n of node.properties.protocolData.eigrpNetworks || []; let i = index"
+          class="flex items-center justify-between bg-slate-900/30 p-3 rounded-xl border border-slate-800"
+        >
+          <div class="overflow-x-auto scrollbar-hide">
+            <div class="text-[8px] font-bold text-slate-500 uppercase mb-1">{{ n.label }}</div>
+            <div class="font-mono text-[11px] text-blue-400 whitespace-nowrap">
+              <span class="text-slate-600">network</span> {{ n.network }} {{ n.wildcard }}
+            </div>
+          </div>
+          <button
+            type="button"
+            (click)="removeEigrpNetwork(i)"
+            class="text-slate-600 hover:text-red-500 shrink-0 ml-4 bg-slate-950 lg:bg-transparent p-2 lg:p-0 rounded"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lg:w-[14px] lg:h-[14px]">
+              <path d="M3 6h18"/>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+              <line x1="10" y1="11" x2="10" y2="17"/>
+              <line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIP -->
+    <div *ngIf="node.properties.protocol === 'rip'" class="space-y-4">
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 bg-slate-950 p-4 lg:p-5 rounded-2xl border border-slate-900 lg:items-end">
+        <div class="col-span-1">
+          <label class="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">Versión RIP</label>
+          <select
+            [(ngModel)]="node.properties.protocolData.ripVersion"
+            (ngModelChange)="emitChange()"
+            class="w-full bg-slate-900 border-none rounded p-2 text-xs lg:text-[10px] font-mono text-slate-100 outline-none focus:ring-1 focus:ring-yellow-500"
+          >
+            <option value="1">Versión 1</option>
+            <option value="2">Versión 2</option>
+          </select>
+        </div>
+        <div class="col-span-1 lg:col-span-3 mt-2 lg:mt-0">
+          <button
+            type="button"
+            (click)="captureRipNetworks()"
+            class="w-full bg-yellow-600 text-white py-3 lg:py-2 rounded-lg text-xs lg:text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-yellow-500"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lg:w-[12px] lg:h-[12px]">
+              <path d="M21 2v6h-6"/>
+              <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+              <path d="M3 22v-6h6"/>
+              <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+            </svg>
+            Capturar Redes para RIP
+          </button>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <div
+          *ngFor="let n of node.properties.protocolData.ripNetworks || []; let i = index"
+          class="flex items-center justify-between bg-slate-900/30 p-3 rounded-xl border border-slate-800"
+        >
+          <div class="overflow-x-auto scrollbar-hide">
+            <div class="text-[8px] font-bold text-slate-500 uppercase mb-1">{{ n.label }}</div>
+            <div class="font-mono text-[11px] text-yellow-400 whitespace-nowrap">
+              <span class="text-slate-600">network</span> {{ n.network }}
+            </div>
+          </div>
+          <button
+            type="button"
+            (click)="removeRipNetwork(i)"
+            class="text-slate-600 hover:text-red-500 shrink-0 ml-4 bg-slate-950 lg:bg-transparent p-2 lg:p-0 rounded"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lg:w-[14px] lg:h-[14px]">
+              <path d="M3 6h18"/>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+              <line x1="10" y1="11" x2="10" y2="17"/>
+              <line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- NONE -->
+    <p *ngIf="node.properties.protocol === 'none'" class="text-xs text-slate-500 mt-4 italic">
+      Selecciona un protocolo base o usa el módulo Traductor abajo.
+    </p>
+  </section>
+
+  <!-- Section 6: TRADUCTOR MULTI-PROTOCOLO -->
+  <section class="bg-slate-900/40 p-4 lg:p-6 rounded-3xl border-2 border-pink-500/30 shadow-xl shadow-pink-900/10">
+    <div class="flex flex-col lg:flex-row justify-between lg:items-center mb-6 gap-4">
+      <div>
+        <h3 class="text-[12px] font-black text-pink-400 uppercase tracking-widest flex items-center gap-2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-pink-500">
+            <path d="M21 2v6h-6"/>
+            <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+            <path d="M3 22v-6h6"/>
+            <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+          </svg>
+          Traductor de Protocolos
+        </h3>
+        <p class="text-[9px] text-slate-400 mt-1 uppercase tracking-wider hidden lg:block">
+          Permite correr OSPF, EIGRP y RIP en paralelo y redistribuir rutas entre ellos.
+        </p>
+      </div>
+      <button
+        type="button"
+        (click)="addTranslatorProcess()"
+        class="no-print text-[9px] font-black bg-pink-600 text-white px-4 py-2.5 lg:py-2 rounded-xl lg:rounded-full uppercase hover:bg-pink-500 transition-all shadow-[0_0_15px_rgba(219,39,119,0.3)]"
+      >
+        + Añadir Proceso
+      </button>
+    </div>
+
+    <div class="space-y-6">
+      <div
+        *ngFor="let t of node.properties.translators || []; let tIdx = index"
+        class="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-5 relative mt-4 lg:mt-0"
+      >
+        <button
+          type="button"
+          (click)="removeTranslatorProcess(tIdx)"
+          class="absolute top-4 right-4 text-slate-600 hover:text-red-500 transition-colors"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18"/>
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+            <line x1="10" y1="11" x2="10" y2="17"/>
+            <line x1="14" y1="11" x2="14" y2="17"/>
+          </svg>
+        </button>
+
+        <!-- Cabecera del Proceso -->
+        <div class="flex flex-col lg:flex-row lg:items-end gap-4 border-b border-slate-800 pb-4 mb-4 mt-8 lg:mt-0">
+          <div class="w-full lg:w-1/3">
+            <label class="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">Protocolo Destino</label>
+            <select
+              [ngModel]="t.protocol"
+              (ngModelChange)="onTranslatorProtocolChange(t, $event)"
+              class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs font-bold text-pink-300 uppercase outline-none focus:border-pink-500"
+            >
+              <option value="rip">RIP v2</option>
+              <option value="ospf">OSPF</option>
+              <option value="eigrp">EIGRP</option>
+            </select>
+          </div>
+          <div *ngIf="t.protocol === 'ospf' || t.protocol === 'eigrp'" class="w-full lg:w-1/4">
+            <label class="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-widest">ID (Proceso/AS)</label>
+            <input
+              type="text"
+              [(ngModel)]="t.processId"
+              (ngModelChange)="emitChange()"
+              class="w-full bg-slate-900 border-none rounded p-2 text-xs font-mono text-slate-100 outline-none"
+              placeholder="1"
+            />
+          </div>
+        </div>
+
+        <!-- Selección de Redes base -->
+        <div class="mb-6">
+          <label class="text-[9px] font-black text-slate-400 block mb-3 uppercase tracking-widest">
+            1. Interfaces Activas en {{ t.protocol.toUpperCase() }}
+          </label>
+          <div class="flex flex-col lg:flex-row flex-wrap gap-3">
+            <label
+              *ngFor="let net of availableInterfaces"
+              (click)="toggleTranslatorNetwork(t, net.network)"
+              class="flex items-center gap-3 lg:gap-2 p-3 lg:p-2 rounded-lg border cursor-pointer transition-all w-full lg:w-auto"
+              [ngClass]="
+                isNetworkInTranslator(t, net.network)
+                  ? 'bg-pink-900/20 border-pink-500/50 text-pink-200'
+                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-600'
+              "
+            >
+              <div
+                class="w-4 h-4 lg:w-3 lg:h-3 rounded flex items-center justify-center border"
+                [ngClass]="
+                  isNetworkInTranslator(t, net.network)
+                    ? 'bg-pink-500 border-pink-500'
+                    : 'border-slate-600'
+                "
+              >
+                <svg
+                  *ngIf="isNetworkInTranslator(t, net.network)"
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  stroke-width="4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-[11px] lg:text-[10px] font-bold leading-none mb-1">{{ net.label.split(' (')[0] }}</span>
+                <span class="text-[9px] lg:text-[8px] font-mono opacity-70 leading-none">{{ net.network }}</span>
+              </div>
+            </label>
+            <span *ngIf="availableInterfaces.length === 0" class="text-[10px] text-slate-600 italic">
+              No hay IPs configuradas.
+            </span>
+          </div>
+        </div>
+
+        <!-- Formulario de Redistribución -->
+        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800 border-dashed">
+          <label class="text-[9px] font-black text-slate-400 block mb-3 uppercase tracking-widest">
+            2. Inyectar (Redistribuir) hacia {{ t.protocol.toUpperCase() }}
+          </label>
+          <div class="flex flex-col lg:flex-row flex-wrap items-stretch lg:items-end gap-3 mb-4">
+            <div class="flex-1 min-w-[120px]">
+              <label class="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-tighter">Origen</label>
+              <select
+                [(ngModel)]="getDraft(t).source"
+                class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-100 uppercase outline-none focus:border-pink-500"
+              >
+                <option value="ospf">OSPF</option>
+                <option value="eigrp">EIGRP</option>
+                <option value="rip">RIP</option>
+                <option value="static">Static</option>
+                <option value="connected">Connected</option>
+              </select>
+            </div>
+            <div class="w-full lg:w-20">
+              <label class="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-tighter">ID Origen</label>
+              <input
+                type="text"
+                [(ngModel)]="getDraft(t).sourceId"
+                placeholder="Ej: 1"
+                class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs font-mono text-slate-100 outline-none focus:border-pink-500"
+              />
+            </div>
+            <div class="flex-1 min-w-[150px]">
+              <label class="text-[8px] font-bold text-slate-500 block mb-1 uppercase tracking-tighter">
+                Métrica ({{ t.protocol.toUpperCase() }})
+              </label>
+              <input
+                type="text"
+                [(ngModel)]="getDraft(t).metric"
+                [placeholder]="getMetricPlaceholder(t.protocol)"
+                class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs font-mono outline-none focus:border-pink-500 text-pink-300"
+              />
+            </div>
+            <div *ngIf="t.protocol === 'ospf'" class="flex items-center gap-2 pb-2 lg:pb-2 pt-2 lg:pt-0">
+              <input
+                type="checkbox"
+                [(ngModel)]="getDraft(t).subnets"
+                class="w-5 h-5 lg:w-4 lg:h-4 accent-pink-500 cursor-pointer"
+              />
+              <span class="text-[10px] lg:text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Subnets</span>
+            </div>
+            <div class="mt-2 lg:mt-0">
+              <button
+                type="button"
+                (click)="addRedistribution(t)"
+                class="w-full lg:w-auto bg-slate-700 hover:bg-pink-600 text-white p-3 lg:p-2 px-4 rounded font-black text-xs lg:text-[10px] uppercase transition-colors"
+              >
+                Integrar
+              </button>
+            </div>
+          </div>
+
+          <!-- Lista de redistribuciones de este proceso -->
+          <div class="space-y-2">
+            <div
+              *ngFor="let r of t.redistributions || []; let rIdx = index"
+              class="flex items-center justify-between bg-black/40 p-3 lg:p-2 px-3 rounded-lg border border-slate-800"
+            >
+              <div class="font-mono text-[11px] lg:text-[10px] text-pink-300 flex flex-wrap items-center gap-1.5 overflow-x-auto scrollbar-hide">
+                <span class="text-slate-500 shrink-0">redistribute</span>
+                <span class="text-white font-bold uppercase shrink-0">{{ r.source }} {{ r.sourceId }}</span>
+                <ng-container *ngIf="r.metric">
+                  <span class="text-slate-500 ml-1 shrink-0">metric</span>
+                  <span class="text-orange-300 shrink-0">{{ r.metric }}</span>
+                </ng-container>
+                <span
+                  *ngIf="t.protocol === 'ospf' && r.subnets"
+                  class="text-emerald-400 bg-emerald-400/10 px-1 rounded shrink-0"
+                >
+                  subnets
+                </span>
+              </div>
+              <button
+                type="button"
+                (click)="removeRedistribution(t, rIdx)"
+                class="text-slate-600 hover:text-red-500 shrink-0 ml-4"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lg:w-[12px] lg:h-[12px]">
+                  <path d="M3 6h18"/>
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                  <line x1="10" y1="11" x2="10" y2="17"/>
+                  <line x1="14" y1="11" x2="14" y2="17"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p
+        *ngIf="!node.properties.translators || node.properties.translators.length === 0"
+        class="text-xs text-slate-500 italic text-center"
+      >
+        No hay procesos configurados.
+      </p>
+    </div>
+  </section>
+</div>

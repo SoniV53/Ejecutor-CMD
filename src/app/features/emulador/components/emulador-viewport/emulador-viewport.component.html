@@ -1,0 +1,53 @@
+<main #workspaceRef id="workspace" class="bg-[#020617]">
+  <div #deviceWrapperRef id="deviceWrapper" class="animate-slide-up">
+    <div
+      #deviceContainerRef
+      id="deviceContainer"
+      class="device-mockup border-slate-900 rounded-[3rem] flex flex-col overflow-hidden w-[393px] h-[852px] border-[12px]"
+      [class.mode-responsive]="currentDeviceKey === 'responsive'"
+    >
+      <div
+        id="notch"
+        [class.hidden]="!showNotch"
+        class="absolute top-0 inset-x-0 h-6 bg-slate-900 rounded-b-2xl w-28 mx-auto z-10 flex justify-center items-end pb-1 gap-1.5"
+      >
+        <div class="w-10 h-1 bg-black rounded-full opacity-40"></div>
+        <div class="w-1 h-1 bg-black rounded-full opacity-40"></div>
+      </div>
+
+      <div
+        id="statusBar"
+        [class.hidden]="currentDeviceKey === 'responsive'"
+        class="h-6 w-full bg-black text-white text-[9px] font-bold flex justify-between items-center px-6 shrink-0"
+      >
+        <span id="clock">{{ clockTime }}</span>
+        <div class="flex gap-1.5 items-center">
+          <i data-lucide="signal" class="w-2.5 h-2.5"></i>
+          <i data-lucide="wifi" class="w-2.5 h-2.5"></i>
+          <i data-lucide="battery-full" class="w-3 h-3"></i>
+        </div>
+      </div>
+
+      <div #frameContainerRef class="flex-1 w-full bg-white relative" id="frameContainer">
+        <div
+          id="loadingOverlay"
+          [class.hidden]="!isLoading"
+          class="absolute inset-0 bg-slate-50 flex flex-col items-center justify-center z-20"
+        >
+          <i data-lucide="loader-2" class="w-6 h-6 text-indigo-500 animate-spin mb-3"></i>
+          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            Cargando aplicación...
+          </p>
+        </div>
+      </div>
+
+      <div
+        id="homeIndicator"
+        [class.hidden]="currentDeviceKey === 'responsive'"
+        class="h-5 w-full bg-black shrink-0 flex justify-center items-center"
+      >
+        <div class="w-1/4 h-1 bg-white/20 rounded-full"></div>
+      </div>
+    </div>
+  </div>
+</main>

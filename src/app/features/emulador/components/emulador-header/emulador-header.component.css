@@ -1,0 +1,35 @@
+:host {
+  display: contents;
+}
+
+.code-font {
+  font-family: 'Fira Code', monospace;
+}
+
+#mainHeader {
+  transition: transform 0.3s ease-in-out, margin-top 0.3s ease-in-out;
+}
+
+.header-hidden {
+  transform: translateY(-100%);
+  margin-top: -90px;
+}
+
+.dropdown-open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.dropdown-closed {
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+}
+
+#emu-searchbar-container {
+  flex-shrink: 0;
+  width: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+}

@@ -1,0 +1,106 @@
+<div class="emu-root flex flex-col h-screen relative overflow-hidden">
+  <!-- BOTÓN FLOTANTE DE CONSOLA -->
+  <button
+    type="button"
+    id="floatingConsoleBtn"
+    (click)="onToggleConsole()"
+    class="fixed bottom-6 left-6 z-[60] bg-slate-800 text-slate-400 p-3.5 rounded-full shadow-lg border border-slate-700 hover:text-white group"
+    [class.console-active-btn]="isConsoleOpen"
+  >
+    <i
+      data-lucide="terminal-square"
+      class="w-6 h-6 transition-transform group-hover:-translate-y-0.5"
+    ></i>
+  </button>
+
+  <!-- TOAST DE ALERTA DE ELECTRON -->
+  <div
+    id="toastElectron"
+    [class.hidden]="!showElectronToast"
+    class="fixed bottom-6 right-6 bg-[#0f172a] text-white p-5 rounded-2xl shadow-2xl z-[70] border border-yellow-500/50 max-w-sm animate-slide-up"
+  >
+    <h4 class="font-bold text-yellow-400 mb-2 flex items-center gap-2 text-sm">
+      <i data-lucide="alert-triangle" class="w-5 h-5"></i> Requiere configuración de Electron
+    </h4>
+    <p class="text-xs text-slate-400 leading-relaxed">
+      <ng-container *ngIf="electronToastMessage; else defaultElectronMsgTpl">
+        {{ electronToastMessage }}
+      </ng-container>
+      <ng-template #defaultElectronMsgTpl>
+        Se ha detectado Electron, pero la etiqueta webview falló. Asegúrate de agregar
+        <code class="text-indigo-400 bg-indigo-500/10 px-1 rounded">webviewTag: true</code> en las
+        <b>webPreferences</b> de tu <code class="text-indigo-400">main.js</code>.
+      </ng-template>
+    </p>
+    <button
+      type="button"
+      (click)="showElectronToast = false"
+      class="mt-4 w-full py-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 rounded-lg text-xs font-bold transition-colors"
+    >
+      Entendido
+    </button>
+  </div>
+
+  <!-- TOAST DE MENSAJE GENERAL -->
+  <div
+    id="toastMessage"
+    [class.hidden]="!isToastVisible"
+    class="fixed top-20 right-6 bg-slate-800 text-white p-4 rounded-xl shadow-2xl z-[70] border border-slate-700 animate-slide-up transition-all"
+  >
+    <div class="flex items-center gap-3">
+      <i data-lucide="info" class="w-5 h-5 text-indigo-400"></i>
+      <p id="toastText" class="text-sm text-slate-200">{{ toastMessage }}</p>
+    </div>
+  </div>
+
+  <!-- BOTÓN FLOTANTE MOSTRAR MENÚ -->
+  <button
+    type="button"
+    id="btnShowMenu"
+    (click)="onToggleMenu()"
+    class="fixed top-4 left-4 z-[60] bg-indigo-600 p-2.5 rounded-xl shadow-lg transition-all"
+    [ngClass]="{ 'opacity-0 pointer-events-none': isMenuVisible }"
+  >
+    <i data-lucide="chevrons-down" class="text-white w-5 h-5"></i>
+  </button>
+
+  <!-- HEADER -->
+  <app-emulador-header
+    [url]="url"
+    [history]="history"
+    [isHistoryOpen]="isHistoryOpen"
+    [isMenuVisible]="isMenuVisible"
+    [currentZoom]="currentZoom"
+    [currentDeviceKey]="currentDeviceKey"
+    [isLandscape]="isLandscape"
+    [isTouchEnabled]="isTouchEnabled"
+    [isConsoleOpen]="isConsoleOpen"
+    (urlChange)="url = $event"
+    (navigate)="onNavigateToUrl($event)"
+    (refresh)="onRefreshFrame()"
+    (toggleHistory)="onToggleHistory($event)"
+    (clearHistory)="onClearHistory()"
+    (deleteHistoryItem)="onDeleteHistoryItem($event)"
+    (toggleMenu)="onToggleMenu()"
+    (updateZoom)="onUpdateZoom($event)"
+    (autoFit)="onAutoFit()"
+    (resetZoom)="onResetZoom()"
+    (toggleDeviceMode)="onToggleDeviceMode()"
+    (changeDevice)="onChangeDevice($event)"
+    (toggleRotation)="onToggleRotation()"
+    (toggleTouch)="onToggleTouch()"
+    (toggleConsole)="onToggleConsole()"
+  ></app-emulador-header>
+
+  <!-- VIEWPORT -->
+  <app-emulador-viewport
+    [currentDeviceKey]="currentDeviceKey"
+    [isLandscape]="isLandscape"
+    [currentZoom]="currentZoom"
+    [isTouchEnabled]="isTouchEnabled"
+    (zoomChange)="currentZoom = $event"
+    (urlUpdated)="url = $event"
+    (toastError)="showToast($event)"
+    (electronMissing)="onElectronMissing($event)"
+  ></app-emulador-viewport>
+</div>

@@ -1,0 +1,76 @@
+<!-- TOAST -->
+<div
+  class="toast bg-slate-900 border border-indigo-500/30 text-white shadow-2xl"
+  [ngClass]="toastVisible ? 'show' : ''"
+>
+  <i [attr.data-lucide]="toastIcon" class="w-5 h-5" [ngClass]="toastColor"></i>
+  <span class="text-sm font-medium">{{ toastMsg }}</span>
+</div>
+
+<!-- Modal Nueva Carpeta -->
+<div
+  *ngIf="showFolderModal"
+  class="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm"
+>
+  <div class="bg-[#0f172a] border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-fade">
+    <h3 class="text-xl font-bold text-white mb-2">Nueva Carpeta</h3>
+    <p class="text-xs text-slate-400 mb-4">Ingresa el nombre del nuevo directorio de servicios.</p>
+    <input
+      type="text"
+      [(ngModel)]="inFolderName"
+      placeholder="Ej: v1_pagos"
+      (keydown.enter)="onConfirmFolder()"
+      class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-600 outline-none text-white mb-6"
+    />
+    <div class="flex gap-3">
+      <button
+        type="button"
+        (click)="closeFolderModal.emit()"
+        class="flex-1 py-3 rounded-xl bg-slate-800 font-bold text-slate-300 transition-colors hover:bg-slate-700"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        (click)="onConfirmFolder()"
+        class="flex-1 py-3 rounded-xl bg-indigo-600 font-bold text-white shadow-lg shadow-indigo-600/30 transition-all hover:bg-indigo-500"
+      >
+        Crear
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Confirmación Genérico -->
+<div
+  *ngIf="showConfirmModal"
+  class="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm"
+>
+  <div
+    class="bg-[#0f172a] border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-fade text-center"
+  >
+    <div
+      class="w-14 h-14 bg-red-500/10 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/20"
+    >
+      <i data-lucide="alert-triangle" class="w-7 h-7"></i>
+    </div>
+    <h3 class="text-xl font-bold text-white mb-2">{{ confirmTitle }}</h3>
+    <p class="text-slate-400 text-sm mb-6">{{ confirmText }}</p>
+    <div class="flex gap-3">
+      <button
+        type="button"
+        (click)="closeConfirmModal.emit()"
+        class="flex-1 py-3 rounded-xl bg-slate-800 font-bold text-slate-300 transition-colors hover:bg-slate-700"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        (click)="confirmAction.emit()"
+        class="flex-1 py-3 rounded-xl bg-red-600 font-bold text-white shadow-lg shadow-red-600/30 transition-all hover:bg-red-500"
+      >
+        Confirmar
+      </button>
+    </div>
+  </div>
+</div>

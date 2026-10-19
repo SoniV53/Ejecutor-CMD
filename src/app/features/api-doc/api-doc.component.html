@@ -1,0 +1,83 @@
+<div class="flex flex-col h-screen bg-[#020617] text-[#f1f5f9] overflow-hidden">
+  <!-- HEADER -->
+  <header
+    class="h-16 border-b border-slate-900 bg-[#020617]/90 backdrop-blur-xl flex items-center justify-between px-6 shrink-0 z-10"
+  >
+    <div class="flex items-center gap-4">
+      <a routerLink="/hub" class="text-slate-400 hover:text-white transition-colors cursor-pointer">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+      </a>
+      <div class="flex items-center gap-3">
+        <div class="bg-indigo-600 p-2 rounded-lg shadow-lg">
+          <i data-lucide="file-json" class="text-white w-5 h-5"></i>
+        </div>
+        <h1 class="font-bold text-lg">API Doc Manager</h1>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <button
+        type="button"
+        (click)="clearEditor()"
+        class="p-2 text-slate-500 hover:text-white transition-colors"
+        title="Limpiar Editor"
+      >
+        <i data-lucide="eraser" class="w-5 h-5"></i>
+      </button>
+      <button
+        type="button"
+        (click)="downloadAsTxt()"
+        class="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold transition-all"
+      >
+        <i data-lucide="download" class="w-4 h-4"></i> Descargar .txt
+      </button>
+      <button
+        type="button"
+        [disabled]="saving"
+        [ngClass]="saving ? 'opacity-50' : ''"
+        (click)="saveToProject()"
+        class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/20 transition-all"
+      >
+        <i data-lucide="save" class="w-4 h-4"></i> Guardar en Proyecto
+      </button>
+    </div>
+  </header>
+
+  <div class="flex flex-1 overflow-hidden relative">
+    <app-api-explorer-sidebar
+      [items]="items"
+      [currentFolder]="currentFolder"
+      [activeFile]="activeFile"
+      (createFolder)="createFolder()"
+      (refresh)="refreshExplorer($event)"
+      (goBack)="goBack()"
+      (openFolder)="refreshExplorer($event)"
+      (loadFile)="loadFile($event)"
+      (deleteItem)="deleteItem($event)"
+    ></app-api-explorer-sidebar>
+
+    <app-api-doc-editor
+      [docName]="docName"
+      [docContent]="docContent"
+      [currentDocType]="currentDocType"
+      (docNameChange)="docName = $event"
+      (docContentChange)="docContent = $event"
+      (docTypeChange)="currentDocType = $event"
+      (formatContent)="formatContent($event)"
+    ></app-api-doc-editor>
+  </div>
+
+  <app-api-folder-modal
+    [showFolderModal]="showFolderModal"
+    [showConfirmModal]="showConfirmModal"
+    [confirmTitle]="confirmTitle"
+    [confirmText]="confirmText"
+    [toastVisible]="toastVisible"
+    [toastMsg]="toastMsg"
+    [toastIcon]="toastIcon"
+    [toastColor]="toastColor"
+    (closeFolderModal)="showFolderModal = false"
+    (confirmCreateFolder)="confirmCreateFolder($event)"
+    (closeConfirmModal)="closeConfirmModal()"
+    (confirmAction)="onConfirmAction()"
+  ></app-api-folder-modal>
+</div>

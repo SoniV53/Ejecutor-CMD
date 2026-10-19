@@ -1,0 +1,26 @@
+:host {
+  display: contents;
+}
+
+.code-font {
+  font-family: 'Fira Code', monospace;
+}
+
+.editor-area {
+  background: #020617;
+  border: 1px solid #1e293b;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 10px;
+}

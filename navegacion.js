@@ -1,47 +1,81 @@
 const fs = require('fs');
 const path = require('path');
 
-// Definimos las rutas a los archivos físicos
-const HTML_FILE = path.join(__dirname, 'index.html');
-const DASHBOARD_FILE = path.join(__dirname, 'ui/dashboard-CMD/dashboard-CMD.html');
-const REDES_FILE = path.join(__dirname, 'ui/redes/generador-redes.html');
-const DOC_GEN_FILE = path.join(__dirname, 'ui/doc-Generator/doc-generator.html');
-const EMULADOR_FILE = path.join(__dirname, 'ui/emulador/emulador.html');
-const API_DOC_FILE = path.join(__dirname, 'ui/doc-api/api-doc.html');
-const REPO_DOC_FILE = path.join(__dirname, 'ui/repo_doc/repo_doc.html');
+const ANGULAR_DIST_DIR = path.join(__dirname, 'dist', 'consoleflow');
+const ANGULAR_INDEX = path.join(ANGULAR_DIST_DIR, 'index.html');
+const LEGACY_INDEX = path.join(__dirname, 'index.html');
 
-// Mapa exacto de URLs que el usuario escribe -> a qué archivo corresponden
-const routes = {
-    '/': HTML_FILE,
-    '/index': HTML_FILE,
-    '/dashboard-CMD': DASHBOARD_FILE,
-    '/redes': REDES_FILE,
-    '/doc-generator': DOC_GEN_FILE,
-    '/emulador': EMULADOR_FILE,
-    '/doc-api': API_DOC_FILE,
-    '/repo-doc': REPO_DOC_FILE
+// Rutas SPA de Angular que deben devolver el index.html principal
+const spaRoutes = new Set([
+  '/',
+  '/index',
+  '/hub',
+  '/dashboard-cmd',
+  '/dashboard-CMD',
+  '/redes',
+  '/doc-generator',
+  '/emulador',
+  '/api-doc',
+  '/doc-api',
+  '/repo-doc'
+]);
+
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.ico': 'image/x-icon',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.map': 'application/json; charset=utf-8'
 };
 
-// Función principal que exportaremos
+const serveIndexHtml = (res) => {
+  const targetIndex = fs.existsSync(ANGULAR_INDEX) ? ANGULAR_INDEX : LEGACY_INDEX;
+  if (fs.existsSync(targetIndex)) {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(fs.readFileSync(targetIndex));
+  } else {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Error: No se encontró la compilación de Angular. Ejecuta npm run build:web.');
+  }
+};
+
 const routeNavigation = (req, res) => {
-    // Si la petición es GET y la URL existe en nuestro mapa de rutas
-    if (req.method === 'GET' && routes[req.url]) {
-        const filePath = routes[req.url];
+  if (req.method !== 'GET') return false;
 
-        if (fs.existsSync(filePath)) {
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-            res.end(fs.readFileSync(filePath));
-        } else {
-            res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-            res.end(`Error: No se encontró el archivo físico para la ruta ${req.url}.`);
-        }
+  const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost:3000'}`);
+  const pathname = parsedUrl.pathname;
 
-        return true; // Retornamos true para avisar que SÍ respondimos a esta ruta
-    }
+  // 1. Si es una ruta conocida del SPA de Angular, servimos index.html
+  if (spaRoutes.has(pathname)) {
+    serveIndexHtml(res);
+    return true;
+  }
 
-    return false; // Retornamos false si la URL no era una página HTML
+  // 2. Intentar servir archivo estático compilado desde dist/consoleflow (main.js, polyfills.js, styles.css, etc.)
+  const distFilePath = path.join(ANGULAR_DIST_DIR, pathname);
+  if (
+    distFilePath.startsWith(ANGULAR_DIST_DIR) &&
+    fs.existsSync(distFilePath) &&
+    fs.lstatSync(distFilePath).isFile()
+  ) {
+    const ext = path.extname(distFilePath).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    res.writeHead(200, { 'Content-Type': contentType });
+    res.end(fs.readFileSync(distFilePath));
+    return true;
+  }
+
+  return false;
 };
 
 module.exports = {
-    routeNavigation
+  routeNavigation
 };

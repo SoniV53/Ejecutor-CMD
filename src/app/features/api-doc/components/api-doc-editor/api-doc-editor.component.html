@@ -1,0 +1,73 @@
+<main class="flex-1 flex flex-col p-6 gap-6 overflow-hidden h-full">
+  <div class="flex gap-4 shrink-0">
+    <div class="flex-1">
+      <label class="text-[10px] font-bold text-slate-500 uppercase mb-2 block ml-1">Nombre del Servicio</label>
+      <input
+        type="text"
+        [ngModel]="docName"
+        (ngModelChange)="docNameChange.emit($event)"
+        placeholder="auth_login_v1"
+        class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-600 outline-none text-white transition-all"
+      />
+    </div>
+    <div class="w-48">
+      <label class="text-[10px] font-bold text-slate-500 uppercase mb-2 block ml-1">Tipo de Trama</label>
+      <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+        <button
+          type="button"
+          (click)="docTypeChange.emit('req')"
+          class="flex-1 py-2 text-[10px] font-bold rounded-lg transition-all"
+          [ngClass]="currentDocType === 'req' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'"
+        >
+          REQ
+        </button>
+        <button
+          type="button"
+          (click)="docTypeChange.emit('res')"
+          class="flex-1 py-2 text-[10px] font-bold rounded-lg transition-all"
+          [ngClass]="currentDocType === 'res' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'"
+        >
+          RES
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex-1 flex flex-col overflow-hidden relative">
+    <!-- Herramientas de Formateo -->
+    <div class="flex items-center justify-between mb-2">
+      <label class="text-[10px] font-bold text-slate-500 uppercase block ml-1"
+        >Cuerpo del Mensaje (Request/Response)</label
+      >
+
+      <!-- Botonera de Formateadores -->
+      <div class="flex items-center gap-1.5">
+        <span class="text-[9px] font-bold text-slate-600 uppercase mr-1">Formato:</span>
+        <button
+          type="button"
+          (click)="formatContent.emit('json')"
+          class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-indigo-600/20 text-slate-400 hover:text-indigo-400 border border-slate-800 rounded-lg text-[9px] font-bold transition-all"
+          title="Formatear como JSON"
+        >
+          <i data-lucide="braces" class="w-3 h-3"></i> JSON
+        </button>
+        <button
+          type="button"
+          (click)="formatContent.emit('txt')"
+          class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-emerald-600/20 text-slate-400 hover:text-emerald-400 border border-slate-800 rounded-lg text-[9px] font-bold transition-all"
+          title="Limpiar y formatear Texto"
+        >
+          <i data-lucide="align-left" class="w-3 h-3"></i> TXT
+        </button>
+      </div>
+    </div>
+
+    <textarea
+      [ngModel]="docContent"
+      (ngModelChange)="docContentChange.emit($event)"
+      spellcheck="false"
+      class="flex-1 w-full editor-area rounded-2xl p-6 code-font text-sm text-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-600/50 resize-none custom-scrollbar"
+      placeholder='{ "header": { ... }, "body": { ... } }'
+    ></textarea>
+  </div>
+</main>

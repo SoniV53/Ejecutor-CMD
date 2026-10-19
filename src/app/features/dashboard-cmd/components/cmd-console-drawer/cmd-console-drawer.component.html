@@ -1,0 +1,46 @@
+<div class="bg-[#020617] border-t border-slate-800 flex flex-col font-mono z-30 relative transition-all">
+  <div
+    class="px-4 md:px-10 py-3 bg-slate-900/30 border-b border-slate-800 flex justify-between items-center cursor-pointer select-none"
+    (click)="toggleConsole.emit()"
+  >
+    <div class="flex items-center gap-3">
+      <div class="flex gap-1.5">
+        <div class="w-2.5 h-2.5 rounded-full bg-red-500/50"></div>
+        <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/50"></div>
+        <div class="w-2.5 h-2.5 rounded-full bg-green-500/50"></div>
+      </div>
+      <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2 md:ml-4">Consola</span>
+    </div>
+    <div class="flex items-center gap-4 md:gap-5">
+      <button
+        (click)="onClear($event)"
+        class="text-[10px] text-slate-600 hover:text-indigo-400 transition-colors uppercase font-bold"
+      >
+        Limpiar
+      </button>
+      <i
+        [attr.data-lucide]="consoleMin ? 'chevron-up' : 'chevron-down'"
+        class="w-4 h-4 text-slate-500"
+      ></i>
+    </div>
+  </div>
+  <div *ngIf="!consoleMin" class="h-32 md:h-40 flex flex-col transition-all">
+    <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-2 custom-scrollbar text-[10px] md:text-[11px] text-slate-400">
+      <p *ngIf="logs.length === 0 && !cleared" class="text-slate-700 italic">Esperando acciones...</p>
+      <p *ngIf="logs.length === 0 && cleared" class="text-slate-700 italic text-center py-4">Logs limpiados...</p>
+      <div
+        *ngFor="let log of logs"
+        class="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-6 border-b border-white/5 pb-2 animate-fade"
+      >
+        <span class="text-slate-700 shrink-0 font-bold">[{{ log.time }}]</span>
+        <span class="text-indigo-500 font-black shrink-0">EXEC:</span>
+        <span class="text-slate-300 italic truncate font-medium max-w-full" [title]="log.script"
+          >"{{ log.script }}"</span
+        >
+        <span class="text-slate-800 sm:ml-auto font-bold tracking-tighter w-full sm:w-auto mt-1 sm:mt-0"
+          >WD: {{ log.path }}</span
+        >
+      </div>
+    </div>
+  </div>
+</div>

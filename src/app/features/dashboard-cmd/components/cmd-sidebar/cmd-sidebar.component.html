@@ -1,0 +1,111 @@
+<!-- OVERLAY MÓVIL -->
+<div
+  (click)="toggleSidebar.emit()"
+  class="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm transition-opacity duration-300"
+  [ngClass]="sidebarOpenMobile ? 'opacity-100' : 'hidden opacity-0'"
+></div>
+
+<!-- SIDEBAR -->
+<aside
+  class="w-80 glass-sidebar flex flex-col shrink-0 h-full z-50 fixed md:relative transition-all duration-300 transform bg-[#0b1120] shadow-2xl md:shadow-none border-r border-slate-800"
+  [ngClass]="{
+    '-translate-x-full': !sidebarOpenMobile,
+    'translate-x-0': sidebarOpenMobile,
+    'md:translate-x-0': sidebarOpenDesktop,
+    'md:-translate-x-full md:-ml-80': !sidebarOpenDesktop
+  }"
+>
+  <div class="p-6 md:p-8 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-4">
+      <a routerLink="/hub" class="cursor-pointer">
+        <div class="bg-indigo-600 p-3 rounded-2xl shadow-xl shadow-indigo-600/20">
+          <i data-lucide="terminal" class="text-white w-5 h-5 md:w-6 md:h-6"></i>
+        </div>
+      </a>
+      <div>
+        <h1 class="text-lg md:text-xl font-bold tracking-tight text-white leading-none">ConsoleFlow</h1>
+        <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Local Edition</span>
+      </div>
+    </div>
+    <!-- Botón cerrar solo visible en móviles -->
+    <button (click)="toggleSidebar.emit()" class="md:hidden text-slate-500 hover:text-white p-2 rounded-lg bg-slate-900">
+      <i data-lucide="x" class="w-5 h-5"></i>
+    </button>
+  </div>
+
+  <div class="flex-1 overflow-y-auto px-4 custom-scrollbar">
+    <div class="flex items-center justify-between mb-4 px-2">
+      <h2 class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mis Proyectos</h2>
+      <button (click)="openNewProject.emit()" class="p-1.5 hover:bg-slate-800 rounded-lg text-indigo-400 transition-colors">
+        <i data-lucide="folder-plus" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <nav class="space-y-1.5">
+      <div
+        *ngIf="projects.length === 0"
+        class="p-4 text-center text-[10px] text-slate-700 font-bold uppercase tracking-widest border border-dashed border-slate-800 rounded-2xl opacity-50 mx-2 mt-4"
+      >
+        Sin Proyectos
+      </div>
+
+      <div
+        *ngFor="let p of projects"
+        (click)="onSelectProj(p.id)"
+        class="project-item group flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all duration-300"
+        [ngClass]="selectedProjId === p.id ? 'active' : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'"
+      >
+        <div class="flex items-center gap-3 overflow-hidden">
+          <i
+            data-lucide="folder"
+            class="w-4 h-4 shrink-0"
+            [ngClass]="selectedProjId === p.id ? 'text-indigo-200' : 'text-slate-600'"
+          ></i>
+          <span class="text-sm font-bold truncate">{{ p.name }}</span>
+        </div>
+        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+          <button
+            (click)="onEditProj($event, p.id)"
+            class="text-slate-500 hover:text-indigo-400 transition-all p-1.5 hover:bg-indigo-500/10 rounded-lg"
+            title="Editar Proyecto"
+          >
+            <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+          </button>
+          <button
+            (click)="onDeleteProj($event, p.id)"
+            class="text-slate-500 hover:text-red-400 transition-all p-1.5 hover:bg-red-500/10 rounded-lg"
+            title="Eliminar"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+    </nav>
+  </div>
+
+  <!-- Status Box -->
+  <div class="p-4 md:p-6">
+    <div class="bg-slate-950/50 rounded-3xl p-5 border border-slate-800">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-[10px] font-bold text-slate-500 uppercase">Estado del Puente</span>
+        <div
+          class="flex items-center gap-1.5 px-3 py-1 rounded-full border"
+          [ngClass]="
+            serverOnline
+              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+              : 'bg-red-500/10 text-red-400 border-red-500/20'
+          "
+        >
+          <div
+            class="w-1.5 h-1.5 rounded-full"
+            [ngClass]="serverOnline ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]' : 'bg-red-500'"
+          ></div>
+          <span class="text-[8px] font-black uppercase tracking-widest">{{ serverOnline ? 'Online' : 'Offline' }}</span>
+        </div>
+      </div>
+      <div *ngIf="!serverOnline" class="text-[10px] text-slate-600 leading-relaxed italic">
+        Inicia <code class="text-indigo-400 font-bold">server.js</code> en CMD para activar.
+      </div>
+    </div>
+  </div>
+</aside>

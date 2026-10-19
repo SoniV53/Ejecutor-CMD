@@ -1,0 +1,36 @@
+:host {
+  display: contents;
+}
+
+.branch-item {
+  position: relative;
+}
+
+.branch-item::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: #e5e7eb;
+}
+
+.branch-item:last-child::before {
+  bottom: 50%;
+}
+
+.branch-item::after {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  width: 12px;
+  height: 2px;
+  background-color: #e5e7eb;
+}
+
+.root-branch > .branch-item::before,
+.root-branch > .branch-item::after {
+  display: none;
+}

@@ -1,0 +1,14 @@
+<nav class="w-16 h-full bg-[#0a0f1d] border-r border-slate-800 flex flex-col items-center py-6 gap-6 z-50 shrink-0 select-none">
+  <a routerLink="/hub" class="mb-2 text-indigo-500 font-black text-xl tracking-tighter hover:text-indigo-400 transition-colors">
+    CF
+  </a>
+
+  <a *ngFor="let item of navItems"
+     [routerLink]="item.route"
+     routerLinkActive="nav-active"
+     class="nav-btn p-3 rounded-xl hover:bg-slate-800 text-slate-400 flex items-center justify-center"
+     [title]="item.title">
+    <i [attr.data-lucide]="item.icon"></i>
+  </a>
+</nav>
+

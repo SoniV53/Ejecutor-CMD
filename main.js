@@ -147,9 +147,8 @@ ipcMain.on('abrir-emulador', () => {
       webviewTag: true // Permisos completos
     }
   });
-  // Cargamos el archivo modular sin problemas
-  emuWindow.loadFile('ui/emulador/emulador.html');
- //ipcMain.loadURL('http://localhost:3000/emulador');
+  // Cargamos la ruta Angular del emulador
+  emuWindow.loadURL('http://localhost:3000/emulador');
 
   // Ocultar la barra de menú por defecto si lo deseas
   emuWindow.setMenuBarVisibility(false);

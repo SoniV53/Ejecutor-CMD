@@ -1,0 +1,68 @@
+<div class="flex flex-row overflow-hidden relative h-screen w-screen bg-[#020617] text-[#f1f5f9]">
+  <app-cmd-sidebar
+    [projects]="projects"
+    [selectedProjId]="selectedProjId"
+    [serverOnline]="serverOnline"
+    [sidebarOpenMobile]="sidebarOpenMobile"
+    [sidebarOpenDesktop]="sidebarOpenDesktop"
+    (selectProject)="selectProj($event)"
+    (editProject)="editProject($event)"
+    (deleteProject)="deleteProject($event)"
+    (openNewProject)="openNewProjectModal()"
+    (toggleSidebar)="toggleSidebar()"
+  ></app-cmd-sidebar>
+
+  <main class="flex-1 flex flex-col h-full relative bg-[#020617]/30 min-w-0 transition-all duration-300">
+    <app-cmd-header
+      [searchTerm]="searchTerm"
+      [viewMode]="viewMode"
+      [activeProject]="activeProject"
+      (searchTermChange)="searchTerm = $event"
+      (viewModeChange)="viewMode = $event"
+      (toggleSidebar)="toggleSidebar()"
+      (openNewCategory)="openNewCategoryModal()"
+      (openNewCommand)="openNewCommandModal()"
+      (deselectProject)="deselectProject()"
+    ></app-cmd-header>
+
+    <div class="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar">
+      <app-cmd-grid
+        [commands]="commands"
+        [explicitCategories]="explicitCategories"
+        [collapsedCategories]="collapsedCategories"
+        [viewMode]="viewMode"
+        [searchTerm]="searchTerm"
+        (toggleCategory)="toggleCategory($event)"
+        (editCategory)="editCategory($event)"
+        (deleteCategory)="deleteCategory($event)"
+        (editCommand)="editCommand($event)"
+        (deleteCommand)="deleteCommand($event)"
+        (runCommand)="runCommand($event)"
+      ></app-cmd-grid>
+    </div>
+
+    <app-cmd-console-drawer
+      [logs]="logs"
+      [consoleMin]="consoleMin"
+      [cleared]="logsCleared"
+      (toggleConsole)="toggleConsole()"
+      (clearLogs)="clearLogs()"
+    ></app-cmd-console-drawer>
+  </main>
+
+  <app-cmd-modals
+    [showProjModal]="showProjModal"
+    [editingProject]="editingProject"
+    [showCatModal]="showCatModal"
+    [editingCatName]="editingCatName"
+    [showCmdModal]="showCmdModal"
+    [editingCommand]="editingCommand"
+    [allCategories]="allCategories"
+    (closeProjModal)="showProjModal = false; editingProjId = null"
+    (saveProject)="onSaveProject($event)"
+    (closeCatModal)="showCatModal = false; editingCatName = null"
+    (saveCategory)="onSaveCategory($event)"
+    (closeCmdModal)="showCmdModal = false; editingCmdId = null"
+    (saveCommand)="onSaveCommand($event)"
+  ></app-cmd-modals>
+</div>

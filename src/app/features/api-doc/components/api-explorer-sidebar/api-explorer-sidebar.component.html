@@ -1,0 +1,75 @@
+<aside class="w-72 glass-sidebar flex flex-col shrink-0 overflow-hidden h-full">
+  <div class="p-4 border-b border-slate-900 flex justify-between items-center">
+    <span class="text-[10px] font-black uppercase text-slate-500 tracking-widest">Explorador</span>
+    <div class="flex gap-1">
+      <button
+        (click)="createFolder.emit()"
+        class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 transition-colors"
+        title="Nueva Carpeta"
+      >
+        <i data-lucide="folder-plus" class="w-4 h-4"></i>
+      </button>
+      <button
+        (click)="refresh.emit(currentFolder)"
+        class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 transition-colors"
+        title="Refrescar"
+      >
+        <i data-lucide="rotate-cw" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+    <div
+      *ngIf="currentFolder"
+      (click)="goBack.emit()"
+      class="item-row flex items-center gap-3 p-2.5 rounded-xl cursor-pointer text-slate-500 transition-colors"
+    >
+      <i data-lucide="chevron-left" class="w-4 h-4"></i>
+      <span class="text-xs font-bold">...volver</span>
+    </div>
+
+    <p
+      *ngIf="filteredItems.length === 0 && !currentFolder"
+      class="text-[10px] text-slate-600 text-center py-10 font-bold uppercase"
+    >
+      Vacío
+    </p>
+
+    <div
+      *ngFor="let item of filteredItems"
+      (click)="onItemClick(item)"
+      class="item-row group flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all"
+      [ngClass]="!item.isFolder && item.path === activeFile ? 'active-file' : ''"
+    >
+      <div class="flex items-center gap-3 truncate flex-1 pointer-events-none">
+        <i
+          [attr.data-lucide]="item.isFolder ? 'folder' : 'file-text'"
+          class="w-4 h-4 shrink-0"
+          [ngClass]="item.isFolder ? 'text-amber-500' : 'text-indigo-400'"
+        ></i>
+        <span
+          class="text-xs font-medium truncate"
+          [ngClass]="!item.isFolder && item.path === activeFile ? 'text-indigo-300' : ''"
+        >
+          {{ item.name }}
+        </span>
+      </div>
+
+      <button
+        (click)="onDeleteItem($event, item.path)"
+        class="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-slate-800 hover:text-red-400 rounded-lg transition-all"
+        title="Eliminar"
+      >
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="p-4 bg-slate-950/50 border-t border-slate-900">
+    <div class="text-[9px] text-slate-600 font-bold uppercase mb-1">Directorio:</div>
+    <div class="text-[11px] text-indigo-400 font-mono truncate">
+      /api_docs{{ currentFolder ? '/' + currentFolder : '' }}
+    </div>
+  </div>
+</aside>
