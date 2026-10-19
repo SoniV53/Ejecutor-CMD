@@ -209,10 +209,11 @@
         </div>
       </div>
 
-      <!-- Salida de terminal a pantalla completa dentro de la pestaña -->
+      <!-- Salida de terminal a pantalla completa dentro de la pestaña con colores -->
       <pre
         class="flex-1 p-3 md:p-4 text-[11px] leading-relaxed font-mono whitespace-pre-wrap break-words text-slate-200 overflow-y-auto custom-scrollbar m-0 select-text"
-      >{{ activeLog.output || (activeLog.running ? 'Iniciando proceso en CMD interno...' : '(Sin salida en consola)') }}</pre>
+        [innerHTML]="activeLogHtml"
+      ></pre>
 
       <!-- Barra STDIN si el proceso de la pestaña activa está en ejecución -->
       <div

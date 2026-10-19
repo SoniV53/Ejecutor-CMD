@@ -508,13 +508,13 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
     const availableW = workspace.clientWidth;
     const availableH = workspace.clientHeight;
 
-    const wWrap = parseFloat(wrapper.style.width) || 0;
-    const hWrap = parseFloat(wrapper.style.height) || 0;
+    const wWrap = parseFloat(wrapper.style.width) || wrapper.offsetWidth || 0;
+    const hWrap = parseFloat(wrapper.style.height) || wrapper.offsetHeight || 0;
 
-    const mTop = hWrap <= availableH ? 'auto' : '0px';
-    const mBottom = hWrap <= availableH ? 'auto' : '0px';
-    const mLeft = wWrap <= availableW ? 'auto' : '0px';
-    const mRight = wWrap <= availableW ? 'auto' : '0px';
+    const mTop = hWrap <= availableH ? 'auto' : '24px';
+    const mBottom = hWrap <= availableH ? 'auto' : '24px';
+    const mLeft = wWrap <= availableW ? 'auto' : '24px';
+    const mRight = wWrap <= availableW ? 'auto' : '24px';
 
     wrapper.style.margin = `${mTop} ${mRight} ${mBottom} ${mLeft}`;
   }
@@ -534,9 +534,9 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
     if (!config) return;
 
     const scaleW =
-      (workspace.clientWidth - 40) / (this.isLandscape ? config.height : config.width);
+      (workspace.clientWidth - 48) / (this.isLandscape ? config.height : config.width);
     const scaleH =
-      (workspace.clientHeight - 40) / (this.isLandscape ? config.width : config.height);
+      (workspace.clientHeight - 48) / (this.isLandscape ? config.width : config.height);
     this.currentZoom = Math.max(0.1, Math.min(scaleW, scaleH, 1.0));
     this.zoomChange.emit(this.currentZoom);
     this.applyZoom(this.currentZoom);
@@ -549,15 +549,18 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
       const wrapper = this.deviceWrapperRef?.nativeElement;
       if (!container || !wrapper) return;
 
+      // Mantener siempre el zoom interno del documento web en 1.0 (100%)
+      // para que el zoom solo acerque/aleje físicamente el dispositivo sin deformar la app interna
+      if (this.appFrame && typeof this.appFrame.setZoomFactor === 'function') {
+        try {
+          this.appFrame.setZoomFactor(1.0);
+        } catch {}
+      }
+
       if (this.currentDeviceKey === 'responsive') {
         container.style.transform = 'none';
         wrapper.style.width = '100%';
         wrapper.style.height = '100%';
-        if (this.appFrame && typeof this.appFrame.setZoomFactor === 'function') {
-          try {
-            this.appFrame.setZoomFactor(1);
-          } catch {}
-        }
       } else {
         const config = this.devices[this.currentDeviceKey];
         if (config) {
@@ -567,16 +570,10 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
           container.style.transform = `scale(${this.currentZoom})`;
           wrapper.style.width = `${w * this.currentZoom}px`;
           wrapper.style.height = `${h * this.currentZoom}px`;
-
-          if (this.appFrame && typeof this.appFrame.setZoomFactor === 'function') {
-            try {
-              this.appFrame.setZoomFactor(this.currentZoom);
-            } catch {}
-          }
         }
       }
       this.updateCentering();
-    }, 50);
+    }, 20);
   }
 
   applyDeviceStyles(deviceKey: string, isLandscape: boolean): void {
@@ -598,13 +595,22 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
       container.classList.remove('mode-responsive');
       const config = this.devices[this.currentDeviceKey];
       if (config) {
-        const w = config.width;
-        const h = config.height;
-        container.style.width = this.isLandscape ? `${h}px` : `${w}px`;
-        container.style.height = this.isLandscape ? `${w}px` : `${h}px`;
+        const w = this.isLandscape ? config.height : config.width;
+        const h = this.isLandscape ? config.width : config.height;
+        container.style.width = `${w}px`;
+        container.style.height = `${h}px`;
         container.style.borderRadius = config.borderRadius;
         container.style.borderWidth = config.borderWidth;
+        container.style.transform = `scale(${this.currentZoom})`;
+        wrapper.style.width = `${w * this.currentZoom}px`;
+        wrapper.style.height = `${h * this.currentZoom}px`;
       }
+    }
+
+    if (this.appFrame && typeof this.appFrame.setZoomFactor === 'function') {
+      try {
+        this.appFrame.setZoomFactor(1.0);
+      } catch {}
     }
 
     this.updateTouchMode(this.isTouchEnabled);

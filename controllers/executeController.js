@@ -4,10 +4,12 @@ const fs = require('fs');
 // Mapa de procesos activos en el CMD interno: processId -> ChildProcess
 const activeProcesses = new Map();
 
-// Limpia códigos ANSI de color/cursor para que el log sea legible en la consola interna
-const stripAnsi = (str) => {
+// Conserva los códigos ANSI de color (\x1B[...m) pero limpia secuencias de movimiento de cursor/título de ventana
+const cleanTerminalOutput = (str) => {
   if (!str) return '';
-  return str.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '');
+  return str
+    .replace(/\x1B\][^\x07\x1B]*(\x07|\x1B\\)/g, '')
+    .replace(/\x1B\[[0-?]*[ -/]*[@-l,n-~]/g, '');
 };
 
 // Mata un árbol de procesos en Windows por PID (asíncrono)
@@ -99,10 +101,12 @@ const executeCommand = (req, res) => {
       };
 
       // Ejecutamos en el CMD interno de Windows sin abrir ventana externa (windowsHide: true)
-      const child = spawn('cmd.exe', ['/d', '/s', '/c', `chcp 65001 >nul && ${parsedCommand}`], {
+      // Usamos windowsVerbatimArguments: true + comillas externas para que Node no escape las comillas como \"
+      const child = spawn('cmd.exe', ['/d', '/s', '/c', `"chcp 65001 >nul && ${parsedCommand}"`], {
         cwd: effectiveCwd,
         windowsHide: true,
-        env: { ...process.env, FORCE_COLOR: '0' }
+        windowsVerbatimArguments: true,
+        env: { ...process.env, FORCE_COLOR: '1' }
       });
 
       activeProcesses.set(processId, child);
@@ -119,7 +123,7 @@ const executeCommand = (req, res) => {
         sendEvent({
           type: 'stdout',
           processId,
-          text: stripAnsi(data.toString('utf8'))
+          text: cleanTerminalOutput(data.toString('utf8'))
         });
       });
 
@@ -127,7 +131,7 @@ const executeCommand = (req, res) => {
         sendEvent({
           type: 'stderr',
           processId,
-          text: stripAnsi(data.toString('utf8'))
+          text: cleanTerminalOutput(data.toString('utf8'))
         });
       });
 
