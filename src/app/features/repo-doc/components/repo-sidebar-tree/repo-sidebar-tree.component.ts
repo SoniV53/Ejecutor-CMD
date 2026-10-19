@@ -1,5 +1,6 @@
 import { Component, Input, Output, EventEmitter, OnChanges, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { RepoFolder, RepoBranch, RepoDocState } from '../../models/repo-doc.models';
 import { LucideIconService } from '../../../../core/services/lucide-icon.service';
@@ -7,28 +8,39 @@ import { LucideIconService } from '../../../../core/services/lucide-icon.service
 @Component({
   selector: 'app-repo-sidebar-tree',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './repo-sidebar-tree.component.html',
   styleUrls: ['./repo-sidebar-tree.component.css']
 })
 export class RepoSidebarTreeComponent implements OnChanges, AfterViewInit {
-  @Input() state: RepoDocState = { folders: [], branches: [], commits: [] };
+  @Input() state: RepoDocState = { folders: [], branches: [], commits: [], notes: [] };
   @Input() currentBranchId: string | null = null;
   @Input() currentFolderId: string | null = null;
+  @Input() showAnalysisView = false;
   @Input() expandedFolders: Set<string> = new Set();
   @Input() fileStatusText = 'Cargando...';
   @Input() fileSynced = false;
 
-  @Output() openNewFolderModal = new EventEmitter<void>();
-  @Output() openNewBranchModal = new EventEmitter<void>();
+  @Output() openAnalysisView = new EventEmitter<void>();
+  @Output() openNewFolderModal = new EventEmitter<string | null>();
+  @Output() openNewBranchModal = new EventEmitter<{
+    folderId?: string | null;
+    parentId?: string | null;
+    isMain?: boolean;
+  }>();
   @Output() toggleFolder = new EventEmitter<{ folderId: string; event: Event }>();
   @Output() selectFolder = new EventEmitter<string>();
   @Output() selectBranch = new EventEmitter<string>();
+  @Output() moveBranchToFolder = new EventEmitter<{ branchId: string; folderId: string | null }>();
 
   @Output() createNewFile = new EventEmitter<void>();
   @Output() openFileModal = new EventEmitter<void>();
   @Output() saveFileForced = new EventEmitter<void>();
   @Output() saveFileAs = new EventEmitter<void>();
+
+  searchQuery = '';
+  draggingBranchId: string | null = null;
+  dragOverFolderId: string | 'ROOT' | null = null;
 
   constructor(private lucide: LucideIconService) {}
 
@@ -40,12 +52,44 @@ export class RepoSidebarTreeComponent implements OnChanges, AfterViewInit {
     this.lucide.refresh();
   }
 
+  get mainBranchesCount(): number {
+    return (this.state.branches || []).filter(b => b.isMain).length;
+  }
+
+  get filteredBranches(): RepoBranch[] {
+    const q = this.searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return (this.state.branches || []).filter(
+      b => b.name.toLowerCase().includes(q) || (b.desc || '').toLowerCase().includes(q)
+    );
+  }
+
   get rootFolders(): RepoFolder[] {
-    return (this.state.folders || []).filter(f => !f.parentId);
+    const roots = (this.state.folders || []).filter(f => !f.parentId);
+    // Mostrar primero la carpeta por defecto si existe
+    return [...roots].sort((a, b) => {
+      if (a.isDefault && !b.isDefault) return -1;
+      if (!a.isDefault && b.isDefault) return 1;
+      return 0;
+    });
+  }
+
+  private getParentBranch(branch: RepoBranch): RepoBranch | undefined {
+    if (!branch.parentId) return undefined;
+    return (this.state.branches || []).find(b => b.id === branch.parentId);
+  }
+
+  isNestedUnderParentInSameLocation(branch: RepoBranch): boolean {
+    const parent = this.getParentBranch(branch);
+    if (!parent || parent.id === branch.id) return false;
+    return (branch.folderId || null) === (parent.folderId || null);
   }
 
   get rootBranches(): RepoBranch[] {
-    return (this.state.branches || []).filter(b => !b.folderId && !b.parentId);
+    const list = (this.state.branches || []).filter(
+      b => !b.folderId && !this.isNestedUnderParentInSameLocation(b)
+    );
+    return this.sortBranchesMainFirst(list);
   }
 
   getSubFolders(parentId: string): RepoFolder[] {
@@ -53,11 +97,49 @@ export class RepoSidebarTreeComponent implements OnChanges, AfterViewInit {
   }
 
   getFolderBranches(folderId: string): RepoBranch[] {
-    return (this.state.branches || []).filter(b => b.folderId === folderId && !b.parentId);
+    const list = (this.state.branches || []).filter(
+      b => b.folderId === folderId && !this.isNestedUnderParentInSameLocation(b)
+    );
+    return this.sortBranchesMainFirst(list);
   }
 
   getChildBranches(parentId: string): RepoBranch[] {
-    return (this.state.branches || []).filter(b => b.parentId === parentId);
+    const parent = (this.state.branches || []).find(b => b.id === parentId);
+    if (!parent) return [];
+    return (this.state.branches || []).filter(
+      b => b.parentId === parentId && (b.folderId || null) === (parent.folderId || null)
+    );
+  }
+
+  getTotalChildBranchesCount(parentId: string): number {
+    return (this.state.branches || []).filter(b => b.parentId === parentId).length;
+  }
+
+  getParentBranchName(branch: RepoBranch): string | null {
+    const parent = this.getParentBranch(branch);
+    return parent ? parent.name : null;
+  }
+
+  getFolderNotesCount(folderId: string): number {
+    return (this.state.notes || []).filter(n => n.targetType === 'folder' && n.targetId === folderId).length;
+  }
+
+  getBranchNotesCount(branchId: string): number {
+    return (this.state.notes || []).filter(n => n.targetType === 'branch' && n.targetId === branchId).length;
+  }
+
+  getFolderDirectItemsCount(folderId: string): number {
+    const subCount = this.getSubFolders(folderId).length;
+    const branchCount = (this.state.branches || []).filter(b => b.folderId === folderId).length;
+    return subCount + branchCount;
+  }
+
+  private sortBranchesMainFirst(branches: RepoBranch[]): RepoBranch[] {
+    return [...branches].sort((a, b) => {
+      if (a.isMain && !b.isMain) return -1;
+      if (!a.isMain && b.isMain) return 1;
+      return 0;
+    });
   }
 
   isExpanded(folderId: string): boolean {
@@ -68,4 +150,64 @@ export class RepoSidebarTreeComponent implements OnChanges, AfterViewInit {
     event.stopPropagation();
     this.toggleFolder.emit({ folderId, event });
   }
+
+  onAddSubfolder(parentId: string, event: Event): void {
+    event.stopPropagation();
+    this.openNewFolderModal.emit(parentId);
+  }
+
+  onAddBranchInFolder(folderId: string, event: Event): void {
+    event.stopPropagation();
+    this.openNewBranchModal.emit({ folderId, parentId: null, isMain: false });
+  }
+
+  onAddChildBranch(parentBranch: RepoBranch, event: Event): void {
+    event.stopPropagation();
+    this.openNewBranchModal.emit({
+      folderId: parentBranch.folderId,
+      parentId: parentBranch.id,
+      isMain: false
+    });
+  }
+
+  // Drag & Drop para mover ramas entre carpetas y subcarpetas
+  onBranchDragStart(branchId: string, event: DragEvent): void {
+    event.stopPropagation();
+    this.draggingBranchId = branchId;
+    if (event.dataTransfer) {
+      event.dataTransfer.setData('text/plain', branchId);
+      event.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  onBranchDragEnd(): void {
+    this.draggingBranchId = null;
+    this.dragOverFolderId = null;
+  }
+
+  onFolderDragOver(folderId: string | 'ROOT', event: DragEvent): void {
+    if (!this.draggingBranchId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.dragOverFolderId = folderId;
+  }
+
+  onFolderDragLeave(folderId: string | 'ROOT', event: DragEvent): void {
+    event.stopPropagation();
+    if (this.dragOverFolderId === folderId) {
+      this.dragOverFolderId = null;
+    }
+  }
+
+  onFolderDrop(folderId: string | null, event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const branchId = this.draggingBranchId || event.dataTransfer?.getData('text/plain');
+    this.draggingBranchId = null;
+    this.dragOverFolderId = null;
+    if (branchId) {
+      this.moveBranchToFolder.emit({ branchId, folderId });
+    }
+  }
 }
+

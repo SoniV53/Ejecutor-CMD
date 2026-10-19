@@ -5,53 +5,86 @@
 >
   <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
     <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-      <h3 class="text-lg font-bold text-slate-800">Crear/Editar Rama</h3>
+      <h3 class="text-lg font-bold text-slate-800">{{ editingBranch ? 'Editar Rama' : 'Nueva Rama' }}</h3>
       <button type="button" (click)="closeBranchModal.emit()" class="text-slate-400 hover:text-slate-600">
         <i data-lucide="x" class="w-5 h-5"></i>
       </button>
     </div>
     <form (submit)="onSubmitBranch($event)" class="p-6 space-y-4">
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Nombre de la Rama</label>
         <input
           type="text"
           [(ngModel)]="branchName"
           name="branchName"
+          placeholder="ej. main, develop, feat/login"
           required
           class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none font-mono text-sm focus:ring-2 focus:ring-indigo-500"
         />
       </div>
+
+      <!-- Enmarcar como Rama Principal -->
+      <label
+        class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all"
+        [ngClass]="
+          branchIsMain
+            ? 'border-amber-400 bg-amber-50/80 text-amber-900 shadow-sm'
+            : 'border-slate-200 bg-slate-50/60 hover:bg-slate-100 text-slate-700'
+        "
+      >
+        <input
+          type="checkbox"
+          [(ngModel)]="branchIsMain"
+          name="branchIsMain"
+          class="mt-1 h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+        />
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-bold flex items-center gap-1.5">
+            <i data-lucide="crown" class="w-4 h-4 text-amber-500"></i>
+            Enmarcar como Rama Principal
+          </div>
+          <p class="text-xs opacity-80 mt-0.5">
+            Destaca visualmente esta rama como base del proyecto o módulo de la cual parten las ramas de desarrollo.
+          </p>
+        </div>
+      </label>
+
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Carpeta</label>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Carpeta / Subcarpeta</label>
           <select
             [(ngModel)]="branchFolderId"
             name="branchFolderId"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm"
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none text-sm bg-white"
           >
-            <option value="">Carpeta Raíz</option>
-            <option *ngFor="let f of folders" [value]="f.id">{{ f.name }}</option>
+            <option value="">Raíz (Sin carpeta)</option>
+            <option *ngFor="let f of folders" [value]="f.id">
+              {{ getFolderPathLabel(f) }}{{ f.isDefault ? ' (Default)' : '' }}
+            </option>
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Rama Padre</label>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Rama Padre (Origen)</label>
           <select
             [(ngModel)]="branchParentId"
             name="branchParentId"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm"
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none text-sm bg-white"
           >
             <option value="">Ninguna (Raíz)</option>
-            <option *ngFor="let b of availableParentBranches" [value]="b.id">{{ b.name }}</option>
+            <option *ngFor="let b of availableParentBranches" [value]="b.id">
+              {{ b.isMain ? '★ ' : '' }}{{ b.name }}
+            </option>
           </select>
         </div>
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Propósito / Descripción</label>
         <textarea
           [(ngModel)]="branchDesc"
           name="branchDesc"
           rows="3"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm resize-none"
+          placeholder="Describe el objetivo de esta rama..."
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm resize-none focus:ring-2 focus:ring-indigo-500"
         ></textarea>
       </div>
       <div class="pt-2 flex justify-end gap-2">
@@ -80,32 +113,45 @@
 >
   <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
     <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-      <h3 class="text-lg font-bold text-slate-800">Crear/Editar Carpeta</h3>
+      <h3 class="text-lg font-bold text-slate-800">{{ editingFolder ? 'Editar Carpeta' : 'Nueva Carpeta / Subcarpeta' }}</h3>
       <button type="button" (click)="closeFolderModal.emit()" class="text-slate-400 hover:text-slate-600">
         <i data-lucide="x" class="w-5 h-5"></i>
       </button>
     </div>
     <form (submit)="onSubmitFolder($event)" class="p-6 space-y-4">
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Nombre de la Carpeta</label>
         <input
           type="text"
           [(ngModel)]="folderName"
           name="folderName"
+          placeholder="ej. Sprint 4, Módulo Pagos, Archivadas..."
           required
           class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm focus:ring-2 focus:ring-indigo-500"
         />
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Carpeta Padre</label>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Ubicación (Carpeta Padre)</label>
         <select
           [(ngModel)]="folderParentId"
           name="folderParentId"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm"
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm bg-white"
         >
-          <option value="">Carpeta Raíz</option>
-          <option *ngFor="let f of availableParentFolders" [value]="f.id">{{ f.name }}</option>
+          <option value="">Carpeta Raíz (Nivel principal)</option>
+          <option *ngFor="let f of availableParentFolders" [value]="f.id">
+            {{ getFolderPathLabel(f) }}
+          </option>
         </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Descripción (Opcional)</label>
+        <textarea
+          [(ngModel)]="folderDesc"
+          name="folderDesc"
+          rows="2"
+          placeholder="Describe qué ramas agrupa esta carpeta..."
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm resize-none focus:ring-2 focus:ring-indigo-500"
+        ></textarea>
       </div>
       <div class="pt-2 flex justify-end gap-2">
         <button
@@ -171,6 +217,96 @@
           class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg"
         >
           Guardar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- NOTE MODAL (FOR BRANCH OR FOLDER) -->
+<div
+  *ngIf="showNoteModal"
+  class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50"
+>
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden transform transition-all">
+    <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+      <div>
+        <h3 class="text-lg font-bold text-slate-800">{{ editingNote ? 'Editar Nota' : 'Nueva Nota' }}</h3>
+        <p *ngIf="noteTargetLabel" class="text-xs text-slate-500 mt-0.5">En: <span class="font-semibold text-slate-700">{{ noteTargetLabel }}</span></p>
+      </div>
+      <button type="button" (click)="closeNoteModal.emit()" class="text-slate-400 hover:text-slate-600">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <form (submit)="onSubmitNote($event)" class="p-6 space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Título de la Nota</label>
+        <input
+          type="text"
+          [(ngModel)]="noteTitle"
+          name="noteTitle"
+          placeholder="ej. Pendiente de pruebas QA, Configuración .env, Bloqueo..."
+          required
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm focus:ring-2 focus:ring-indigo-500"
+        />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Contenido / Detalles</label>
+        <textarea
+          [(ngModel)]="noteContent"
+          name="noteContent"
+          rows="4"
+          placeholder="Escribe tus apuntes, comandos relacionados, decisiones o pendientes..."
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm resize-y focus:ring-2 focus:ring-indigo-500"
+        ></textarea>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-4 pt-1">
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Color de tarjeta</label>
+          <div class="flex items-center gap-2">
+            <button
+              *ngFor="let c of noteColors"
+              type="button"
+              (click)="noteColor = c.value"
+              class="px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 border transition"
+              [ngClass]="
+                noteColor === c.value
+                  ? 'ring-2 ' + c.ringClass + ' border-transparent font-semibold'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+              "
+            >
+              <span class="w-2.5 h-2.5 rounded-full" [ngClass]="c.dotClass"></span>
+              {{ c.label }}
+            </button>
+          </div>
+        </div>
+
+        <label class="flex items-center gap-2 cursor-pointer select-none pt-4">
+          <input
+            type="checkbox"
+            [(ngModel)]="notePinned"
+            name="notePinned"
+            class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          <span class="text-sm font-medium text-slate-700">Fijar arriba</span>
+        </label>
+      </div>
+
+      <div class="pt-3 flex justify-end gap-2 border-t border-slate-100">
+        <button
+          type="button"
+          (click)="closeNoteModal.emit()"
+          class="px-4 py-2 text-sm font-medium bg-slate-100 hover:bg-slate-200 rounded-lg"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg"
+        >
+          Guardar Nota
         </button>
       </div>
     </form>
@@ -262,3 +398,4 @@
     </div>
   </div>
 </div>
+

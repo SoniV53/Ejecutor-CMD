@@ -119,6 +119,8 @@ const server = http.createServer((req, res) => {
     if (req.url.startsWith('/api/doc/save')) return apiDocController.saveDoc(req, res);
     if (req.url.startsWith('/api/doc/read')) return apiDocController.readFile(req, res);
     if (req.url.startsWith('/api/doc/delete')) return apiDocController.deleteItem(req, res);
+    if (req.url.startsWith('/api/doc/analyze-git')) return apiDocController.analyzeGitRepository(req, res);
+    if (req.url.startsWith('/api/doc/browse-dirs')) return apiDocController.browseDirectories(req, res);
 
     // 404 para cualquier otra ruta que no exista
     res.writeHead(404);

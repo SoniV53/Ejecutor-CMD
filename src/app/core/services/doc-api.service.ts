@@ -6,6 +6,36 @@ export interface DocExplorerItem {
   path: string;
 }
 
+export interface GitScannedBranch {
+  name: string;
+  lastCommitHash: string;
+  lastCommitMsg: string;
+  lastCommitDate: string;
+  isCurrent: boolean;
+  isRemote: boolean;
+}
+
+export interface GitAnalysisResponse {
+  status: string;
+  repoPath: string;
+  currentBranch: string;
+  branches: GitScannedBranch[];
+}
+
+export interface DirectoryEntry {
+  name: string;
+  path: string;
+  isGitRepo: boolean;
+}
+
+export interface BrowseDirectoriesResponse {
+  currentPath: string;
+  parentPath: string | null;
+  isCurrentGitRepo: boolean;
+  drives: string[];
+  directories: DirectoryEntry[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class DocApiService {
   private readonly baseUrl: string;
@@ -58,5 +88,31 @@ export class DocApiService {
     if (!res.ok) throw new Error('Error eliminando elemento');
     return res.json();
   }
+
+  async analyzeGitRepository(repoPath: string, includeRemote = false): Promise<GitAnalysisResponse> {
+    const res = await fetch(`${this.baseUrl}/api/doc/analyze-git`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repoPath, includeRemote })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Error al analizar el repositorio Git');
+    }
+    return data;
+  }
+
+  async browseDirectories(dirPath = ''): Promise<BrowseDirectoriesResponse> {
+    const res = await fetch(
+      `${this.baseUrl}/api/doc/browse-dirs?path=${encodeURIComponent(dirPath)}&_t=${Date.now()}`
+    );
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Error al explorar directorios');
+    }
+    return data;
+  }
 }
+
+
 

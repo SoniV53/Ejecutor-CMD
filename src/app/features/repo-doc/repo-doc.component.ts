@@ -1,7 +1,20 @@
 import { Component, OnInit, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RepoDocState, RepoFolder, RepoBranch } from './models/repo-doc.models';
-import { DocApiService, DocExplorerItem } from '../../core/services/doc-api.service';
+import {
+  RepoDocState,
+  RepoFolder,
+  RepoBranch,
+  RepoCommit,
+  RepoNote,
+  RepoNoteColor
+} from './models/repo-doc.models';
+import {
+  DocApiService,
+  DocExplorerItem,
+  GitScannedBranch
+} from '../../core/services/doc-api.service';
+import { ConsoleFlowApiService } from '../../core/services/console-flow-api.service';
+import { CmdProject } from '../dashboard-cmd/models/cmd.models';
 import { LucideIconService } from '../../core/services/lucide-icon.service';
 import { RepoSidebarTreeComponent } from './components/repo-sidebar-tree/repo-sidebar-tree.component';
 import { RepoBranchDetailComponent } from './components/repo-branch-detail/repo-branch-detail.component';
@@ -22,10 +35,18 @@ import { RepoModalsComponent } from './components/repo-modals/repo-modals.compon
 export class RepoDocComponent implements OnInit, AfterViewInit {
   readonly BASE_FOLDER = 'json/rama';
 
-  state: RepoDocState = { folders: [], branches: [], commits: [] };
+  state: RepoDocState = { folders: [], branches: [], commits: [], notes: [] };
   currentBranchId: string | null = null;
   currentFolderId: string | null = null;
   expandedFolders = new Set<string>();
+
+  // Apartado de Análisis Git
+  showAnalysisView = false;
+  cmdProjects: CmdProject[] = [];
+  isAnalyzingGit = false;
+  analysisError: string | null = null;
+  scannedBranches: GitScannedBranch[] | null = null;
+  gitCurrentBranch = '';
 
   activeFileName = localStorage.getItem('gitDocsActiveFile') || 'proyecto_default.json';
   fileStatusText = 'Cargando...';
@@ -34,11 +55,20 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
   // Modals state
   showBranchModal = false;
   editingBranch: RepoBranch | null = null;
+  defaultBranchFolderId: string | null = null;
+  defaultBranchParentId: string | null = null;
+  defaultBranchIsMain = false;
 
   showFolderModal = false;
   editingFolder: RepoFolder | null = null;
+  defaultFolderParentId: string | null = null;
 
   showCommitModal = false;
+
+  showNoteModal = false;
+  editingNote: RepoNote | null = null;
+  noteTargetType: 'branch' | 'folder' = 'branch';
+  noteTargetId = '';
 
   showFilenameModal = false;
   filenameModalTitle = 'Nombre del Proyecto';
@@ -50,15 +80,26 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
 
   constructor(
     private docApi: DocApiService,
+    private consoleFlowApi: ConsoleFlowApiService,
     private lucide: LucideIconService
   ) {}
 
   ngOnInit(): void {
+    this.loadCmdProjects();
     this.initBackendSystem();
   }
 
   ngAfterViewInit(): void {
     this.lucide.refresh();
+  }
+
+  async loadCmdProjects(): Promise<void> {
+    try {
+      const workspace = await this.consoleFlowApi.getData();
+      this.cmdProjects = workspace.projects || [];
+    } catch {
+      this.cmdProjects = [];
+    }
   }
 
   get currentFolder(): RepoFolder | null {
@@ -76,6 +117,16 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
     if (!branch || !branch.parentId) return null;
     const parent = this.state.branches.find(b => b.id === branch.parentId);
     return parent ? parent.name : 'Desconocida';
+  }
+
+  get noteTargetLabel(): string {
+    if (this.noteTargetType === 'branch') {
+      const b = this.state.branches.find(item => item.id === this.noteTargetId);
+      return b ? `Rama: ${b.name}` : 'Rama';
+    } else {
+      const f = this.state.folders.find(item => item.id === this.noteTargetId);
+      return f ? `Carpeta: ${f.name}` : 'Carpeta';
+    }
   }
 
   private generateId(): string {
@@ -115,7 +166,19 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
 
   async ensureDefaultFile(): Promise<void> {
     this.activeFileName = 'proyecto_default.json';
-    const defaultState: RepoDocState = { folders: [], branches: [], commits: [] };
+    const defaultFolder: RepoFolder = {
+      id: this.generateId(),
+      name: 'Por Defecto',
+      parentId: null,
+      desc: 'Carpeta por defecto para ramas recolectadas del análisis Git.',
+      isDefault: true
+    };
+    const defaultState: RepoDocState = {
+      folders: [defaultFolder],
+      branches: [],
+      commits: [],
+      notes: []
+    };
     try {
       await this.docApi.saveJsonDoc(
         this.activeFileName,
@@ -123,6 +186,7 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
         JSON.stringify(defaultState, null, 2)
       );
       this.state = defaultState;
+      this.expandedFolders = new Set([defaultFolder.id]);
       localStorage.setItem('gitDocsActiveFile', this.activeFileName);
       this.updateFileStatusUI(this.activeFileName, true);
       this.lucide.refresh();
@@ -137,12 +201,22 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
       const data = await this.docApi.readFile(`${this.BASE_FOLDER}/${this.activeFileName}`);
       const parsed = JSON.parse(data.content);
       const rawState = parsed.state || parsed;
+      const folders: RepoFolder[] = (rawState.folders || []).map((f: RepoFolder) => ({
+        ...f,
+        isDefault: f.isDefault || f.name.toLowerCase() === 'por defecto'
+      }));
       this.state = {
-        folders: rawState.folders || [],
+        repoPath: rawState.repoPath || '',
+        linkedProjectId: rawState.linkedProjectId || null,
+        folders,
         branches: rawState.branches || [],
-        commits: rawState.commits || []
+        commits: rawState.commits || [],
+        notes: rawState.notes || []
       };
-      this.expandedFolders = new Set();
+      // Expandir por defecto las carpetas raíz para facilitar navegación
+      this.expandedFolders = new Set(folders.filter(f => !f.parentId).map(f => f.id));
+      this.scannedBranches = null;
+      this.analysisError = null;
       localStorage.setItem('gitDocsActiveFile', this.activeFileName);
       this.updateFileStatusUI(this.activeFileName, true);
       this.lucide.refresh();
@@ -174,6 +248,32 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
     this.saveStateLocally();
   }
 
+  // Asegura que exista la carpeta "Por Defecto" y devuelve su referencia
+  private ensureDefaultFolderInState(): RepoFolder {
+    let defFolder = this.state.folders.find(
+      f => f.isDefault || f.name.trim().toLowerCase() === 'por defecto'
+    );
+    if (!defFolder) {
+      defFolder = {
+        id: this.generateId(),
+        name: 'Por Defecto',
+        parentId: null,
+        desc: 'Carpeta por defecto donde se agrupan las ramas recolectadas del análisis Git.',
+        isDefault: true
+      };
+      this.state = {
+        ...this.state,
+        folders: [defFolder, ...this.state.folders]
+      };
+    } else if (!defFolder.isDefault) {
+      defFolder.isDefault = true;
+    }
+    const nextExpanded = new Set(this.expandedFolders);
+    nextExpanded.add(defFolder.id);
+    this.expandedFolders = nextExpanded;
+    return defFolder;
+  }
+
   // File Modals
   openFilenameModal(title: string, placeholder: string, callback: (val: string) => void): void {
     this.filenameModalTitle = title;
@@ -195,10 +295,25 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
       const cleanName = (rawName || '').replace(/[^a-zA-Z0-9_\-\s]/g, '').trim();
       if (!cleanName) return;
 
-      this.state = { folders: [], branches: [], commits: [] };
+      const defaultFolder: RepoFolder = {
+        id: this.generateId(),
+        name: 'Por Defecto',
+        parentId: null,
+        desc: 'Carpeta por defecto donde se agrupan las ramas recolectadas del análisis Git.',
+        isDefault: true
+      };
+
+      this.state = {
+        folders: [defaultFolder],
+        branches: [],
+        commits: [],
+        notes: []
+      };
       this.currentBranchId = null;
       this.currentFolderId = null;
-      this.expandedFolders = new Set();
+      this.showAnalysisView = false;
+      this.scannedBranches = null;
+      this.expandedFolders = new Set([defaultFolder.id]);
 
       this.activeFileName = cleanName + '.json';
       localStorage.setItem('gitDocsActiveFile', this.activeFileName);
@@ -233,10 +348,140 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
     this.showOpenModal = false;
     this.currentBranchId = null;
     this.currentFolderId = null;
+    this.showAnalysisView = false;
     await this.loadActiveFile();
   }
 
-  // Tree navigation & CRUD
+  // =========================================================
+  // APARTADO DE ANÁLISIS GIT
+  // =========================================================
+  openAnalysisPanel(): void {
+    this.showAnalysisView = true;
+    this.lucide.refresh();
+  }
+
+  async onRunGitAnalysis(payload: {
+    repoPath: string;
+    linkedProjectId: string | null;
+    includeRemote: boolean;
+  }): Promise<void> {
+    this.isAnalyzingGit = true;
+    this.analysisError = null;
+
+    this.state = {
+      ...this.state,
+      repoPath: payload.repoPath,
+      linkedProjectId: payload.linkedProjectId
+    };
+    this.saveStateLocally();
+
+    try {
+      const res = await this.docApi.analyzeGitRepository(payload.repoPath, payload.includeRemote);
+      this.scannedBranches = res.branches || [];
+      this.gitCurrentBranch = res.currentBranch || '';
+    } catch (err: any) {
+      this.analysisError = err?.message || 'Error al analizar el repositorio Git.';
+      this.scannedBranches = null;
+    } finally {
+      this.isAnalyzingGit = false;
+      this.lucide.refresh();
+    }
+  }
+
+  onImportMissingBranches(payload: {
+    branches: GitScannedBranch[];
+    targetFolderId: string | 'DEFAULT';
+    parentBranchId: string | null;
+    mainBranchNames: string[];
+    includeLastCommit: boolean;
+  }): void {
+    let resolvedFolderId: string | null = null;
+    if (payload.targetFolderId === 'DEFAULT') {
+      const defFolder = this.ensureDefaultFolderInState();
+      resolvedFolderId = defFolder.id;
+    } else {
+      resolvedFolderId = payload.targetFolderId || null;
+    }
+
+    if (resolvedFolderId) {
+      this.expandFolderAncestors(resolvedFolderId);
+    }
+
+    const existingNames = new Set(
+      this.state.branches.map(b => b.name.trim().toLowerCase())
+    );
+    const mainNamesSet = new Set(payload.mainBranchNames.map(n => n.trim().toLowerCase()));
+
+    const newBranches: RepoBranch[] = [];
+    const newCommits: RepoCommit[] = [];
+
+    for (const sb of payload.branches) {
+      const normName = sb.name.trim().toLowerCase();
+      if (existingNames.has(normName)) continue;
+      existingNames.add(normName);
+
+      const branchId = this.generateId();
+      const isMain = mainNamesSet.has(normName);
+
+      newBranches.push({
+        id: branchId,
+        name: sb.name.trim(),
+        desc: sb.lastCommitMsg
+          ? `Rama recolectada desde Git. Último commit (${sb.lastCommitHash}): ${sb.lastCommitMsg}`
+          : 'Rama recolectada desde el análisis del repositorio Git.',
+        folderId: resolvedFolderId,
+        parentId: payload.parentBranchId || null,
+        isMain,
+        isRemote: sb.isRemote,
+        createdAt: sb.lastCommitDate || new Date().toISOString(),
+        lastCommitHash: sb.lastCommitHash,
+        lastCommitMsg: sb.lastCommitMsg
+      });
+
+      if (payload.includeLastCommit && sb.lastCommitHash && sb.lastCommitMsg) {
+        newCommits.push({
+          id: this.generateId(),
+          branchId,
+          hash: sb.lastCommitHash,
+          message: sb.lastCommitMsg,
+          date: sb.lastCommitDate || new Date().toISOString()
+        });
+      }
+    }
+
+    if (newBranches.length === 0) return;
+
+    this.state = {
+      ...this.state,
+      branches: [...this.state.branches, ...newBranches],
+      commits: [...this.state.commits, ...newCommits]
+    };
+
+    // Forzar refresco de la lista en el panel de análisis
+    if (this.scannedBranches) {
+      this.scannedBranches = [...this.scannedBranches];
+    }
+
+    this.saveStateLocally();
+    this.lucide.refresh();
+  }
+
+  private expandFolderAncestors(folderId: string): void {
+    const next = new Set(this.expandedFolders);
+    let currId: string | null = folderId;
+    const visited = new Set<string>();
+    while (currId && !visited.has(currId)) {
+      visited.add(currId);
+      next.add(currId);
+      const f = this.state.folders.find(item => item.id === currId);
+      currId = f ? f.parentId : null;
+    }
+    this.expandedFolders = next;
+  }
+
+  // =========================================================
+  // TREE NAVIGATION & CRUD (CARPETAS, SUBCARPETAS, RAMAS)
+  // =========================================================
   toggleFolder(event: { folderId: string; event: Event }): void {
     const next = new Set(this.expandedFolders);
     if (next.has(event.folderId)) {
@@ -245,49 +490,71 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
       next.add(event.folderId);
     }
     this.expandedFolders = next;
-    this.saveStateLocally();
     this.lucide.refresh();
   }
 
   showFolderDetails(id: string): void {
     this.currentFolderId = id;
     this.currentBranchId = null;
+    this.showAnalysisView = false;
+    this.expandFolderAncestors(id);
     this.lucide.refresh();
   }
 
   showBranchDetails(id: string): void {
     this.currentBranchId = id;
     this.currentFolderId = null;
+    this.showAnalysisView = false;
+    const branch = this.state.branches.find(b => b.id === id);
+    if (branch && branch.folderId) {
+      this.expandFolderAncestors(branch.folderId);
+    }
     this.lucide.refresh();
   }
 
-  openNewFolderModal(): void {
+  openNewFolderModal(parentId: string | null = null): void {
     this.editingFolder = null;
+    this.defaultFolderParentId = parentId;
     this.showFolderModal = true;
   }
 
   editCurrentFolder(): void {
     if (!this.currentFolder) return;
     this.editingFolder = this.currentFolder;
+    this.defaultFolderParentId = this.currentFolder.parentId;
     this.showFolderModal = true;
   }
 
-  onSaveFolder(payload: { id?: string; name: string; parentId: string | null }): void {
+  onSaveFolder(payload: {
+    id?: string;
+    name: string;
+    desc: string;
+    parentId: string | null;
+  }): void {
     if (payload.id) {
       this.state = {
         ...this.state,
         folders: this.state.folders.map(f =>
-          f.id === payload.id ? { ...f, name: payload.name, parentId: payload.parentId } : f
+          f.id === payload.id
+            ? { ...f, name: payload.name, desc: payload.desc, parentId: payload.parentId }
+            : f
         )
       };
+      if (payload.parentId) {
+        this.expandFolderAncestors(payload.parentId);
+      }
     } else {
+      const newFolder: RepoFolder = {
+        id: this.generateId(),
+        name: payload.name,
+        desc: payload.desc,
+        parentId: payload.parentId
+      };
       this.state = {
         ...this.state,
-        folders: [
-          ...this.state.folders,
-          { id: this.generateId(), name: payload.name, parentId: payload.parentId }
-        ]
+        folders: [...this.state.folders, newFolder]
       };
+      this.expandFolderAncestors(newFolder.id);
     }
     this.saveStateLocally();
     this.showFolderModal = false;
@@ -295,24 +562,71 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
     this.lucide.refresh();
   }
 
+  onMoveFolderParent(payload: { folderId: string; parentId: string | null }): void {
+    if (payload.folderId === payload.parentId) return;
+    this.state = {
+      ...this.state,
+      folders: this.state.folders.map(f =>
+        f.id === payload.folderId ? { ...f, parentId: payload.parentId } : f
+      )
+    };
+    if (payload.parentId) {
+      this.expandFolderAncestors(payload.parentId);
+    }
+    this.saveStateLocally();
+    this.lucide.refresh();
+  }
+
   deleteCurrentFolder(): void {
     if (!this.currentFolderId) return;
-    if (confirm('¿Eliminar carpeta? Ramas internas perderán esta agrupación.')) {
-      const targetId = this.currentFolderId;
+    const targetFolder = this.currentFolder;
+    if (!targetFolder) return;
+
+    if (
+      confirm(
+        `¿Eliminar la carpeta "${targetFolder.name}"? Sus subcarpetas y ramas pasarán al nivel superior.`
+      )
+    ) {
+      const targetId = targetFolder.id;
+      const fallbackParentId = targetFolder.parentId || null;
+
       this.state = {
         ...this.state,
-        folders: this.state.folders.filter(f => f.id !== targetId),
-        branches: this.state.branches.map(b => (b.folderId === targetId ? { ...b, folderId: null } : b))
+        folders: this.state.folders
+          .filter(f => f.id !== targetId)
+          .map(f => (f.parentId === targetId ? { ...f, parentId: fallbackParentId } : f)),
+        branches: this.state.branches.map(b =>
+          b.folderId === targetId ? { ...b, folderId: fallbackParentId } : b
+        ),
+        notes: (this.state.notes || []).filter(
+          n => !(n.targetType === 'folder' && n.targetId === targetId)
+        )
       };
-      this.currentFolderId = null;
+      this.currentFolderId = fallbackParentId;
       this.saveStateLocally();
       this.lucide.refresh();
     }
   }
 
-  openNewBranchModal(): void {
+  openNewBranchModal(defaults?: {
+    folderId?: string | null;
+    parentId?: string | null;
+    isMain?: boolean;
+  }): void {
     this.editingBranch = null;
+    this.defaultBranchFolderId =
+      defaults?.folderId !== undefined ? defaults.folderId : this.currentFolderId;
+    this.defaultBranchParentId = defaults?.parentId || null;
+    this.defaultBranchIsMain = !!defaults?.isMain;
     this.showBranchModal = true;
+  }
+
+  openNewChildBranchModal(parentBranch: RepoBranch): void {
+    this.openNewBranchModal({
+      folderId: parentBranch.folderId,
+      parentId: parentBranch.id,
+      isMain: false
+    });
   }
 
   editCurrentBranch(): void {
@@ -327,6 +641,7 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
     desc: string;
     folderId: string | null;
     parentId: string | null;
+    isMain: boolean;
   }): void {
     if (payload.id) {
       this.state = {
@@ -338,26 +653,35 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
                 name: payload.name,
                 desc: payload.desc,
                 folderId: payload.folderId,
-                parentId: payload.parentId
+                parentId: payload.parentId,
+                isMain: payload.isMain
               }
             : b
         )
       };
+      if (payload.folderId) {
+        this.expandFolderAncestors(payload.folderId);
+      }
     } else {
+      const newBranch: RepoBranch = {
+        id: this.generateId(),
+        name: payload.name,
+        desc: payload.desc,
+        folderId: payload.folderId,
+        parentId: payload.parentId,
+        isMain: payload.isMain,
+        createdAt: new Date().toISOString()
+      };
       this.state = {
         ...this.state,
-        branches: [
-          ...this.state.branches,
-          {
-            id: this.generateId(),
-            name: payload.name,
-            desc: payload.desc,
-            folderId: payload.folderId,
-            parentId: payload.parentId,
-            createdAt: new Date().toISOString()
-          }
-        ]
+        branches: [...this.state.branches, newBranch]
       };
+      if (payload.folderId) {
+        this.expandFolderAncestors(payload.folderId);
+      }
+      this.currentBranchId = newBranch.id;
+      this.currentFolderId = null;
+      this.showAnalysisView = false;
     }
     this.saveStateLocally();
     this.showBranchModal = false;
@@ -365,14 +689,56 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
     this.lucide.refresh();
   }
 
+  onToggleMainBranch(branchId: string): void {
+    this.state = {
+      ...this.state,
+      branches: this.state.branches.map(b =>
+        b.id === branchId ? { ...b, isMain: !b.isMain } : b
+      )
+    };
+    this.saveStateLocally();
+    this.lucide.refresh();
+  }
+
+  onMoveBranchFolder(payload: { branchId: string; folderId: string | null }): void {
+    this.state = {
+      ...this.state,
+      branches: this.state.branches.map(b =>
+        b.id === payload.branchId ? { ...b, folderId: payload.folderId } : b
+      )
+    };
+    if (payload.folderId) {
+      this.expandFolderAncestors(payload.folderId);
+    }
+    this.saveStateLocally();
+    this.lucide.refresh();
+  }
+
+  onChangeBranchParent(payload: { branchId: string; parentId: string | null }): void {
+    if (payload.branchId === payload.parentId) return;
+    this.state = {
+      ...this.state,
+      branches: this.state.branches.map(b =>
+        b.id === payload.branchId ? { ...b, parentId: payload.parentId } : b
+      )
+    };
+    this.saveStateLocally();
+    this.lucide.refresh();
+  }
+
   deleteCurrentBranch(): void {
     if (!this.currentBranchId) return;
-    if (confirm('¿Eliminar esta rama y TODOS sus commits?')) {
+    if (confirm('¿Eliminar esta rama, sus notas y su historial de commits?')) {
       const targetId = this.currentBranchId;
       this.state = {
         ...this.state,
-        branches: this.state.branches.filter(b => b.id !== targetId),
-        commits: this.state.commits.filter(c => c.branchId !== targetId)
+        branches: this.state.branches
+          .filter(b => b.id !== targetId)
+          .map(b => (b.parentId === targetId ? { ...b, parentId: null } : b)),
+        commits: this.state.commits.filter(c => c.branchId !== targetId),
+        notes: (this.state.notes || []).filter(
+          n => !(n.targetType === 'branch' && n.targetId === targetId)
+        )
       };
       this.currentBranchId = null;
       this.saveStateLocally();
@@ -380,6 +746,9 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
     }
   }
 
+  // =========================================================
+  // COMMITS CRUD
+  // =========================================================
   onSaveCommit(payload: { hash: string; message: string }): void {
     if (!this.currentBranchId) return;
     const hash = payload.hash || this.generateId().substring(0, 7);
@@ -411,4 +780,91 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
       this.lucide.refresh();
     }
   }
+
+  // =========================================================
+  // NOTAS POR RAMA Y POR CARPETA CRUD
+  // =========================================================
+  openNewNoteModal(payload: { targetType: 'branch' | 'folder'; targetId: string }): void {
+    this.editingNote = null;
+    this.noteTargetType = payload.targetType;
+    this.noteTargetId = payload.targetId;
+    this.showNoteModal = true;
+  }
+
+  openEditNoteModal(note: RepoNote): void {
+    this.editingNote = note;
+    this.noteTargetType = note.targetType;
+    this.noteTargetId = note.targetId;
+    this.showNoteModal = true;
+  }
+
+  onSaveNote(payload: {
+    id?: string;
+    title: string;
+    content: string;
+    color: RepoNoteColor;
+    pinned: boolean;
+  }): void {
+    const currentNotes = this.state.notes || [];
+    if (payload.id) {
+      this.state = {
+        ...this.state,
+        notes: currentNotes.map(n =>
+          n.id === payload.id
+            ? {
+                ...n,
+                title: payload.title,
+                content: payload.content,
+                color: payload.color,
+                pinned: payload.pinned,
+                updatedAt: new Date().toISOString()
+              }
+            : n
+        )
+      };
+    } else {
+      const newNote: RepoNote = {
+        id: this.generateId(),
+        targetType: this.noteTargetType,
+        targetId: this.noteTargetId,
+        title: payload.title,
+        content: payload.content,
+        color: payload.color,
+        pinned: payload.pinned,
+        createdAt: new Date().toISOString()
+      };
+      this.state = {
+        ...this.state,
+        notes: [newNote, ...currentNotes]
+      };
+    }
+
+    this.saveStateLocally();
+    this.showNoteModal = false;
+    this.editingNote = null;
+    this.lucide.refresh();
+  }
+
+  onTogglePinNote(noteId: string): void {
+    this.state = {
+      ...this.state,
+      notes: (this.state.notes || []).map(n =>
+        n.id === noteId ? { ...n, pinned: !n.pinned } : n
+      )
+    };
+    this.saveStateLocally();
+    this.lucide.refresh();
+  }
+
+  onDeleteNote(noteId: string): void {
+    if (confirm('¿Eliminar esta nota?')) {
+      this.state = {
+        ...this.state,
+        notes: (this.state.notes || []).filter(n => n.id !== noteId)
+      };
+      this.saveStateLocally();
+      this.lucide.refresh();
+    }
+  }
 }
+
