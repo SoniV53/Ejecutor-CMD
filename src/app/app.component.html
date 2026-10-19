@@ -2,5 +2,11 @@
   <app-sidebar-nav class="shrink-0"></app-sidebar-nav>
   <main class="flex-1 h-full min-w-0 relative overflow-hidden">
     <router-outlet></router-outlet>
+    <div
+      [class.hidden]="!isEmuladorRoute"
+      class="absolute inset-0 w-full h-full z-20"
+    >
+      <app-emulador></app-emulador>
+    </div>
   </main>
 </div>

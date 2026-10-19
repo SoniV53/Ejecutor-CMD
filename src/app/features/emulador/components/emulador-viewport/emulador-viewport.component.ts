@@ -150,8 +150,8 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
   }
 
   initAppFrame(): void {
-    if (this.appFrame && this.appFrame.parentNode) {
-      this.appFrame.parentNode.removeChild(this.appFrame);
+    if (this.appFrame) {
+      return;
     }
 
     if (!this.electronService.isElectron) {
@@ -166,6 +166,7 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
 
     this.appFrame = document.createElement('webview');
     this.appFrame.setAttribute('allowpopups', 'true');
+    this.appFrame.setAttribute('partition', 'persist:consoleflow-emulador');
     this.appFrame.id = 'appFrame';
     this.appFrame.className = 'absolute inset-0 w-full h-full border-0 bg-white z-10';
     frameContainer.appendChild(this.appFrame);

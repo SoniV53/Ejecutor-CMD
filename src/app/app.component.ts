@@ -1,16 +1,37 @@
-import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component, ViewChild } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Router, RouterOutlet, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { SidebarNavComponent } from './core/layout/sidebar-nav/sidebar-nav.component';
 import { ElectronService } from './core/services/electron.service';
+import { EmuladorComponent } from './features/emulador/emulador.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, SidebarNavComponent],
+  imports: [CommonModule, RouterOutlet, SidebarNavComponent, EmuladorComponent],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
 export class AppComponent {
-  constructor(private electronService: ElectronService) {}
-}
+  @ViewChild(EmuladorComponent) emuladorComponent?: EmuladorComponent;
 
+  isEmuladorRoute = false;
+
+  constructor(
+    private router: Router,
+    private electronService: ElectronService
+  ) {
+    this.router.events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe((e) => {
+        const wasActive = this.isEmuladorRoute;
+        this.isEmuladorRoute = e.urlAfterRedirects.startsWith('/emulador');
+        if (this.isEmuladorRoute && !wasActive) {
+          setTimeout(() => {
+            this.emuladorComponent?.onRouteActivated();
+          }, 50);
+        }
+      });
+  }
+}

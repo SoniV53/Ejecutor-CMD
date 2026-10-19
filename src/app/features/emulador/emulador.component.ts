@@ -54,6 +54,11 @@ export class EmuladorComponent implements OnInit, AfterViewInit {
     this.lucideService.refresh();
   }
 
+  onRouteActivated(): void {
+    this.lucideService.refresh();
+    this.viewport?.updateCentering();
+  }
+
   async loadHistory(): Promise<void> {
     this.history = await this.historyService.getHistory();
     this.lucideService.refresh();
