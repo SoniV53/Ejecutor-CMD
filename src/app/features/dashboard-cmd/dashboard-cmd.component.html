@@ -43,10 +43,22 @@
 
     <app-cmd-console-drawer
       [logs]="logs"
+      [activeLogId]="activeLogId"
       [consoleMin]="consoleMin"
+      [consoleMax]="consoleMax"
       [cleared]="logsCleared"
+      [activeCwd]="activeProject?.path || 'C:\\'"
       (toggleConsole)="toggleConsole()"
+      (toggleConsoleMax)="toggleConsoleMax()"
       (clearLogs)="clearLogs()"
+      (selectTab)="selectTab($event)"
+      (closeTab)="closeTab($event)"
+      (clearTabOutput)="clearTabOutput($event)"
+      (createNewTab)="createNewTerminalTab()"
+      (rerunTab)="rerunTab($event)"
+      (stopProcess)="stopProcess($event)"
+      (runManualCommand)="runManualCommand($event)"
+      (sendProcessInput)="sendInputToProcess($event)"
     ></app-cmd-console-drawer>
   </main>
 

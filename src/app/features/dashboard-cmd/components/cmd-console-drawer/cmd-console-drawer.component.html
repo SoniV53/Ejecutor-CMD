@@ -1,47 +1,264 @@
 <div class="bg-[#020617] border-t border-slate-800 flex flex-col font-mono z-30 relative transition-all">
+  <!-- Barra superior de la Consola CMD Interna -->
   <div
-    class="px-4 md:px-10 py-3 bg-slate-900/30 border-b border-slate-800 flex justify-between items-center cursor-pointer select-none"
+    class="px-4 md:px-8 py-2 bg-slate-900/60 border-b border-slate-800 flex flex-wrap justify-between items-center gap-2 cursor-pointer select-none"
     (click)="toggleConsole.emit()"
   >
-    <div class="flex items-center gap-3">
-      <div class="flex gap-1.5">
-        <div class="w-2.5 h-2.5 rounded-full bg-red-500/50"></div>
-        <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/50"></div>
-        <div class="w-2.5 h-2.5 rounded-full bg-green-500/50"></div>
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="flex gap-1.5 shrink-0">
+        <div class="w-2.5 h-2.5 rounded-full bg-red-500/60"></div>
+        <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/60"></div>
+        <div class="w-2.5 h-2.5 rounded-full bg-green-500/60"></div>
       </div>
-      <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2 md:ml-4">Consola</span>
-    </div>
-    <div class="flex items-center gap-4 md:gap-5">
-      <button
-        (click)="onClear($event)"
-        class="text-[10px] text-slate-600 hover:text-indigo-400 transition-colors uppercase font-bold"
+      <span class="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-1 md:ml-2 shrink-0">
+        CMD Interno
+      </span>
+      <span
+        *ngIf="logs.length > 0"
+        class="px-2 py-0.5 rounded-md text-[9px] font-bold bg-slate-800 text-slate-400 border border-slate-700/70 shrink-0"
       >
-        Limpiar
+        {{ logs.length }} {{ logs.length === 1 ? 'pestaña' : 'pestañas' }}
+      </span>
+      <span
+        *ngIf="runningCount > 0"
+        class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0"
+      >
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+        {{ runningCount }} en ejecución
+      </span>
+      <span class="hidden lg:inline-block text-[10px] text-slate-500 truncate max-w-[340px]">
+        ({{ activeCwd }})
+      </span>
+    </div>
+
+    <div class="flex items-center gap-2 md:gap-3 shrink-0">
+      <button
+        type="button"
+        (click)="onNewTab($event)"
+        class="text-[10px] text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 transition-colors uppercase font-black px-2.5 py-0.5 rounded"
+        title="Abrir nueva pestaña de terminal"
+      >
+        + Pestaña
+      </button>
+      <button
+        type="button"
+        (click)="onToggleMax($event)"
+        class="text-[10px] text-slate-400 hover:text-indigo-400 transition-colors uppercase font-bold px-2 py-0.5 rounded hover:bg-slate-800/60"
+        [title]="consoleMax ? 'Restaurar tamaño' : 'Expandir consola'"
+      >
+        {{ consoleMax ? 'Restaurar' : 'Expandir' }}
+      </button>
+      <button
+        *ngIf="logs.length > 0"
+        type="button"
+        (click)="onClearAll($event)"
+        class="text-[10px] text-slate-400 hover:text-rose-400 transition-colors uppercase font-bold px-2 py-0.5 rounded hover:bg-slate-800/60"
+        title="Cerrar todas las pestañas y detener procesos"
+      >
+        Cerrar todas
       </button>
       <i
         data-lucide="chevron-down"
-        class="w-4 h-4 text-slate-500 transition-transform duration-200"
+        class="w-4 h-4 text-slate-400 transition-transform duration-200"
         [ngClass]="consoleMin ? 'rotate-180' : 'rotate-0'"
       ></i>
     </div>
   </div>
-  <div *ngIf="!consoleMin" class="h-32 md:h-40 flex flex-col transition-all">
-    <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-2 custom-scrollbar text-[10px] md:text-[11px] text-slate-400">
-      <p *ngIf="logs.length === 0 && !cleared" class="text-slate-700 italic">Esperando acciones...</p>
-      <p *ngIf="logs.length === 0 && cleared" class="text-slate-700 italic text-center py-4">Logs limpiados...</p>
+
+  <!-- Cuerpo del CMD Interno con Pestañas (Tabs) -->
+  <div
+    *ngIf="!consoleMin"
+    class="flex flex-col transition-all bg-[#01040d]"
+    [ngClass]="consoleMax ? 'h-[60vh]' : 'h-60 md:h-72'"
+  >
+    <!-- Barra de Pestañas (Tabs) -->
+    <div
+      *ngIf="logs.length > 0"
+      class="flex items-center bg-slate-950 border-b border-slate-800/90 overflow-x-auto custom-scrollbar shrink-0 px-2 pt-1.5 gap-1"
+    >
       <div
-        *ngFor="let log of logs"
-        class="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-6 border-b border-white/5 pb-2 animate-fade"
+        *ngFor="let log of logs; let idx = index; trackBy: trackByLogId"
+        (click)="onSelectTab($event, log.id)"
+        class="group flex items-center gap-2 px-3 py-1.5 rounded-t-lg border-t-2 border-x text-[10px] cursor-pointer select-none transition-all shrink-0 max-w-[220px]"
+        [ngClass]="
+          activeLog?.id === log.id
+            ? 'bg-[#01040d] text-slate-100 border-t-indigo-500 border-x-slate-800 font-bold shadow-sm'
+            : 'bg-slate-900/40 text-slate-400 border-t-transparent border-x-transparent hover:bg-slate-900/80 hover:text-slate-200'
+        "
+        [title]="log.script"
       >
-        <span class="text-slate-700 shrink-0 font-bold">[{{ log.time }}]</span>
-        <span class="text-indigo-500 font-black shrink-0">EXEC:</span>
-        <span class="text-slate-300 italic truncate font-medium max-w-full" [title]="log.script"
-          >"{{ log.script }}"</span
+        <!-- Indicador de estado de la pestaña -->
+        <span
+          class="w-2 h-2 rounded-full shrink-0"
+          [ngClass]="{
+            'bg-amber-400 animate-pulse': log.running,
+            'bg-emerald-400': !log.running && (log.exitCode === 0 || log.exitCode === null),
+            'bg-rose-500': !log.running && log.exitCode !== 0 && log.exitCode !== null
+          }"
+        ></span>
+
+        <!-- Número y título de la pestaña -->
+        <span class="text-slate-500 font-black">#{{ idx + 1 }}</span>
+        <span class="truncate">{{ log.label || log.script }}</span>
+
+        <!-- Botón cerrar pestaña (x) -->
+        <button
+          type="button"
+          (click)="onCloseTab($event, log.id)"
+          class="ml-1 w-4 h-4 rounded flex items-center justify-center text-slate-500 hover:text-rose-400 hover:bg-rose-500/15 transition-colors shrink-0 text-xs leading-none"
+          title="Cerrar esta pestaña"
         >
-        <span class="text-slate-800 sm:ml-auto font-bold tracking-tighter w-full sm:w-auto mt-1 sm:mt-0"
-          >WD: {{ log.path }}</span
-        >
+          &times;
+        </button>
       </div>
+
+      <!-- Botón rápido + al final de las pestañas -->
+      <button
+        type="button"
+        (click)="onNewTab($event)"
+        class="px-2.5 py-1 mb-0.5 rounded-md text-slate-400 hover:text-indigo-400 hover:bg-slate-900 transition-colors text-xs font-black shrink-0"
+        title="Nueva pestaña de consola"
+      >
+        +
+      </button>
+    </div>
+
+    <!-- Vista cuando NO hay pestañas abiertas -->
+    <div
+      *ngIf="!activeLog"
+      class="flex-1 flex flex-col items-center justify-center p-4 text-center text-slate-600 text-[11px] gap-2"
+    >
+      <p *ngIf="!cleared" class="italic">
+        Microsoft Windows [Consola Interna por Pestañas] — Ejecuta cualquier comando arriba o escribe abajo para abrir una pestaña.
+      </p>
+      <p *ngIf="cleared" class="italic">
+        Todas las pestañas fueron cerradas. Ejecuta un comando o pulsa "+ Pestaña".
+      </p>
+    </div>
+
+    <!-- Vista de la Pestaña Activa -->
+    <div *ngIf="activeLog" class="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <!-- Sub-barra de información y acciones de la pestaña activa -->
+      <div class="px-3 md:px-5 py-1.5 bg-slate-900/40 border-b border-slate-800/70 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div class="flex flex-wrap items-center gap-2 min-w-0 text-[10px]">
+          <span class="text-slate-500 font-bold shrink-0">[{{ activeLog.time }}]</span>
+          <span class="text-indigo-400 font-black truncate max-w-[200px] sm:max-w-[320px]" [title]="activeLog.path">
+            {{ activeLog.path }}&gt;
+          </span>
+          <span class="text-emerald-300 font-semibold truncate max-w-[260px] md:max-w-[480px]" [title]="activeLog.script">
+            {{ activeLog.script }}
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0 ml-auto">
+          <span *ngIf="activeLog.pid" class="text-[9px] text-slate-500 font-bold">PID: {{ activeLog.pid }}</span>
+
+          <!-- Estado: ejecutando -->
+          <span
+            *ngIf="activeLog.running"
+            class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[9px] font-black uppercase bg-amber-500/15 text-amber-300 border border-amber-500/30"
+          >
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+            Ejecutando
+          </span>
+
+          <!-- Botón Detener Proceso -->
+          <button
+            *ngIf="activeLog.running && activeLog.processId"
+            type="button"
+            (click)="onStopProcess($event, activeLog.processId)"
+            class="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border border-rose-500/40 transition-colors"
+            title="Terminar proceso en esta pestaña (Ctrl+C)"
+          >
+            Detener
+          </button>
+
+          <!-- Botón Re-ejecutar -->
+          <button
+            *ngIf="!activeLog.running && activeLog.script !== 'Consola interactiva lista'"
+            type="button"
+            (click)="onRerunTab($event, activeLog.id)"
+            class="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-indigo-500/15 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 transition-colors"
+            title="Volver a ejecutar este comando en esta pestaña"
+          >
+            Re-ejecutar
+          </button>
+
+          <!-- Botón Limpiar salida de esta pestaña -->
+          <button
+            type="button"
+            (click)="onClearActiveTabOutput($event, activeLog.id)"
+            class="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+            title="Limpiar salida de esta pestaña"
+          >
+            Limpiar salida
+          </button>
+
+          <!-- Estado: finalizado -->
+          <span
+            *ngIf="!activeLog.running"
+            class="px-2 py-0.5 rounded text-[9px] font-black uppercase border"
+            [ngClass]="
+              activeLog.exitCode === 0
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+            "
+          >
+            Exit: {{ activeLog.exitCode ?? 0 }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Salida de terminal a pantalla completa dentro de la pestaña -->
+      <pre
+        class="flex-1 p-3 md:p-4 text-[11px] leading-relaxed font-mono whitespace-pre-wrap break-words text-slate-200 overflow-y-auto custom-scrollbar m-0 select-text"
+      >{{ activeLog.output || (activeLog.running ? 'Iniciando proceso en CMD interno...' : '(Sin salida en consola)') }}</pre>
+
+      <!-- Barra STDIN si el proceso de la pestaña activa está en ejecución -->
+      <div
+        *ngIf="activeLog.running && activeLog.processId"
+        class="px-3 md:px-5 py-1.5 bg-slate-900/50 border-t border-slate-800/70 flex items-center gap-2 shrink-0"
+      >
+        <span class="text-[9px] text-amber-400 uppercase font-black shrink-0">STDIN (Proceso activo) &gt;</span>
+        <input
+          type="text"
+          [(ngModel)]="stdinMap[activeLog.processId]"
+          (keydown.enter)="onSendStdin(activeLog.processId)"
+          placeholder="Enviar respuesta interactiva a este proceso (ej: y, Enter)..."
+          class="flex-1 bg-transparent text-[11px] text-slate-200 placeholder-slate-600 focus:outline-none"
+        />
+        <button
+          type="button"
+          (click)="onSendStdin(activeLog.processId)"
+          class="text-[9px] font-bold uppercase px-2.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition-colors"
+        >
+          Enviar
+        </button>
+      </div>
+    </div>
+
+    <!-- Barra interactiva inferior para ejecutar comando en la pestaña activa (o en una nueva si está ocupada) -->
+    <div class="px-3 md:px-6 py-2 bg-slate-900/80 border-t border-slate-800 flex items-center gap-2 shrink-0">
+      <span
+        class="text-[10px] md:text-[11px] font-black text-indigo-400 truncate max-w-[140px] sm:max-w-[260px] shrink-0"
+        [title]="activeLog?.path || activeCwd"
+      >
+        {{ activeLog?.path || activeCwd }}&gt;
+      </span>
+      <input
+        type="text"
+        [(ngModel)]="manualCmdText"
+        (keydown.enter)="onSubmitManualCommand()"
+        placeholder="Escribe un comando CMD (se ejecuta en la pestaña activa o abre una nueva si está ocupada)..."
+        class="flex-1 min-w-0 bg-transparent text-[11px] md:text-xs text-slate-100 placeholder-slate-600 focus:outline-none font-mono"
+      />
+      <button
+        type="button"
+        (click)="onSubmitManualCommand()"
+        class="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider shrink-0 transition-colors"
+      >
+        Ejecutar
+      </button>
     </div>
   </div>
 </div>

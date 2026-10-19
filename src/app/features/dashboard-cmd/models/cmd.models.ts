@@ -32,8 +32,26 @@ export interface CmdWorkspaceData {
   categories: (string | CmdCategoryItem)[];
 }
 
+export interface CmdStreamEvent {
+  type: 'start' | 'stdout' | 'stderr' | 'exit';
+  processId: string;
+  pid?: number;
+  command?: string;
+  cwd?: string;
+  text?: string;
+  code?: number;
+}
+
 export interface CmdConsoleLog {
+  id: string;
+  label?: string;
+  processId?: string;
+  pid?: number;
   time: string;
   script: string;
   path: string;
+  output: string;
+  running: boolean;
+  exitCode?: number | null;
 }
+

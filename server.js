@@ -93,9 +93,24 @@ const server = http.createServer((req, res) => {
         return dataEmuladorController.saveData(req, res);
     }
 
-    // Ejecutar Comando
+    // Ejecutar Comando en CMD interno (Streaming)
     if (req.method === 'POST' && req.url === '/execute') {
         return executeController.executeCommand(req, res);
+    }
+
+    // Detener proceso activo del CMD interno
+    if (req.method === 'POST' && req.url === '/execute/kill') {
+        return executeController.killProcess(req, res);
+    }
+
+    // Detener TODOS los procesos activos del CMD interno
+    if (req.method === 'POST' && req.url === '/execute/kill-all') {
+        return executeController.killAllProcesses(req, res);
+    }
+
+    // Enviar stdin a proceso activo del CMD interno
+    if (req.method === 'POST' && req.url === '/execute/input') {
+        return executeController.sendInputToProcess(req, res);
     }
 
     // API DOC MANAGER

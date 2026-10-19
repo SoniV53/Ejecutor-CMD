@@ -5,6 +5,7 @@ const { ipcMain } = require('electron');
 
 // Iniciamos el servidor de Node.js
 require('./server.js');
+const { killAllProcessesSync } = require('./controllers/executeController');
 app.commandLine.appendSwitch('disable-site-isolation-trials');
 
 let mainWindow;
@@ -114,7 +115,7 @@ app.on('ready', () => {
       }
     },
     { type: 'separator' },
-    { label: 'Salir', click: () => { isQuiting = true; app.quit(); } }
+    { label: 'Salir', click: () => { isQuiting = true; killAllProcessesSync(); app.quit(); } }
   ]);
 
   tray.setToolTip('ConsoleFlow Workspace');
@@ -128,6 +129,7 @@ app.on('ready', () => {
       const bounds = mainWindow.getBounds();
       fs.writeFileSync(windowStateFile, JSON.stringify(bounds));
     } else {
+      killAllProcessesSync();
       const bounds = mainWindow.getBounds();
       try { fs.writeFileSync(windowStateFile, JSON.stringify(bounds)); } catch (error) { }
     }
@@ -152,6 +154,20 @@ ipcMain.on('abrir-emulador', () => {
 
   // Ocultar la barra de menú por defecto si lo deseas
   emuWindow.setMenuBarVisibility(false);
+});
+
+// Garantizar limpieza de todos los procesos CMD activos al salir o cerrar la app
+app.on('before-quit', () => {
+  isQuiting = true;
+  killAllProcessesSync();
+});
+
+app.on('will-quit', () => {
+  killAllProcessesSync();
+});
+
+app.on('quit', () => {
+  killAllProcessesSync();
 });
 
 // Permite restaurar al hacer clic en el icono de la bandeja

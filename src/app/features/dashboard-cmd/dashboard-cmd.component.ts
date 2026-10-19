@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, NgZone, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CmdProject, CmdCommandItem, CmdConsoleLog, CmdCategoryItem } from './models/cmd.models';
 import { ConsoleFlowApiService } from '../../core/services/console-flow-api.service';
@@ -39,7 +39,9 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
   sidebarOpenDesktop = true;
 
   consoleMin = false;
+  consoleMax = false;
   logs: CmdConsoleLog[] = [];
+  activeLogId: string | null = null;
   logsCleared = false;
 
   // Modals state
@@ -71,10 +73,16 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
     this.lucide.refresh();
   }
 
+  @HostListener('window:beforeunload')
+  onWindowBeforeUnload(): void {
+    this.api.killAllProcessesBeacon();
+  }
+
   ngOnDestroy(): void {
     if (this.pollInterval) {
       clearInterval(this.pollInterval);
     }
+    this.api.killAllProcessesBeacon();
   }
 
   get activeProject(): CmdProject | null {
@@ -167,9 +175,80 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
     this.lucide.refresh();
   }
 
-  clearLogs(): void {
+  toggleConsoleMax(): void {
+    this.consoleMax = !this.consoleMax;
+    if (this.consoleMax) {
+      this.consoleMin = false;
+    }
+    this.lucide.refresh();
+  }
+
+  async clearLogs(): Promise<void> {
+    this.api.killAllProcesses().catch(() => {});
     this.logs = [];
+    this.activeLogId = null;
     this.logsCleared = true;
+  }
+
+  selectTab(logId: string): void {
+    this.activeLogId = logId;
+  }
+
+  async closeTab(logId: string): Promise<void> {
+    const idx = this.logs.findIndex(l => l.id === logId);
+    if (idx === -1) return;
+
+    const target = this.logs[idx];
+    if (target.running && target.processId) {
+      this.api.killProcess(target.processId).catch(() => {});
+    }
+
+    const updated = this.logs.filter(l => l.id !== logId);
+    this.logs = updated;
+
+    if (this.activeLogId === logId) {
+      if (updated.length > 0) {
+        const nextIdx = Math.min(idx, updated.length - 1);
+        this.activeLogId = updated[nextIdx].id;
+      } else {
+        this.activeLogId = null;
+      }
+    }
+    this.lucide.refresh();
+  }
+
+  clearTabOutput(logId: string): void {
+    this.logs = this.logs.map(l => (l.id === logId ? { ...l, output: '' } : l));
+  }
+
+  createNewTerminalTab(): void {
+    this.consoleMin = false;
+    this.logsCleared = false;
+    const p = this.activeProject;
+    const path = p ? p.path : 'C:\\';
+    const logId = `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const tabNumber = this.logs.length + 1;
+
+    const newLog: CmdConsoleLog = {
+      id: logId,
+      label: p ? `${p.name} #${tabNumber}` : `CMD #${tabNumber}`,
+      time: new Date().toLocaleTimeString(),
+      script: 'Consola interactiva lista',
+      path,
+      output: `Microsoft Windows [Consola Interna de ConsoleFlow]\nDirectorio activo: ${path}\nEscribe un comando abajo y presiona Enter.\n`,
+      running: false,
+      exitCode: 0
+    };
+
+    this.logs = [...this.logs, newLog];
+    this.activeLogId = logId;
+    this.lucide.refresh();
+  }
+
+  async rerunTab(logId: string): Promise<void> {
+    const target = this.logs.find(l => l.id === logId);
+    if (!target || target.running || target.script === 'Consola interactiva lista') return;
+    await this.executeInInternalCmd(target.script, target.path, true, target.label, logId);
   }
 
   selectProj(id: string): void {
@@ -366,13 +445,119 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     const scriptToRun = event.selectedScripts.join(' && ');
-    this.addLog(scriptToRun, path);
+    await this.executeInInternalCmd(scriptToRun, path, !!cmd.background, cmd.label);
+  }
+
+  async runManualCommand(scriptText: string): Promise<void> {
+    const trimmed = (scriptText || '').trim();
+    if (!trimmed) return;
+    const p = this.activeProject;
+    const path = p ? p.path : 'C:\\';
+
+    // Si hay una pestaña activa que no está ejecutando un proceso, reutilizarla como sesión interactiva
+    const activeTab = this.logs.find(l => l.id === this.activeLogId);
+    if (activeTab && !activeTab.running) {
+      await this.executeInInternalCmd(
+        trimmed,
+        activeTab.path || path,
+        true,
+        activeTab.label || trimmed,
+        activeTab.id,
+        true
+      );
+    } else {
+      await this.executeInInternalCmd(trimmed, path, true, trimmed);
+    }
+  }
+
+  private async executeInInternalCmd(
+    scriptToRun: string,
+    path: string,
+    background: boolean,
+    label?: string,
+    reuseLogId?: string,
+    appendOutput = false
+  ): Promise<void> {
+    this.consoleMin = false;
+    this.logsCleared = false;
+
+    const logId = reuseLogId || `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const nowTime = new Date().toLocaleTimeString();
+
+    if (reuseLogId && this.logs.some(l => l.id === reuseLogId)) {
+      this.logs = this.logs.map(l =>
+        l.id === reuseLogId
+          ? {
+              ...l,
+              time: nowTime,
+              script: scriptToRun,
+              running: true,
+              exitCode: null,
+              output: appendOutput && l.output ? `${l.output}\n${l.path}> ${scriptToRun}\n` : ''
+            }
+          : l
+      );
+    } else {
+      const newLog: CmdConsoleLog = {
+        id: logId,
+        label: label || scriptToRun,
+        time: nowTime,
+        script: scriptToRun,
+        path,
+        output: '',
+        running: true,
+        exitCode: null
+      };
+      this.logs = [...this.logs, newLog];
+    }
+
+    this.activeLogId = logId;
+    this.lucide.refresh();
 
     if (this.serverOnline) {
       try {
-        await this.api.executeCommand(scriptToRun, path, !!cmd.background);
-      } catch (e) {
-        console.error('Fallo', e);
+        await this.api.executeCommandStream(scriptToRun, path, background, (ev) => {
+          this.ngZone.run(() => {
+            this.logs = this.logs.map(log => {
+              if (log.id !== logId) return log;
+              if (ev.type === 'start') {
+                return {
+                  ...log,
+                  processId: ev.processId,
+                  pid: ev.pid,
+                  path: ev.cwd || log.path
+                };
+              }
+              if (ev.type === 'stdout' || ev.type === 'stderr') {
+                return {
+                  ...log,
+                  output: log.output + (ev.text || '')
+                };
+              }
+              if (ev.type === 'exit') {
+                return {
+                  ...log,
+                  running: false,
+                  exitCode: ev.code ?? 0
+                };
+              }
+              return log;
+            });
+          });
+        });
+      } catch (e: any) {
+        this.ngZone.run(() => {
+          this.logs = this.logs.map(log =>
+            log.id === logId
+              ? {
+                  ...log,
+                  running: false,
+                  exitCode: 1,
+                  output: log.output + `\n[Error de conexión con servidor local]: ${e?.message || e}\n`
+                }
+              : log
+          );
+        });
       }
     } else {
       const finalScript = scriptToRun.replace(/%CURRENT_DIR%/gi, path);
@@ -384,19 +569,50 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
       el.select();
       document.execCommand('copy');
       document.body.removeChild(el);
-      alert('Servidor apagado. Comando copiado al portapapeles.');
+
+      this.logs = this.logs.map(log =>
+        log.id === logId
+          ? {
+              ...log,
+              running: false,
+              exitCode: 1,
+              output: '[Servidor desconectado] El comando fue copiado al portapapeles.'
+            }
+          : log
+      );
     }
   }
 
-  private addLog(script: string, path: string): void {
-    this.logsCleared = false;
-    this.logs = [
-      {
-        time: new Date().toLocaleTimeString(),
-        script,
-        path
-      },
-      ...this.logs
-    ];
+  async stopProcess(processId: string): Promise<void> {
+    if (!processId) return;
+    try {
+      await this.api.killProcess(processId);
+      this.logs = this.logs.map(log =>
+        log.processId === processId
+          ? {
+              ...log,
+              running: false,
+              output: log.output + '\n^C [Proceso detenido por el usuario]\n'
+            }
+          : log
+      );
+    } catch (e) {
+      console.error('Error al detener proceso:', e);
+    }
+  }
+
+  async sendInputToProcess(payload: { processId: string; input: string }): Promise<void> {
+    if (!payload.processId) return;
+    try {
+      this.logs = this.logs.map(log =>
+        log.processId === payload.processId
+          ? { ...log, output: log.output + `> ${payload.input}\n` }
+          : log
+      );
+      await this.api.sendProcessInput(payload.processId, payload.input);
+    } catch (e) {
+      console.error('Error enviando entrada:', e);
+    }
   }
 }
+
