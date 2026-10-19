@@ -40,5 +40,15 @@ export class ElectronService {
       // Ejecutándose en navegador estándar o con contextIsolation
     }
   }
+
+  setRunInBackground(enabled: boolean): void {
+    try {
+      if (this.ipcRenderer) {
+        this.ipcRenderer.send('set-run-in-background', enabled);
+      }
+    } catch {
+      // Ignorar si no está en Electron
+    }
+  }
 }
 

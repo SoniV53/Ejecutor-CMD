@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { CmdProject, CmdCommandItem, CmdConsoleLog, CmdCategoryItem } from './models/cmd.models';
 import { ConsoleFlowApiService } from '../../core/services/console-flow-api.service';
 import { LucideIconService } from '../../core/services/lucide-icon.service';
+import { WorkspaceSettingsService } from '../../core/services/workspace-settings.service';
 import { CmdSidebarComponent } from './components/cmd-sidebar/cmd-sidebar.component';
 import { CmdHeaderComponent } from './components/cmd-header/cmd-header.component';
 import { CmdGridComponent } from './components/cmd-grid/cmd-grid.component';
@@ -59,6 +60,7 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
   constructor(
     private api: ConsoleFlowApiService,
     private lucide: LucideIconService,
+    private settingsService: WorkspaceSettingsService,
     private ngZone: NgZone
   ) {}
 
@@ -75,7 +77,9 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
 
   @HostListener('window:beforeunload')
   onWindowBeforeUnload(): void {
-    this.api.killAllProcessesBeacon();
+    if (!this.settingsService.getRunInBackground()) {
+      this.api.killAllProcessesBeacon();
+    }
   }
 
   ngOnDestroy(): void {

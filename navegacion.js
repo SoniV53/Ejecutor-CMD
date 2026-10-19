@@ -17,7 +17,8 @@ const spaRoutes = new Set([
   '/emulador',
   '/api-doc',
   '/doc-api',
-  '/repo-doc'
+  '/repo-doc',
+  '/configuraciones'
 ]);
 
 const MIME_TYPES = {

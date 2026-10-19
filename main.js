@@ -11,9 +11,17 @@ app.commandLine.appendSwitch('disable-site-isolation-trials');
 let mainWindow;
 let tray = null; // Variable para el icono de la bandeja
 let isQuiting = false; // Flag para manejar la salida real
+let runInBackground = true; // Controla si al cerrar (X) se minimiza a la bandeja o se cierra por completo
 
 const windowStateFile = path.join(app.getPath('userData'), 'window-state.json');
 const MOBILE_USER_AGENT = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.5845.92 Mobile Safari/537.36";
+
+const saveWindowState = () => {
+  try {
+    const bounds = mainWindow && !mainWindow.isDestroyed() ? mainWindow.getBounds() : { width: 1300, height: 900 };
+    fs.writeFileSync(windowStateFile, JSON.stringify({ ...bounds, runInBackground }));
+  } catch (error) { }
+};
 
 app.on('ready', () => {
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
@@ -26,6 +34,9 @@ app.on('ready', () => {
   try {
     if (fs.existsSync(windowStateFile)) {
       windowState = JSON.parse(fs.readFileSync(windowStateFile));
+      if (typeof windowState.runInBackground === 'boolean') {
+        runInBackground = windowState.runInBackground;
+      }
     }
   } catch (error) { }
 
@@ -121,21 +132,29 @@ app.on('ready', () => {
   tray.setToolTip('ConsoleFlow Workspace');
   tray.setContextMenu(contextMenu);
 
-  // --- LÓGICA DE MINIMIZADO ---
+  // --- LÓGICA DE MINIMIZADO O CIERRE TOTAL ---
   mainWindow.on('close', (event) => {
-    if (!isQuiting) {
+    saveWindowState();
+    if (!isQuiting && runInBackground) {
       event.preventDefault();
       mainWindow.hide();
-      const bounds = mainWindow.getBounds();
-      fs.writeFileSync(windowStateFile, JSON.stringify(bounds));
     } else {
+      isQuiting = true;
       killAllProcessesSync();
-      const bounds = mainWindow.getBounds();
-      try { fs.writeFileSync(windowStateFile, JSON.stringify(bounds)); } catch (error) { }
+      if (tray) {
+        try { tray.destroy(); } catch (e) { }
+        tray = null;
+      }
+      app.quit();
     }
   });
 
 
+});
+
+ipcMain.on('set-run-in-background', (_event, enabled) => {
+  runInBackground = !!enabled;
+  saveWindowState();
 });
 
 ipcMain.on('abrir-emulador', () => {

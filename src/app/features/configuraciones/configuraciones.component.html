@@ -1,0 +1,193 @@
+<div class="h-full w-full overflow-y-auto p-6 md:p-10 settings-bg text-slate-100 custom-scrollbar">
+  <div class="max-w-5xl mx-auto space-y-10">
+    <!-- Cabecera -->
+    <header class="flex flex-wrap items-center justify-between gap-4 pb-8 border-b border-slate-800/80">
+      <div class="flex items-center gap-4 min-w-0">
+        <a
+          routerLink="/hub"
+          class="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-colors shrink-0"
+          title="Volver al Hub"
+        >
+          <i data-lucide="arrow-left" class="w-5 h-5"></i>
+        </a>
+        <div class="min-w-0">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h1 class="text-2xl md:text-3xl font-bold text-white tracking-tight">Configuraciones</h1>
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+              {{ enabledCount }} de {{ modules.length }} módulos activos
+            </span>
+          </div>
+          <p class="text-slate-400 text-sm mt-1">
+            Personaliza el comportamiento de la aplicación y controla qué herramientas están visibles en tu Workspace.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 shrink-0">
+        <button
+          *ngIf="enabledCount < modules.length"
+          type="button"
+          (click)="onEnableAll()"
+          class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-lg shadow-indigo-600/20"
+        >
+          Habilitar todos los módulos
+        </button>
+      </div>
+    </header>
+
+    <!-- Sección 1: Comportamiento del Sistema / Ejecución en Segundo Plano -->
+    <section class="space-y-4">
+      <div>
+        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <i data-lucide="cpu" class="w-5 h-5 text-indigo-400"></i>
+          Comportamiento del Sistema
+        </h2>
+        <p class="text-xs text-slate-400 mt-0.5">
+          Elige qué debe ocurrir cuando cierras la ventana principal de la aplicación.
+        </p>
+      </div>
+
+      <div
+        (click)="onToggleRunInBackground()"
+        class="rounded-2xl border p-5 md:p-6 transition-all cursor-pointer select-none flex flex-wrap sm:flex-nowrap items-start justify-between gap-4"
+        [ngClass]="
+          runInBackground
+            ? 'bg-slate-900/70 border-indigo-500/40 shadow-md'
+            : 'bg-slate-900/50 border-slate-800 hover:border-slate-700'
+        "
+      >
+        <div class="flex items-start gap-4 min-w-0">
+          <div
+            class="w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 transition-colors"
+            [ngClass]="
+              runInBackground
+                ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
+                : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+            "
+          >
+            <i [attr.data-lucide]="runInBackground ? 'minimize-2' : 'power'" class="w-6 h-6"></i>
+          </div>
+
+          <div class="min-w-0">
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <h3 class="text-base font-bold text-white">
+                Ejecutar aplicación en segundo plano (Bandeja del sistema)
+              </h3>
+              <span
+                class="px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border"
+                [ngClass]="
+                  runInBackground
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                    : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                "
+              >
+                {{ runInBackground ? 'Activo (Segundo Plano)' : 'Desactivado (Cierre Total)' }}
+              </span>
+            </div>
+
+            <p class="text-xs text-slate-300 mt-1.5 leading-relaxed">
+              <ng-container *ngIf="runInBackground">
+                Al pulsar la <strong>X</strong> de la ventana, la aplicación se minimizará a la bandeja del sistema (junto al reloj de Windows) y seguirá ejecutándose en segundo plano.
+              </ng-container>
+              <ng-container *ngIf="!runInBackground">
+                Al pulsar la <strong>X</strong> de la ventana, la aplicación <strong>se cerrará por completo</strong> y detendrá automáticamente todos los procesos activos de la consola.
+              </ng-container>
+            </p>
+          </div>
+        </div>
+
+        <!-- Switch Toggle -->
+        <button
+          type="button"
+          role="switch"
+          [attr.aria-checked]="runInBackground"
+          (click)="$event.stopPropagation(); onToggleRunInBackground()"
+          class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none mt-1 ml-auto"
+          [ngClass]="runInBackground ? 'bg-indigo-600' : 'bg-slate-700'"
+          [title]="runInBackground ? 'Desactivar segundo plano' : 'Activar segundo plano'"
+        >
+          <span
+            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+            [ngClass]="runInBackground ? 'translate-x-5' : 'translate-x-0'"
+          ></span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Sección 2: Habilitar / Deshabilitar Módulos -->
+    <section class="space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="layers" class="w-5 h-5 text-indigo-400"></i>
+            Visibilidad de Módulos de Funcionalidad
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Activa o desactiva visualmente cualquiera de los 6 módulos. Los cambios se aplican al instante sin borrar tus datos guardados.
+          </p>
+        </div>
+      </div>
+
+      <!-- Grid de los 6 módulos -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div
+          *ngFor="let mod of modules; trackBy: trackByModuleId"
+          (click)="onToggleModule(mod.id)"
+          class="group rounded-2xl border p-5 transition-all cursor-pointer select-none flex items-start justify-between gap-4"
+          [ngClass]="
+            mod.enabled
+              ? 'bg-slate-900/70 border-slate-800 hover:border-indigo-500/40 shadow-md'
+              : 'bg-slate-950/50 border-slate-900 opacity-60 hover:opacity-85'
+          "
+        >
+          <div class="flex items-start gap-4 min-w-0">
+            <div
+              class="w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 transition-colors"
+              [ngClass]="getIconBgClass(mod.color, mod.enabled)"
+            >
+              <i [attr.data-lucide]="mod.icon" class="w-6 h-6"></i>
+            </div>
+
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 class="text-base font-bold text-white truncate">{{ mod.title }}</h3>
+                <span
+                  class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border"
+                  [ngClass]="
+                    mod.enabled
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      : 'bg-slate-800 text-slate-500 border-slate-700'
+                  "
+                >
+                  {{ mod.enabled ? 'Habilitado' : 'Oculto' }}
+                </span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+                {{ mod.description }}
+              </p>
+              <span class="inline-block text-[10px] font-mono text-slate-500 mt-2">
+                Ruta: {{ mod.route }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Switch Toggle -->
+          <button
+            type="button"
+            role="switch"
+            [attr.aria-checked]="mod.enabled"
+            (click)="$event.stopPropagation(); onToggleModule(mod.id)"
+            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none mt-1"
+            [ngClass]="mod.enabled ? 'bg-indigo-600' : 'bg-slate-700'"
+            [title]="mod.enabled ? 'Deshabilitar módulo' : 'Habilitar módulo'"
+          >
+            <span
+              class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+              [ngClass]="mod.enabled ? 'translate-x-5' : 'translate-x-0'"
+            ></span>
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

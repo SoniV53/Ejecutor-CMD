@@ -6,6 +6,7 @@ import { RedesComponent } from './features/redes/redes.component';
 import { ApiDocComponent } from './features/api-doc/api-doc.component';
 import { RepoDocComponent } from './features/repo-doc/repo-doc.component';
 import { EmuladorComponent } from './features/emulador/emulador.component';
+import { ConfiguracionesComponent } from './features/configuraciones/configuraciones.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'hub', pathMatch: 'full' },
@@ -19,6 +20,7 @@ export const routes: Routes = [
   { path: 'doc-api', redirectTo: 'api-doc', pathMatch: 'full' },
   { path: 'repo-doc', component: RepoDocComponent },
   { path: 'emulador', component: EmuladorComponent },
+  { path: 'configuraciones', component: ConfiguracionesComponent },
   { path: '**', redirectTo: 'hub' }
 ];
 

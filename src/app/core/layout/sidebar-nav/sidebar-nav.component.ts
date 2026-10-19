@@ -1,8 +1,10 @@
-import { Component, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router, NavigationEnd } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { LucideIconService } from '../../services/lucide-icon.service';
+import { WorkspaceSettingsService } from '../../services/workspace-settings.service';
 
 export interface NavItem {
   route: string;
@@ -17,27 +19,51 @@ export interface NavItem {
   templateUrl: './sidebar-nav.component.html',
   styleUrls: ['./sidebar-nav.component.css']
 })
-export class SidebarNavComponent implements AfterViewInit {
-  navItems: NavItem[] = [
-    { route: '/hub', title: 'Inicio (Hub)', icon: 'grid' },
-    { route: '/dashboard-cmd', title: 'Dashboard CMD', icon: 'terminal' },
-    { route: '/doc-generator', title: 'Doc Generator', icon: 'file-text' },
-    { route: '/redes', title: 'Redes', icon: 'network' },
-    { route: '/api-doc', title: 'API Docs', icon: 'file-json' },
-    { route: '/repo-doc', title: 'Repo Docs', icon: 'git-branch' },
-    { route: '/emulador', title: 'Emulador', icon: 'smartphone' }
-  ];
+export class SidebarNavComponent implements OnInit, OnDestroy, AfterViewInit {
+  navItems: NavItem[] = [];
+  private subs = new Subscription();
 
-  constructor(private router: Router, private lucide: LucideIconService) {
-    this.router.events
-      .pipe(filter((e) => e instanceof NavigationEnd))
-      .subscribe(() => {
+  constructor(
+    private router: Router,
+    private lucide: LucideIconService,
+    private settingsService: WorkspaceSettingsService
+  ) {
+    this.subs.add(
+      this.router.events
+        .pipe(filter((e) => e instanceof NavigationEnd))
+        .subscribe(() => {
+          this.lucide.refresh();
+        })
+    );
+  }
+
+  ngOnInit(): void {
+    this.subs.add(
+      this.settingsService.modules$.subscribe((modules) => {
+        this.navItems = [
+          { route: '/hub', title: 'Inicio (Hub)', icon: 'grid' },
+          ...modules
+            .filter((m) => m.enabled)
+            .map((m) => ({
+              route: m.route,
+              title: m.shortTitle,
+              icon: m.icon
+            }))
+        ];
         this.lucide.refresh();
-      });
+      })
+    );
   }
 
   ngAfterViewInit(): void {
     this.lucide.refresh();
   }
-}
 
+  ngOnDestroy(): void {
+    this.subs.unsubscribe();
+  }
+
+  trackByRoute(_index: number, item: NavItem): string {
+    return item.route;
+  }
+}
