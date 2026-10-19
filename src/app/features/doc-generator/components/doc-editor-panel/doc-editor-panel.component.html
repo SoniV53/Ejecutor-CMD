@@ -1,30 +1,30 @@
 <div
-  class="w-full lg:w-1/2 p-4 md:p-8 overflow-y-auto h-screen custom-scrollbar bg-slate-50 border-r border-slate-200 animate-in slide-in-from-left duration-300"
+  class="w-full lg:w-1/2 p-4 md:p-8 overflow-y-auto h-full custom-scrollbar bg-slate-50 border-r border-slate-200 animate-in slide-in-from-left duration-300"
 >
-  <header class="flex justify-between items-center mb-8 gap-4 text-slate-800">
-    <div class="flex items-center gap-4">
+  <header class="flex flex-wrap justify-between items-center mb-8 gap-3 text-slate-800 pr-12 lg:pr-0">
+    <div class="flex items-center gap-3 md:gap-4 shrink-0">
       <a
         routerLink="/hub"
-        class="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300 transition-all shadow-sm"
+        class="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300 transition-all shadow-sm shrink-0"
         title="Volver al Hub"
       >
         <i data-lucide="home" class="w-5 h-5"></i>
       </a>
-      <div class="bg-blue-600 p-3 rounded-2xl text-white shadow-lg">
+      <div class="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shrink-0">
         <i data-lucide="layers" class="w-6 h-6"></i>
       </div>
       <div>
-        <h1 class="text-xl font-black tracking-tight">Ionic Doc Maker</h1>
+        <h1 class="text-lg md:text-xl font-black tracking-tight whitespace-nowrap">Ionic Doc Maker</h1>
         <p class="text-[10px] text-slate-400 uppercase font-black tracking-widest italic">
           Modo Edición
         </p>
       </div>
     </div>
-    <div class="flex gap-2">
+    <div class="flex flex-wrap items-center gap-2 shrink-0 ml-auto">
       <button
         type="button"
         (click)="openJson.emit()"
-        class="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300 transition-all shadow-sm"
+        class="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300 transition-all shadow-sm shrink-0"
         title="Abrir Proyecto (.json)"
       >
         <i data-lucide="folder-open" class="w-5 h-5"></i>
@@ -32,7 +32,7 @@
       <button
         type="button"
         (click)="saveJson.emit()"
-        class="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300 transition-all shadow-sm"
+        class="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300 transition-all shadow-sm shrink-0"
         title="Guardar Proyecto (.json)"
       >
         <i data-lucide="save" class="w-5 h-5"></i>
@@ -41,7 +41,7 @@
         type="button"
         (click)="exportPdf.emit()"
         [disabled]="isGenerating"
-        class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg transition-all flex items-center gap-2 text-sm active:scale-95 disabled:opacity-50 mr-12"
+        class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg transition-all flex items-center gap-2 text-sm active:scale-95 disabled:opacity-50 whitespace-nowrap shrink-0"
       >
         <span *ngIf="isGenerating" class="inline-flex">
           <i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>

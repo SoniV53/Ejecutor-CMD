@@ -3,6 +3,11 @@ import { CommonModule } from '@angular/common';
 import { CmdCommandItem, CmdScriptVariant } from '../../models/cmd.models';
 import { LucideIconService } from '../../../../core/services/lucide-icon.service';
 
+export interface VisibleCategoryGroup {
+  name: string;
+  commands: CmdCommandItem[];
+}
+
 @Component({
   selector: 'app-cmd-grid',
   standalone: true,
@@ -25,6 +30,8 @@ export class CmdGridComponent implements OnChanges, AfterViewInit {
   @Output() runCommand = new EventEmitter<{ id: string; selectedScripts: string[] }>();
 
   selectedIndices: Record<string, Set<number>> = {};
+  visibleCategories: VisibleCategoryGroup[] = [];
+  scriptsByCmdId: Record<string, string[]> = {};
 
   readonly btnColorMap: Record<string, string> = {
     indigo: 'bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white',
@@ -41,57 +48,73 @@ export class CmdGridComponent implements OnChanges, AfterViewInit {
 
   ngOnChanges(): void {
     this.ensureDefaultSelections();
+    this.rebuildVisibleCategories();
     this.lucide.refresh();
   }
 
   private ensureDefaultSelections(): void {
+    const map: Record<string, string[]> = {};
     for (const c of this.commands) {
       if (!this.selectedIndices[c.id]) {
         this.selectedIndices[c.id] = new Set([0]);
       }
+      map[c.id] = this.extractScripts(c);
     }
+    this.scriptsByCmdId = map;
   }
 
-  getScripts(cmd: CmdCommandItem): string[] {
+  private extractScripts(cmd: CmdCommandItem): string[] {
     if (cmd.scripts && cmd.scripts.length > 0) {
       return cmd.scripts.map(s => (typeof s === 'string' ? s : (s as CmdScriptVariant).code || ''));
     }
     return [cmd.script || ''];
   }
 
-  get allCategories(): string[] {
+  getScripts(cmd: CmdCommandItem): string[] {
+    return this.scriptsByCmdId[cmd.id] || [cmd.script || ''];
+  }
+
+  private rebuildVisibleCategories(): void {
     const cats = new Set<string>([
       ...this.commands.map(c => c.category || 'General'),
       ...this.explicitCategories
     ]);
-    return Array.from(cats).sort();
-  }
+    const allCats = Array.from(cats).sort();
 
-  get filteredCommands(): CmdCommandItem[] {
-    const search = (this.searchTerm || '').toLowerCase();
-    if (!search) return this.commands;
-    return this.commands.filter(c => {
-      const scriptsStr = this.getScripts(c).join(' ').toLowerCase();
-      return (
-        c.label.toLowerCase().includes(search) ||
-        scriptsStr.includes(search) ||
-        (c.category && c.category.toLowerCase().includes(search))
-      );
-    });
-  }
+    const search = (this.searchTerm || '').trim().toLowerCase();
+    const isSearching = search.length > 0;
 
-  get visibleCategories(): { name: string; commands: CmdCommandItem[] }[] {
-    const isSearching = (this.searchTerm || '').trim().length > 0;
-    const filtered = this.filteredCommands;
-    const result: { name: string; commands: CmdCommandItem[] }[] = [];
+    const filtered = !isSearching
+      ? this.commands
+      : this.commands.filter(c => {
+          const scriptsStr = this.getScripts(c).join(' ').toLowerCase();
+          return (
+            c.label.toLowerCase().includes(search) ||
+            scriptsStr.includes(search) ||
+            (c.category && c.category.toLowerCase().includes(search))
+          );
+        });
 
-    for (const cat of this.allCategories) {
+    const result: VisibleCategoryGroup[] = [];
+    for (const cat of allCats) {
       const catCommands = filtered.filter(c => (c.category || 'General') === cat);
       if (isSearching && catCommands.length === 0) continue;
       if (catCommands.length === 0 && cat !== 'General' && !this.explicitCategories.includes(cat)) continue;
       result.push({ name: cat, commands: catCommands });
     }
-    return result;
+    this.visibleCategories = result;
+  }
+
+  trackByCategory(_index: number, item: VisibleCategoryGroup): string {
+    return item.name;
+  }
+
+  trackByCommand(_index: number, item: CmdCommandItem): string {
+    return item.id;
+  }
+
+  trackByScriptIndex(index: number): number {
+    return index;
   }
 
   isSelected(cmdId: string, idx: number): boolean {

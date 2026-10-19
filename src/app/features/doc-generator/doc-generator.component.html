@@ -1,4 +1,4 @@
-<div class="flex flex-col lg:flex-row min-h-screen bg-slate-100 text-slate-800">
+<div class="flex flex-col lg:flex-row h-full w-full overflow-y-auto lg:overflow-hidden relative bg-slate-100 text-slate-800">
   <!-- INPUT OCULTO CARGA JSON -->
   <input
     #fileInput
@@ -9,7 +9,7 @@
   />
 
   <!-- BOTÓN FLOTANTE PARA CAMBIAR VISTA (VISIBLE SIEMPRE) -->
-  <div class="fixed top-6 right-8 z-[100] flex gap-3">
+  <div class="absolute top-4 right-6 z-[100] flex gap-3">
     <button
       type="button"
       (click)="toggleEditor()"

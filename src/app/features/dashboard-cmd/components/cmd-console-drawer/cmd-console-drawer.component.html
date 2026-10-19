@@ -19,8 +19,9 @@
         Limpiar
       </button>
       <i
-        [attr.data-lucide]="consoleMin ? 'chevron-up' : 'chevron-down'"
-        class="w-4 h-4 text-slate-500"
+        data-lucide="chevron-down"
+        class="w-4 h-4 text-slate-500 transition-transform duration-200"
+        [ngClass]="consoleMin ? 'rotate-180' : 'rotate-0'"
       ></i>
     </div>
   </div>

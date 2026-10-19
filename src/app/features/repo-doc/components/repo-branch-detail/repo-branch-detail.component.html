@@ -12,10 +12,10 @@
   </div>
 
   <!-- FOLDER CONTENT -->
-  <div *ngIf="currentFolder && !currentBranch" class="flex-1 flex flex-col overflow-hidden">
-    <div class="p-8 border-b border-slate-200 bg-white shadow-sm z-10">
-      <div class="flex items-start justify-between">
-        <div>
+  <div *ngIf="currentFolder && !currentBranch" class="flex-1 flex flex-col overflow-hidden min-w-0">
+    <div class="p-6 md:p-8 border-b border-slate-200 bg-white shadow-sm z-10">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 mb-2">
             <span
               class="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold uppercase tracking-wider flex items-center gap-1"
@@ -23,9 +23,9 @@
               <i data-lucide="folder" class="w-3 h-3"></i> Carpeta
             </span>
           </div>
-          <h1 class="text-3xl font-bold text-slate-900 mb-2">{{ currentFolder.name }}</h1>
+          <h1 class="text-2xl md:text-3xl font-bold text-slate-900 mb-2 break-words">{{ currentFolder.name }}</h1>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 shrink-0">
           <button
             type="button"
             (click)="editFolder.emit()"
@@ -43,7 +43,7 @@
         </div>
       </div>
     </div>
-    <div class="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50">
+    <div class="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 p-6">
       <i data-lucide="folder-open" class="w-16 h-16 mb-4 opacity-20"></i>
       <p class="text-center max-w-md">
         Las carpetas sirven para agrupar ramas organizativamente. <br />Expande esta carpeta en el menú lateral y
@@ -53,13 +53,13 @@
   </div>
 
   <!-- BRANCH CONTENT -->
-  <div #branchContentRef *ngIf="currentBranch" class="flex-1 flex flex-col overflow-hidden bg-white">
-    <div class="p-8 border-b border-slate-200 bg-slate-50">
-      <div class="flex items-start justify-between">
-        <div>
-          <div class="flex items-center gap-2 mb-2">
+  <div #branchContentRef *ngIf="currentBranch" class="flex-1 flex flex-col overflow-hidden bg-white min-w-0">
+    <div class="p-6 md:p-8 border-b border-slate-200 bg-slate-50">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2 mb-2">
             <span
-              class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold uppercase tracking-wider flex items-center gap-1"
+              class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold uppercase tracking-wider flex items-center gap-1 shrink-0"
             >
               <i data-lucide="git-branch" class="w-3 h-3"></i> Rama
             </span>
@@ -70,10 +70,10 @@
               }}</span>
             </span>
           </div>
-          <h1 class="text-3xl font-bold text-slate-900 font-mono mb-2">{{ currentBranch.name }}</h1>
+          <h1 class="text-2xl md:text-3xl font-bold text-slate-900 font-mono mb-2 break-words">{{ currentBranch.name }}</h1>
           <p class="text-slate-600 mt-2 max-w-3xl leading-relaxed whitespace-pre-wrap">{{ currentBranch.desc }}</p>
         </div>
-        <div class="flex items-center gap-1 no-print">
+        <div class="flex items-center gap-1 shrink-0 no-print">
           <button
             type="button"
             (click)="exportBranchPDF()"
@@ -102,17 +102,17 @@
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto p-8 relative">
-      <div class="flex justify-between items-center mb-6">
+    <div class="flex-1 overflow-y-auto p-6 md:p-8 relative">
+      <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
         <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-          <i data-lucide="git-commit" class="text-slate-500"></i> Historial de Commits
+          <i data-lucide="git-commit" class="text-slate-500 shrink-0"></i> Historial de Commits
         </h2>
         <button
           type="button"
           (click)="openCommitModal.emit()"
-          class="no-print flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-md transition text-sm font-medium shadow-sm"
+          class="no-print flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-md transition text-sm font-medium shadow-sm whitespace-nowrap shrink-0"
         >
-          <i data-lucide="plus" class="w-4 h-4"></i> Añadir Commit
+          <i data-lucide="plus" class="w-4 h-4 shrink-0"></i> Añadir Commit
         </button>
       </div>
 

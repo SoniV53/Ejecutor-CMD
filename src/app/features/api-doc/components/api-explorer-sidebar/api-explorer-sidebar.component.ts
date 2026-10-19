@@ -22,6 +22,8 @@ export class ApiExplorerSidebarComponent implements OnChanges, AfterViewInit {
   @Output() loadFile = new EventEmitter<string>();
   @Output() deleteItem = new EventEmitter<string>();
 
+  filteredItems: DocExplorerItem[] = [];
+
   constructor(private lucide: LucideIconService) {}
 
   ngAfterViewInit(): void {
@@ -29,13 +31,14 @@ export class ApiExplorerSidebarComponent implements OnChanges, AfterViewInit {
   }
 
   ngOnChanges(): void {
+    this.filteredItems = (this.items || []).filter(
+      item => item.name !== '.keep.txt' && item.name !== '.keep' && item.name !== '_init.txt'
+    );
     this.lucide.refresh();
   }
 
-  get filteredItems(): DocExplorerItem[] {
-    return (this.items || []).filter(
-      item => item.name !== '.keep.txt' && item.name !== '.keep' && item.name !== '_init.txt'
-    );
+  trackByPath(_index: number, item: DocExplorerItem): string {
+    return item.path;
   }
 
   onItemClick(item: DocExplorerItem): void {

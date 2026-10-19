@@ -115,7 +115,7 @@
       </div>
     </div>
 
-    <div class="flex items-center justify-between gap-2 overflow-x-auto pb-1">
+    <div class="flex flex-wrap items-center justify-between gap-2 pb-1">
       <div class="flex items-center gap-1 bg-[#0f172a] p-1 rounded-xl border border-slate-800 shrink-0">
         <button
           type="button"
@@ -197,7 +197,7 @@
           type="button"
           (click)="toggleTouch.emit()"
           id="btnToggleTouch"
-          class="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-slate-700 hover:bg-slate-800 hover:text-white"
+          class="flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-slate-700 hover:bg-slate-800 hover:text-white whitespace-nowrap shrink-0"
           [ngClass]="
             isTouchEnabled
               ? 'bg-indigo-600/20 text-indigo-400'
@@ -205,11 +205,11 @@
           "
         >
           <span *ngIf="isTouchEnabled" class="inline-flex items-center gap-2">
-            <i data-lucide="hand" class="w-4 h-4"></i>
+            <i data-lucide="hand" class="w-4 h-4 shrink-0"></i>
             <span id="touchLabel" class="hidden sm:inline">Touch: ON</span>
           </span>
           <span *ngIf="!isTouchEnabled" class="inline-flex items-center gap-2">
-            <i data-lucide="mouse-pointer-2" class="w-4 h-4"></i>
+            <i data-lucide="mouse-pointer-2" class="w-4 h-4 shrink-0"></i>
             <span id="touchLabel" class="hidden sm:inline">Touch: OFF</span>
           </span>
         </button>
@@ -218,10 +218,10 @@
           type="button"
           (click)="toggleConsole.emit()"
           id="btnHeaderConsole"
-          class="flex items-center gap-2 bg-slate-800 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-slate-700"
+          class="flex items-center gap-2 bg-slate-800 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-400 px-3 md:px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-slate-700 whitespace-nowrap shrink-0"
           [ngClass]="{ 'bg-indigo-600/20 text-indigo-400': isConsoleOpen }"
         >
-          <i data-lucide="terminal" class="w-4 h-4"></i>
+          <i data-lucide="terminal" class="w-4 h-4 shrink-0"></i>
           <span id="devToolsLabel" class="hidden sm:inline">DevTools Nativo</span>
         </button>
       </div>

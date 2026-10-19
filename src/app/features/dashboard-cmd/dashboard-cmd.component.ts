@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CmdProject, CmdCommandItem, CmdConsoleLog, CmdCategoryItem } from './models/cmd.models';
 import { ConsoleFlowApiService } from '../../core/services/console-flow-api.service';
@@ -27,6 +27,7 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
   projects: CmdProject[] = [];
   commands: CmdCommandItem[] = [];
   explicitCategories: string[] = [];
+  allCategories: string[] = [];
   collapsedCategories: Record<string, boolean> = {};
   selectedProjId: string | null = null;
   serverOnline = false;
@@ -55,12 +56,15 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
 
   constructor(
     private api: ConsoleFlowApiService,
-    private lucide: LucideIconService
+    private lucide: LucideIconService,
+    private ngZone: NgZone
   ) {}
 
   ngOnInit(): void {
     this.fetchLocalData();
-    this.pollInterval = setInterval(() => this.fetchLocalData(), 3000);
+    this.ngZone.runOutsideAngular(() => {
+      this.pollInterval = setInterval(() => this.fetchLocalData(), 3000);
+    });
   }
 
   ngAfterViewInit(): void {
@@ -88,12 +92,12 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.commands.find(c => c.id === this.editingCmdId) || null;
   }
 
-  get allCategories(): string[] {
+  private updateAllCategories(): void {
     const cats = new Set<string>([
       ...this.commands.map(c => c.category || 'General'),
       ...this.explicitCategories
     ]);
-    return Array.from(cats);
+    this.allCategories = Array.from(cats);
   }
 
   async fetchLocalData(): Promise<void> {
@@ -109,15 +113,24 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
         JSON.stringify({ p: newProjects, c: newCommands, cat: newCategories }) !==
         JSON.stringify({ p: this.projects, c: this.commands, cat: this.explicitCategories });
 
-      if (dataChanged) {
-        this.projects = newProjects;
-        this.commands = newCommands;
-        this.explicitCategories = newCategories;
-        this.lucide.refresh();
+      if (dataChanged || !this.serverOnline) {
+        this.ngZone.run(() => {
+          if (dataChanged) {
+            this.projects = newProjects;
+            this.commands = newCommands;
+            this.explicitCategories = newCategories;
+            this.updateAllCategories();
+            this.lucide.refresh();
+          }
+          this.serverOnline = true;
+        });
       }
-      this.serverOnline = true;
     } catch {
-      this.serverOnline = false;
+      if (this.serverOnline) {
+        this.ngZone.run(() => {
+          this.serverOnline = false;
+        });
+      }
     }
   }
 
@@ -127,6 +140,7 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
       return false;
     }
     try {
+      this.updateAllCategories();
       await this.api.saveData({
         projects: this.projects,
         commands: this.commands,
@@ -319,7 +333,8 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
           multiSelect: payload.multiSelect,
           category: payload.category,
           color: payload.color,
-          background: payload.background
+          background: payload.background,
+          projectId: null
         }
       ];
     }

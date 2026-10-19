@@ -28,6 +28,8 @@ export class RepoBranchDetailComponent implements OnChanges, AfterViewInit {
 
   @ViewChild('branchContentRef') branchContentRef!: ElementRef<HTMLElement>;
 
+  sortedCommits: RepoCommit[] = [];
+
   constructor(private lucide: LucideIconService) {}
 
   ngAfterViewInit(): void {
@@ -35,14 +37,14 @@ export class RepoBranchDetailComponent implements OnChanges, AfterViewInit {
   }
 
   ngOnChanges(): void {
+    if (!this.currentBranch) {
+      this.sortedCommits = [];
+    } else {
+      this.sortedCommits = (this.commits || [])
+        .filter(c => c.branchId === this.currentBranch!.id)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }
     this.lucide.refresh();
-  }
-
-  get sortedCommits(): RepoCommit[] {
-    if (!this.currentBranch) return [];
-    return (this.commits || [])
-      .filter(c => c.branchId === this.currentBranch!.id)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 
   formatDate(dateStr: string): string {
