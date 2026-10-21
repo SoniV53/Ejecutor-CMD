@@ -21,6 +21,7 @@ import {
 import {
   DocApiService,
   GitScannedBranch,
+  GitScannedCommit,
   BrowseDirectoriesResponse,
   DirectoryEntry
 } from '../../../../core/services/doc-api.service';
@@ -84,6 +85,11 @@ export class RepoBranchDetailComponent implements OnChanges, AfterViewInit {
   @Output() openNewChildBranch = new EventEmitter<RepoBranch>();
   @Output() openCommitModal = new EventEmitter<void>();
   @Output() deleteCommit = new EventEmitter<string>();
+  @Output() importBranchCommits = new EventEmitter<{
+    branchId: string;
+    commits: GitScannedCommit[];
+  }>();
+  @Output() updateRepoPath = new EventEmitter<string>();
 
   // Note outputs
   @Output() openNewNoteModal = new EventEmitter<{ targetType: 'branch' | 'folder'; targetId: string }>();
@@ -101,7 +107,7 @@ export class RepoBranchDetailComponent implements OnChanges, AfterViewInit {
   includeRemoteBranches = false;
   importTargetFolderId = 'DEFAULT';
   importParentBranchId = '';
-  importIncludeLastCommit = true;
+  importIncludeLastCommit = false;
 
   selectedMissingNames = new Set<string>();
   markedAsMainNames = new Set<string>();
@@ -111,6 +117,15 @@ export class RepoBranchDetailComponent implements OnChanges, AfterViewInit {
   isLoadingDirs = false;
   dirBrowserData: BrowseDirectoriesResponse | null = null;
   dirSearchFilter = '';
+  private reopenCommitsModalAfterDirPick = false;
+
+  // Modal de Selección de Commits por Rama (ninguno seleccionado por defecto)
+  showBranchCommitsModal = false;
+  isLoadingBranchCommits = false;
+  branchCommitsError: string | null = null;
+  scannedBranchCommits: GitScannedCommit[] = [];
+  selectedCommitHashes = new Set<string>();
+  commitSearchQuery = '';
 
   constructor(
     private docApi: DocApiService,
@@ -170,14 +185,16 @@ export class RepoBranchDetailComponent implements OnChanges, AfterViewInit {
     }
   }
 
-  async openDirPickerModal(): Promise<void> {
+  async openDirPickerModal(fromCommitsModal = false): Promise<void> {
+    this.reopenCommitsModalAfterDirPick = fromCommitsModal;
     this.showDirPickerModal = true;
     this.dirSearchFilter = '';
-    await this.loadDirectoryLevel(this.analysisRepoPath || '');
+    await this.loadDirectoryLevel(this.analysisRepoPath || this.state.repoPath || '');
   }
 
   closeDirPickerModal(): void {
     this.showDirPickerModal = false;
+    this.reopenCommitsModalAfterDirPick = false;
   }
 
   async loadDirectoryLevel(targetPath: string): Promise<void> {
@@ -186,7 +203,6 @@ export class RepoBranchDetailComponent implements OnChanges, AfterViewInit {
     try {
       this.dirBrowserData = await this.docApi.browseDirectories(targetPath);
     } catch {
-      // Fallback to root if path was invalid
       try {
         this.dirBrowserData = await this.docApi.browseDirectories('');
       } catch {
@@ -208,13 +224,110 @@ export class RepoBranchDetailComponent implements OnChanges, AfterViewInit {
   selectDirectoryFromModal(chosenPath: string): void {
     if (!chosenPath) return;
     this.analysisRepoPath = chosenPath;
-    // Verificar si coincide con algún proyecto de Ejecutor CMD
     const matchedProj = this.cmdProjects.find(
       p => p.path.trim().toLowerCase() === chosenPath.trim().toLowerCase()
     );
     this.selectedProjectId = matchedProj ? matchedProj.id : '';
+    this.updateRepoPath.emit(chosenPath);
     this.showDirPickerModal = false;
+
+    if (this.reopenCommitsModalAfterDirPick && this.currentBranch) {
+      this.reopenCommitsModalAfterDirPick = false;
+      this.fetchCommitsForCurrentBranch(chosenPath);
+    }
     this.lucide.refresh();
+  }
+
+  // =========================================================
+  // LISTADO Y SELECCIÓN DE COMMITS POR RAMA (NINGUNO SELECCIONADO POR DEFECTO)
+  // =========================================================
+  async openGitCommitsPickerModal(): Promise<void> {
+    if (!this.currentBranch) return;
+    this.showBranchCommitsModal = true;
+    // Ninguno seleccionado por defecto para que el usuario los elija manualmente
+    this.selectedCommitHashes = new Set<string>();
+    this.commitSearchQuery = '';
+    await this.fetchCommitsForCurrentBranch();
+  }
+
+  closeGitCommitsPickerModal(): void {
+    this.showBranchCommitsModal = false;
+  }
+
+  async fetchCommitsForCurrentBranch(overridePath?: string): Promise<void> {
+    if (!this.currentBranch) return;
+    const effectivePath = (overridePath || this.state.repoPath || this.analysisRepoPath || '').trim();
+    if (!effectivePath) {
+      this.branchCommitsError =
+        'Aún no has vinculado un directorio de repositorio Git para este proyecto. Selecciona la carpeta del repositorio aquí abajo.';
+      this.scannedBranchCommits = [];
+      this.lucide.refresh();
+      return;
+    }
+
+    this.isLoadingBranchCommits = true;
+    this.branchCommitsError = null;
+    try {
+      const res = await this.docApi.getBranchCommits(effectivePath, this.currentBranch.name, 150);
+      this.scannedBranchCommits = res.commits || [];
+      // Asegurar que ninguno esté seleccionado por defecto
+      this.selectedCommitHashes = new Set<string>();
+    } catch (err: any) {
+      this.branchCommitsError = err?.message || 'No se pudieron obtener los commits de esta rama.';
+      this.scannedBranchCommits = [];
+    } finally {
+      this.isLoadingBranchCommits = false;
+      this.lucide.refresh();
+    }
+  }
+
+  get filteredScannedBranchCommits(): GitScannedCommit[] {
+    const q = this.commitSearchQuery.trim().toLowerCase();
+    if (!q) return this.scannedBranchCommits;
+    return this.scannedBranchCommits.filter(
+      c =>
+        c.message.toLowerCase().includes(q) ||
+        c.hash.toLowerCase().includes(q) ||
+        (c.author || '').toLowerCase().includes(q)
+    );
+  }
+
+  isCommitAlreadyRegistered(hash: string): boolean {
+    const norm = (hash || '').trim().toLowerCase();
+    return this.sortedCommits.some(c => (c.hash || '').trim().toLowerCase() === norm);
+  }
+
+  isGitCommitSelected(hash: string): boolean {
+    return this.selectedCommitHashes.has(hash);
+  }
+
+  toggleGitCommitSelection(commit: GitScannedCommit): void {
+    if (this.isCommitAlreadyRegistered(commit.hash)) return;
+    const next = new Set(this.selectedCommitHashes);
+    if (next.has(commit.hash)) {
+      next.delete(commit.hash);
+    } else {
+      next.add(commit.hash);
+    }
+    this.selectedCommitHashes = next;
+  }
+
+  clearGitCommitsSelection(): void {
+    this.selectedCommitHashes = new Set<string>();
+  }
+
+  confirmSelectedGitCommits(): void {
+    if (!this.currentBranch || this.selectedCommitHashes.size === 0) return;
+    const chosen = this.scannedBranchCommits.filter(
+      c => this.selectedCommitHashes.has(c.hash) && !this.isCommitAlreadyRegistered(c.hash)
+    );
+    if (chosen.length > 0) {
+      this.importBranchCommits.emit({
+        branchId: this.currentBranch.id,
+        commits: chosen
+      });
+    }
+    this.showBranchCommitsModal = false;
   }
 
   triggerAnalysis(): void {

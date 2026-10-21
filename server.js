@@ -121,6 +121,7 @@ const server = http.createServer((req, res) => {
     if (req.url.startsWith('/api/doc/delete')) return apiDocController.deleteItem(req, res);
     if (req.url.startsWith('/api/doc/analyze-git')) return apiDocController.analyzeGitRepository(req, res);
     if (req.url.startsWith('/api/doc/browse-dirs')) return apiDocController.browseDirectories(req, res);
+    if (req.url.startsWith('/api/doc/branch-commits')) return apiDocController.getBranchCommits(req, res);
 
     // 404 para cualquier otra ruta que no exista
     res.writeHead(404);

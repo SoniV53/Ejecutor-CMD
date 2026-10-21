@@ -11,7 +11,8 @@ import {
 import {
   DocApiService,
   DocExplorerItem,
-  GitScannedBranch
+  GitScannedBranch,
+  GitScannedCommit
 } from '../../core/services/doc-api.service';
 import { ConsoleFlowApiService } from '../../core/services/console-flow-api.service';
 import { CmdProject } from '../dashboard-cmd/models/cmd.models';
@@ -747,8 +748,48 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
   }
 
   // =========================================================
-  // COMMITS CRUD
+  // COMMITS CRUD & GIT COMMITS IMPORT
   // =========================================================
+  onUpdateRepoPath(newPath: string): void {
+    this.state = {
+      ...this.state,
+      repoPath: newPath
+    };
+    this.saveStateLocally();
+  }
+
+  onImportBranchCommits(payload: { branchId: string; commits: GitScannedCommit[] }): void {
+    const existingHashes = new Set(
+      this.state.commits
+        .filter(c => c.branchId === payload.branchId)
+        .map(c => (c.hash || '').trim().toLowerCase())
+    );
+
+    const addedCommits: RepoCommit[] = [];
+    for (const gc of payload.commits) {
+      const normHash = (gc.hash || '').trim().toLowerCase();
+      if (!normHash || existingHashes.has(normHash)) continue;
+      existingHashes.add(normHash);
+
+      addedCommits.push({
+        id: this.generateId(),
+        branchId: payload.branchId,
+        hash: gc.hash.trim(),
+        message: gc.message,
+        date: gc.date || new Date().toISOString()
+      });
+    }
+
+    if (addedCommits.length === 0) return;
+
+    this.state = {
+      ...this.state,
+      commits: [...this.state.commits, ...addedCommits]
+    };
+    this.saveStateLocally();
+    this.lucide.refresh();
+  }
+
   onSaveCommit(payload: { hash: string; message: string }): void {
     if (!this.currentBranchId) return;
     const hash = payload.hash || this.generateId().substring(0, 7);

@@ -36,6 +36,19 @@ export interface BrowseDirectoriesResponse {
   directories: DirectoryEntry[];
 }
 
+export interface GitScannedCommit {
+  hash: string;
+  message: string;
+  date: string;
+  author: string;
+}
+
+export interface GitBranchCommitsResponse {
+  status: string;
+  branchName: string;
+  commits: GitScannedCommit[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class DocApiService {
   private readonly baseUrl: string;
@@ -112,7 +125,21 @@ export class DocApiService {
     }
     return data;
   }
+
+  async getBranchCommits(repoPath: string, branchName: string, limit = 150): Promise<GitBranchCommitsResponse> {
+    const res = await fetch(`${this.baseUrl}/api/doc/branch-commits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repoPath, branchName, limit })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Error al obtener los commits de la rama');
+    }
+    return data;
+  }
 }
+
 
 
 

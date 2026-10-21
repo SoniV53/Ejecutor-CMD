@@ -333,6 +333,94 @@ const browseDirectories = (req, res) => {
     }
 };
 
+const getBranchCommits = (req, res) => {
+    let body = '';
+    req.on('data', chunk => body += chunk.toString());
+    req.on('end', () => {
+        try {
+            const { repoPath, branchName, limit } = JSON.parse(body || '{}');
+            const targetRepo = (repoPath || '').trim();
+            const targetBranch = (branchName || '').trim();
+            const maxCommits = Number(limit) > 0 ? Number(limit) : 150;
+
+            if (!targetRepo || !fs.existsSync(targetRepo)) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: ' primero selecciona un directorio de repositorio Git válido en el Apartado de Análisis.' }));
+                return;
+            }
+
+            if (!targetBranch) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Nombre de rama no especificado.' }));
+                return;
+            }
+
+            const execOpts = {
+                cwd: targetRepo,
+                encoding: 'utf-8',
+                windowsHide: true,
+                stdio: ['pipe', 'pipe', 'pipe']
+            };
+
+            let rawLog = '';
+            try {
+                rawLog = execSync(
+                    `git log "${targetBranch}" -n ${maxCommits} --format="%h|%s|%cI|%an"`,
+                    execOpts
+                );
+            } catch {
+                // Intentar con origin/<branchName> por si es una rama remota no descargada localmente
+                try {
+                    rawLog = execSync(
+                        `git log "origin/${targetBranch}" -n ${maxCommits} --format="%h|%s|%cI|%an"`,
+                        execOpts
+                    );
+                } catch {
+                    res.writeHead(404, { 'Content-Type': 'application/json' });
+                    res.end(
+                        JSON.stringify({
+                            error: `No se encontró la rama "${targetBranch}" en el repositorio Git (${targetRepo}).`
+                        })
+                    );
+                    return;
+                }
+            }
+
+            const commits = [];
+            const lines = (rawLog || '').split(/\r?\n/);
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                const parts = trimmed.split('|');
+                const hash = (parts[0] || '').trim();
+                const message = (parts[1] || '').trim();
+                const date = (parts[2] || '').trim();
+                const author = (parts[3] || '').trim();
+                if (!hash) continue;
+
+                commits.push({
+                    hash,
+                    message,
+                    date,
+                    author
+                });
+            }
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(
+                JSON.stringify({
+                    status: 'success',
+                    branchName: targetBranch,
+                    commits
+                })
+            );
+        } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Error al obtener commits de la rama: ' + e.message }));
+        }
+    });
+};
+
 module.exports = {
     listDocs,
     saveDoc,
@@ -340,6 +428,8 @@ module.exports = {
     deleteItem,
     saveJsonDoc,
     analyzeGitRepository,
-    browseDirectories
+    browseDirectories,
+    getBranchCommits
 };
+
 
