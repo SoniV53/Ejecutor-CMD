@@ -27,6 +27,7 @@ export interface SaveBatPayload {
   fileName: string;
   dirPath: string;
   content: string;
+  tags?: string[];
   runImmediately?: boolean;
 }
 
@@ -43,6 +44,7 @@ export class CmdBatModalComponent implements OnInit, OnChanges, AfterViewInit {
   @Input() projects: CmdProject[] = [];
   @Input() activeProject: CmdProject | null = null;
   @Input() allCategories: string[] = [];
+  @Input() allAvailableTags: string[] = [];
 
   @Output() closeBatModal = new EventEmitter<void>();
   @Output() saveBat = new EventEmitter<SaveBatPayload>();
@@ -57,6 +59,8 @@ export class CmdBatModalComponent implements OnInit, OnChanges, AfterViewInit {
   inBatContent = '';
   inBatProjectId: string | null = null;
   inBatBg = false;
+  inBatTags: string[] = [];
+  inBatTagInput = '';
   activeColor = 'emerald';
   appBatDir = '';
 
@@ -114,6 +118,7 @@ mvnw spring-boot:run
         this.inBatContent = this.editingCommand.batContent || '';
         this.inBatBg = !!this.editingCommand.background;
         this.activeColor = this.editingCommand.color || 'emerald';
+        this.inBatTags = this.editingCommand.tags ? [...this.editingCommand.tags] : [];
       } else {
         // Modo Nuevo Archivo .bat:
         // Guarda en la carpeta "bat" de la app (igual que json) y se ejecuta con el proyecto del menú lateral
@@ -125,7 +130,9 @@ mvnw spring-boot:run
         this.inBatContent = this.defaultTemplate;
         this.inBatBg = false;
         this.activeColor = 'emerald';
+        this.inBatTags = selectedSidebarProj?.tags ? [...selectedSidebarProj.tags] : [];
       }
+      this.inBatTagInput = '';
       this.lucide.refresh();
     }
   }
@@ -242,7 +249,28 @@ mvnw spring-boot:run
     this.activeColor = c;
   }
 
+  addBatTag(tagToAdd?: string): void {
+    const raw = tagToAdd !== undefined ? tagToAdd : this.inBatTagInput;
+    if (!raw) return;
+    const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+    for (const part of parts) {
+      if (!this.inBatTags.some(t => t.toLowerCase() === part.toLowerCase())) {
+        this.inBatTags.push(part);
+      }
+    }
+    this.inBatTagInput = '';
+    this.lucide.refresh();
+  }
+
+  removeBatTag(idx: number): void {
+    this.inBatTags.splice(idx, 1);
+    this.lucide.refresh();
+  }
+
   onSave(runImmediately = false): void {
+    if (this.inBatTagInput.trim()) {
+      this.addBatTag();
+    }
     let cleanFileName = (this.inBatFileName || '').trim();
     if (!cleanFileName) {
       cleanFileName = 'ejecutar.bat';
@@ -265,6 +293,7 @@ mvnw spring-boot:run
       fileName: cleanFileName,
       dirPath: cleanDir,
       content: this.inBatContent,
+      tags: [...this.inBatTags],
       runImmediately
     });
   }

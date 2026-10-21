@@ -55,13 +55,24 @@
         class="project-item group flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all duration-300"
         [ngClass]="selectedProjId === p.id ? 'active' : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'"
       >
-        <div class="flex items-center gap-3 overflow-hidden">
+        <div class="flex items-start gap-3 overflow-hidden min-w-0 flex-1">
           <i
             data-lucide="folder"
-            class="w-4 h-4 shrink-0"
+            class="w-4 h-4 shrink-0 mt-0.5"
             [ngClass]="selectedProjId === p.id ? 'text-indigo-200' : 'text-slate-600'"
           ></i>
-          <span class="text-sm font-bold truncate">{{ p.name }}</span>
+          <div class="min-w-0 flex-1">
+            <span class="text-sm font-bold truncate block">{{ p.name }}</span>
+            <div *ngIf="p.tags && p.tags.length > 0" class="flex flex-wrap gap-1 mt-1">
+              <span
+                *ngFor="let t of p.tags"
+                class="text-[9px] px-1.5 py-0.2 rounded font-mono"
+                [ngClass]="selectedProjId === p.id ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/30' : 'bg-slate-800 text-slate-400 border border-slate-700/60'"
+              >
+                #{{ t }}
+              </span>
+            </div>
+          </div>
         </div>
         <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
           <button

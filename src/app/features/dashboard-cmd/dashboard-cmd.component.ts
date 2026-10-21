@@ -110,6 +110,56 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.commands.find(c => c.id === this.editingCmdId) || null;
   }
 
+  get allAvailableTags(): string[] {
+    const set = new Set<string>();
+    this.projects.forEach(p => (p.tags || []).forEach(t => t && set.add(t.trim())));
+    this.commands.forEach(c => (c.tags || []).forEach(t => t && set.add(t.trim())));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }
+
+  get displayedCommands(): CmdCommandItem[] {
+    const project = this.activeProject;
+    if (!project) {
+      return this.commands;
+    }
+
+    const folderTags = (project.tags || [])
+      .map(t => t.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (folderTags.length > 0) {
+      return this.commands.filter(cmd => {
+        if (cmd.projectId && cmd.projectId === project.id) {
+          return true;
+        }
+
+        const cmdTags = (cmd.tags || [])
+          .map(t => t.trim().toLowerCase())
+          .filter(Boolean);
+
+        // "si no existe tag en los comandos siempre van a aparecer"
+        if (cmdTags.length === 0) {
+          return true;
+        }
+
+        // "deberan aparecer los que tengan ese tag ... pero si tiene angular y mi carpeta solo tiene spring esa de angular no debera aparecer"
+        return cmdTags.some(t => folderTags.includes(t));
+      });
+    }
+
+    // Si la carpeta activa no tiene tags configurados:
+    // Aparecen los comandos sin tags y los asignados a esta carpeta
+    return this.commands.filter(cmd => {
+      if (cmd.projectId && cmd.projectId === project.id) {
+        return true;
+      }
+      const cmdTags = (cmd.tags || [])
+        .map(t => t.trim().toLowerCase())
+        .filter(Boolean);
+      return cmdTags.length === 0;
+    });
+  }
+
   private updateAllCategories(): void {
     const cats = new Set<string>([
       ...this.commands.map(c => c.category || 'General'),
@@ -290,15 +340,15 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
     this.showProjModal = true;
   }
 
-  async onSaveProject(data: { name: string; path: string }): Promise<void> {
+  async onSaveProject(data: { name: string; path: string; tags: string[] }): Promise<void> {
     if (this.editingProjId) {
       this.projects = this.projects.map(p =>
-        p.id === this.editingProjId ? { ...p, name: data.name, path: data.path } : p
+        p.id === this.editingProjId ? { ...p, name: data.name, path: data.path, tags: data.tags || [] } : p
       );
     } else {
       this.projects = [
         ...this.projects,
-        { id: Date.now().toString(), name: data.name, path: data.path }
+        { id: Date.now().toString(), name: data.name, path: data.path, tags: data.tags || [] }
       ];
     }
     const ok = await this.syncData();
@@ -389,6 +439,7 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
     multiSelect: boolean;
     color: string;
     background: boolean;
+    tags: string[];
   }): Promise<void> {
     if (!this.explicitCategories.includes(payload.category)) {
       this.explicitCategories = [...this.explicitCategories, payload.category];
@@ -407,7 +458,8 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
               multiSelect: payload.multiSelect,
               category: payload.category,
               color: payload.color,
-              background: payload.background
+              background: payload.background,
+              tags: payload.tags || []
             }
           : c
       );
@@ -423,7 +475,8 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
           category: payload.category,
           color: payload.color,
           background: payload.background,
-          projectId: null
+          projectId: null,
+          tags: payload.tags || []
         }
       ];
     }
@@ -485,7 +538,8 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
                 batPath: batRes.dirPath,
                 batContent: payload.content,
                 script: scriptCommand,
-                scripts: [scriptCommand]
+                scripts: [scriptCommand],
+                tags: payload.tags || []
               }
             : c
         );
@@ -503,7 +557,8 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
           batContent: payload.content,
           script: scriptCommand,
           scripts: [scriptCommand],
-          multiSelect: false
+          multiSelect: false,
+          tags: payload.tags || []
         };
         this.commands = [...this.commands, newCmd];
       }

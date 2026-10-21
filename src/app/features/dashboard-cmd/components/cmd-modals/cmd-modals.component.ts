@@ -24,9 +24,10 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
   @Input() editingCommand: CmdCommandItem | null = null;
 
   @Input() allCategories: string[] = [];
+  @Input() allAvailableTags: string[] = [];
 
   @Output() closeProjModal = new EventEmitter<void>();
-  @Output() saveProject = new EventEmitter<{ name: string; path: string }>();
+  @Output() saveProject = new EventEmitter<{ name: string; path: string; tags: string[] }>();
 
   @Output() closeCatModal = new EventEmitter<void>();
   @Output() saveCategory = new EventEmitter<string>();
@@ -39,11 +40,14 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
     multiSelect: boolean;
     color: string;
     background: boolean;
+    tags: string[];
   }>();
 
   // Project form
   inProjName = '';
   inProjPath = '';
+  inProjTags: string[] = [];
+  inProjTagInput = '';
 
   // Category form
   inCatName = '';
@@ -54,6 +58,8 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
   inCmdScripts: { value: string }[] = [{ value: '' }];
   inCmdMulti = false;
   inCmdBg = false;
+  inCmdTags: string[] = [];
+  inCmdTagInput = '';
   activeColor = 'indigo';
 
   showCatSuggestions = false;
@@ -77,10 +83,13 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
       if (this.editingProject) {
         this.inProjName = this.editingProject.name;
         this.inProjPath = this.editingProject.path;
+        this.inProjTags = this.editingProject.tags ? [...this.editingProject.tags] : [];
       } else {
         this.inProjName = '';
         this.inProjPath = '';
+        this.inProjTags = [];
       }
+      this.inProjTagInput = '';
     }
 
     if (changes['showCatModal'] && this.showCatModal) {
@@ -94,6 +103,7 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
         this.inCmdMulti = !!this.editingCommand.multiSelect;
         this.inCmdBg = !!this.editingCommand.background;
         this.activeColor = this.editingCommand.color || 'indigo';
+        this.inCmdTags = this.editingCommand.tags ? [...this.editingCommand.tags] : [];
 
         const rawScripts =
           this.editingCommand.scripts && this.editingCommand.scripts.length > 0
@@ -107,7 +117,9 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
         this.inCmdMulti = false;
         this.inCmdBg = false;
         this.activeColor = 'indigo';
+        this.inCmdTags = [];
       }
+      this.inCmdTagInput = '';
       this.lastFocusedIndex = 0;
       this.lastFocusedTextarea = null;
       this.showCatSuggestions = false;
@@ -177,11 +189,50 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
     }
   }
 
+  addProjTag(tagToAdd?: string): void {
+    const raw = tagToAdd !== undefined ? tagToAdd : this.inProjTagInput;
+    if (!raw) return;
+    const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+    for (const part of parts) {
+      if (!this.inProjTags.some(t => t.toLowerCase() === part.toLowerCase())) {
+        this.inProjTags.push(part);
+      }
+    }
+    this.inProjTagInput = '';
+    this.lucide.refresh();
+  }
+
+  removeProjTag(idx: number): void {
+    this.inProjTags.splice(idx, 1);
+    this.lucide.refresh();
+  }
+
+  addCmdTag(tagToAdd?: string): void {
+    const raw = tagToAdd !== undefined ? tagToAdd : this.inCmdTagInput;
+    if (!raw) return;
+    const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+    for (const part of parts) {
+      if (!this.inCmdTags.some(t => t.toLowerCase() === part.toLowerCase())) {
+        this.inCmdTags.push(part);
+      }
+    }
+    this.inCmdTagInput = '';
+    this.lucide.refresh();
+  }
+
+  removeCmdTag(idx: number): void {
+    this.inCmdTags.splice(idx, 1);
+    this.lucide.refresh();
+  }
+
   onSaveProject(): void {
+    if (this.inProjTagInput.trim()) {
+      this.addProjTag();
+    }
     const name = this.inProjName.trim();
     const path = this.inProjPath.trim();
     if (name && path) {
-      this.saveProject.emit({ name, path });
+      this.saveProject.emit({ name, path, tags: [...this.inProjTags] });
     }
   }
 
@@ -255,6 +306,9 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
   }
 
   onSaveCommand(): void {
+    if (this.inCmdTagInput.trim()) {
+      this.addCmdTag();
+    }
     const label = this.inCmdLabel.trim();
     const scriptsArray = this.inCmdScripts.map(s => s.value.trim()).filter(v => v.length > 0);
     const category = this.inCmdCategory.trim() || 'General';
@@ -266,7 +320,8 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
         scripts: scriptsArray,
         multiSelect: this.inCmdMulti,
         color: this.activeColor,
-        background: this.inCmdBg
+        background: this.inCmdBg,
+        tags: [...this.inCmdTags]
       });
     }
   }

@@ -30,7 +30,7 @@
 
     <div class="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar">
       <app-cmd-grid
-        [commands]="commands"
+        [commands]="displayedCommands"
         [explicitCategories]="explicitCategories"
         [collapsedCategories]="collapsedCategories"
         [viewMode]="viewMode"
@@ -76,6 +76,7 @@
     [showCmdModal]="showCmdModal"
     [editingCommand]="editingCommand"
     [allCategories]="allCategories"
+    [allAvailableTags]="allAvailableTags"
     (closeProjModal)="showProjModal = false; editingProjId = null"
     (saveProject)="onSaveProject($event)"
     (closeCatModal)="showCatModal = false; editingCatName = null"
@@ -91,6 +92,7 @@
     [projects]="projects"
     [activeProject]="activeProject"
     [allCategories]="allCategories"
+    [allAvailableTags]="allAvailableTags"
     (closeBatModal)="showBatModal = false; editingBatCmd = null"
     (saveBat)="onSaveBat($event)"
   ></app-cmd-bat-modal>

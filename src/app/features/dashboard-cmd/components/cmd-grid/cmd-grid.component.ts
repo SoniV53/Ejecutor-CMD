@@ -36,10 +36,10 @@ export class CmdGridComponent implements OnChanges, AfterViewInit {
   scriptsByCmdId: Record<string, string[]> = {};
 
   readonly btnColorMap: Record<string, string> = {
-    indigo: 'bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white',
-    emerald: 'bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white',
-    rose: 'bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white',
-    amber: 'bg-amber-600/10 hover:bg-amber-600 text-amber-400 hover:text-white'
+    indigo: 'bg-indigo-500/15 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/25 hover:border-indigo-500 hover:shadow-md hover:shadow-indigo-500/20',
+    emerald: 'bg-emerald-500/15 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/25 hover:border-emerald-500 hover:shadow-md hover:shadow-emerald-500/20',
+    rose: 'bg-rose-500/15 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/25 hover:border-rose-500 hover:shadow-md hover:shadow-rose-500/20',
+    amber: 'bg-amber-500/15 hover:bg-amber-600 text-amber-300 hover:text-white border border-amber-500/25 hover:border-amber-500 hover:shadow-md hover:shadow-amber-500/20'
   };
 
   constructor(private lucide: LucideIconService) {}
@@ -91,10 +91,12 @@ export class CmdGridComponent implements OnChanges, AfterViewInit {
       : this.commands.filter(c => {
           const scriptsStr = this.getScripts(c).join(' ').toLowerCase();
           const batInfo = (c.batFileName || '') + ' ' + (c.batPath || '');
+          const tagsStr = (c.tags || []).join(' ').toLowerCase();
           return (
             c.label.toLowerCase().includes(search) ||
             scriptsStr.includes(search) ||
             batInfo.toLowerCase().includes(search) ||
+            tagsStr.includes(search) ||
             (c.category && c.category.toLowerCase().includes(search))
           );
         });
@@ -198,6 +200,38 @@ export class CmdGridComponent implements OnChanges, AfterViewInit {
 
   getBtnColorClass(color?: string): string {
     return this.btnColorMap[color || 'indigo'] || this.btnColorMap['indigo'];
+  }
+
+  getCardHoverClass(cmd: CmdCommandItem): string {
+    if (cmd.isBat) {
+      return 'hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/5';
+    }
+    switch (cmd.color) {
+      case 'emerald':
+        return 'hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/5';
+      case 'rose':
+        return 'hover:border-rose-500/50 hover:shadow-lg hover:shadow-rose-500/5';
+      case 'amber':
+        return 'hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-500/5';
+      case 'indigo':
+      default:
+        return 'hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/5';
+    }
+  }
+
+  getAccentBarClass(cmd: CmdCommandItem): string {
+    if (cmd.isBat) return 'bg-emerald-400';
+    switch (cmd.color) {
+      case 'emerald':
+        return 'bg-emerald-400';
+      case 'rose':
+        return 'bg-rose-400';
+      case 'amber':
+        return 'bg-amber-400';
+      case 'indigo':
+      default:
+        return 'bg-indigo-500';
+    }
   }
 
   onEditCat(e: Event, cat: string): void {

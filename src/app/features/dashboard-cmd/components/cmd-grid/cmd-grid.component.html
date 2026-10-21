@@ -1,36 +1,42 @@
-<div class="flex flex-col gap-6 md:gap-10">
-  <div *ngIf="visibleCategories.length === 0" class="text-center py-10 text-slate-500 italic">
+<div class="flex flex-col gap-6 md:gap-8">
+  <div *ngIf="visibleCategories.length === 0" class="text-center py-12 text-slate-500 italic">
     No se encontraron resultados...
   </div>
 
-  <div *ngFor="let catGroup of visibleCategories; trackBy: trackByCategory" class="mb-5">
+  <div *ngFor="let catGroup of visibleCategories; trackBy: trackByCategory" class="mb-4">
     <!-- Barra de Categoría -->
     <div
-      class="flex items-center gap-2 mb-3 border-b border-slate-800 pb-2 group/cat hover:border-indigo-500/30 transition-colors cursor-pointer select-none"
+      class="flex items-center gap-2.5 mb-3.5 pb-2.5 border-b border-slate-800/80 group/cat hover:border-indigo-500/40 transition-colors cursor-pointer select-none"
       (click)="toggleCategory.emit(catGroup.name)"
     >
       <i
         data-lucide="chevron-down"
-        class="w-4 h-4 text-slate-500 transition-transform duration-200"
+        class="w-4 h-4 text-slate-400 transition-transform duration-200"
         [ngClass]="collapsedCategories[catGroup.name] ? '-rotate-90' : 'rotate-0'"
       ></i>
-      <i data-lucide="folder-tree" class="w-4 h-4 text-indigo-500"></i>
-      <h3 class="text-sm font-bold text-white uppercase tracking-widest">{{ catGroup.name }}</h3>
+      <i data-lucide="folder-tree" class="w-4 h-4 text-indigo-400"></i>
+      <h3 class="text-xs font-bold text-slate-200 uppercase tracking-widest">{{ catGroup.name }}</h3>
+      
+      <!-- Contador de Comandos en Categoría -->
+      <span class="text-[10px] font-bold text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-full border border-slate-700/60">
+        {{ catGroup.commands.length }}
+      </span>
+
       <div class="ml-auto flex gap-1 opacity-100 sm:opacity-0 group-hover/cat:opacity-100 transition-all">
         <button
           (click)="onEditCat($event, catGroup.name)"
-          class="text-slate-500 hover:text-indigo-400 p-2 sm:p-1.5 hover:bg-indigo-500/10 rounded-lg transition-all"
+          class="text-slate-400 hover:text-indigo-400 p-1.5 hover:bg-indigo-500/10 rounded-lg transition-all"
           title="Renombrar Categoría"
         >
-          <i data-lucide="pencil" class="w-4 h-4"></i>
+          <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
         </button>
         <button
           *ngIf="catGroup.name !== 'General'"
           (click)="onDeleteCat($event, catGroup.name)"
-          class="text-slate-500 hover:text-red-400 p-2 sm:p-1.5 hover:bg-red-500/10 rounded-lg transition-all"
+          class="text-slate-400 hover:text-rose-400 p-1.5 hover:bg-rose-500/10 rounded-lg transition-all"
           title="Eliminar Categoría"
         >
-          <i data-lucide="trash-2" class="w-4 h-4"></i>
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
         </button>
       </div>
     </div>
@@ -41,211 +47,283 @@
       [ngClass]="
         viewMode === 'card'
           ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-          : 'flex flex-col gap-2'
+          : 'flex flex-col gap-2.5'
       "
     >
       <div
         *ngIf="catGroup.commands.length === 0"
-        class="text-slate-600 text-xs italic py-4 col-span-full border-2 border-dashed border-slate-800 rounded-2xl flex justify-center w-full"
+        class="text-slate-500 text-xs italic py-6 col-span-full border border-dashed border-slate-800/80 rounded-2xl flex items-center justify-center w-full bg-slate-900/20"
       >
-        No hay comandos asignados.
+        No hay comandos asignados en esta categoría.
       </div>
 
       <ng-container *ngFor="let c of catGroup.commands; trackBy: trackByCommand">
-        <!-- VISTA DE TARJETAS -->
+        <!-- VISTA DE TARJETAS (CARD) -->
         <div
           *ngIf="viewMode === 'card'"
-          class="bg-[#0f172a] border border-slate-800 hover:border-indigo-500/50 transition-all p-4 rounded-2xl flex flex-col group relative overflow-hidden shadow-sm animate-fade"
-          [ngClass]="c.isBat ? 'hover:border-emerald-500/50' : ''"
+          class="cmd-card bg-[#0b1329]/80 backdrop-blur-sm border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between group relative overflow-hidden shadow-sm animate-fade"
+          [ngClass]="getCardHoverClass(c)"
         >
-          <div class="flex justify-between items-center mb-3">
-            <div class="flex items-center w-[75%] min-w-0">
-              <div class="w-2 h-2 rounded-full shrink-0" [ngClass]="getDotColorClass(c.color)"></div>
-              <h4
-                class="font-bold text-white text-sm ml-2 truncate group-hover:text-indigo-400 transition-colors"
-                [title]="c.label"
-              >
-                {{ c.label }}
-              </h4>
+          <!-- Cabecera de la Tarjeta -->
+          <div>
+            <div class="flex items-start justify-between gap-2 mb-2">
+              <div class="flex items-center gap-2 min-w-0 flex-1">
+                <!-- Barra de Acento de Color -->
+                <span class="w-1.5 h-4.5 rounded-full shrink-0" [ngClass]="getAccentBarClass(c)"></span>
+                
+                <h4
+                  class="font-semibold text-slate-100 text-sm truncate group-hover:text-white transition-colors"
+                  [title]="c.label"
+                >
+                  {{ c.label }}
+                </h4>
+
+                <!-- Badge .BAT -->
+                <span
+                  *ngIf="c.isBat"
+                  class="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 shrink-0 select-none"
+                  title="Archivo ejecutable .bat"
+                >
+                  <i data-lucide="terminal" class="w-2.5 h-2.5"></i> .BAT
+                </span>
+
+                <!-- Badge Segundo Plano -->
+                <span
+                  *ngIf="c.background"
+                  class="text-slate-400 shrink-0"
+                  title="Ejecución en segundo plano"
+                >
+                  <i data-lucide="monitor-off" class="w-3.5 h-3.5"></i>
+                </span>
+              </div>
+
+              <!-- Acciones Rápidas (visibles en hover o móvil) -->
+              <div class="flex items-center gap-0.5 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <button
+                  *ngIf="c.isBat"
+                  (click)="onExportBat($event, c)"
+                  class="text-slate-400 hover:text-emerald-400 transition-colors p-1.5 hover:bg-emerald-500/10 rounded-lg"
+                  title="Exportar archivo .bat"
+                >
+                  <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                </button>
+
+                <button
+                  (click)="onEditCmd(c)"
+                  class="text-slate-400 hover:text-indigo-400 transition-colors p-1.5 hover:bg-indigo-500/10 rounded-lg"
+                  [title]="c.isBat ? 'Editar Script .bat' : 'Editar comando'"
+                >
+                  <i [attr.data-lucide]="c.isBat ? 'file-code' : 'pencil'" class="w-3.5 h-3.5"></i>
+                </button>
+
+                <button
+                  (click)="deleteCommand.emit(c.id)"
+                  class="text-slate-400 hover:text-rose-400 transition-colors p-1.5 hover:bg-rose-500/10 rounded-lg"
+                  title="Eliminar comando"
+                >
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Tags del Comando si existen -->
+            <div *ngIf="c.tags && c.tags.length > 0" class="flex flex-wrap items-center gap-1 mb-2">
               <span
-                *ngIf="c.isBat"
-                class="ml-2 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 shrink-0 select-none"
-                title="Archivo ejecutable .bat"
+                *ngFor="let t of c.tags"
+                class="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-slate-800/90 text-indigo-300/85 border border-indigo-500/20"
               >
-                <i data-lucide="file-code" class="w-2.5 h-2.5"></i> .BAT
+                #{{ t }}
               </span>
-              <i
-                *ngIf="c.background"
-                data-lucide="monitor-off"
-                class="w-3.5 h-3.5 text-slate-500 ml-2 shrink-0"
-                title="Segundo Plano"
-              ></i>
             </div>
-            <div class="flex gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-all shrink-0">
-              <!-- Botón Exportar .bat -->
-              <button
-                *ngIf="c.isBat"
-                (click)="onExportBat($event, c)"
-                class="text-slate-500 hover:text-emerald-400 transition-all p-1.5 hover:bg-emerald-500/10 rounded-lg"
-                title="Exportar / Descargar archivo .bat"
-              >
-                <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
-              </button>
 
-              <button
-                (click)="onEditCmd(c)"
-                class="text-slate-500 hover:text-indigo-400 transition-all p-1.5 hover:bg-indigo-500/10 rounded-lg"
-                [title]="c.isBat ? 'Editar Script .bat' : 'Editar'"
-              >
-                <i [attr.data-lucide]="c.isBat ? 'file-code' : 'pencil'" class="w-4 h-4" [ngClass]="c.isBat ? 'text-emerald-400' : ''"></i>
-              </button>
-              <button
-                (click)="deleteCommand.emit(c.id)"
-                class="text-slate-500 hover:text-red-400 transition-all p-1.5 hover:bg-red-500/10 rounded-lg"
-                title="Eliminar"
-              >
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
-              </button>
-            </div>
-          </div>
-
-          <div
-            class="bg-[#020617] px-2 py-2 rounded-xl border border-white/5 mb-3 flex-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar max-h-24"
-          >
-            <label
-              *ngFor="let scr of getScripts(c); let idx = index; trackBy: trackByScriptIndex"
-              class="flex items-start gap-2 cursor-pointer group/radio p-1 rounded-lg transition-colors"
-              [ngClass]="getScripts(c).length > 1 ? 'hover:bg-white/5' : ''"
+            <!-- Cuerpo del Comando / Variantes -->
+            <!-- Caso 1: Script Único (Limpio y directo) -->
+            <div
+              *ngIf="getScripts(c).length <= 1"
+              class="my-3 py-2 px-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60 flex items-start gap-2 min-h-[46px] max-h-20 overflow-y-auto custom-scrollbar"
             >
-              <input
-                *ngIf="getScripts(c).length > 1"
-                [type]="c.multiSelect ? 'checkbox' : 'radio'"
-                [name]="'cmd_' + c.id"
-                [value]="idx"
-                [checked]="isSelected(c.id, idx)"
-                (change)="onToggleVariant(c, idx, $event)"
-                (click)="$event.stopPropagation()"
-                class="mt-1 sm:mt-0.5 shrink-0 accent-indigo-500 cursor-pointer"
-              />
-              <div class="w-full min-w-0">
-                <code class="text-[10px] text-slate-300 code-font line-clamp-2 w-full select-text" [title]="scr">{{
-                  scr
-                }}</code>
+              <span class="text-[11px] font-mono text-slate-500 select-none leading-relaxed shrink-0">$</span>
+              <div class="min-w-0 flex-1">
+                <code class="text-[11px] text-slate-300 code-font line-clamp-2 block leading-relaxed select-text" [title]="getScripts(c)[0]">
+                  {{ getScripts(c)[0] }}
+                </code>
                 <span
                   *ngIf="c.isBat && c.batPath"
-                  class="text-[9px] text-slate-500 font-mono block truncate opacity-70 mt-0.5"
+                  class="text-[9px] text-slate-500 font-mono block truncate opacity-75 mt-1"
                   [title]="c.batPath"
                 >
                   📁 {{ c.batPath }}
                 </span>
               </div>
-            </label>
+            </div>
+
+            <!-- Caso 2: Múltiples Variantes (Selección con destacados limpios) -->
+            <div
+              *ngIf="getScripts(c).length > 1"
+              class="my-3 p-1 rounded-xl bg-slate-950/60 border border-slate-800/60 flex flex-col gap-1 max-h-24 overflow-y-auto custom-scrollbar"
+            >
+              <label
+                *ngFor="let scr of getScripts(c); let idx = index; trackBy: trackByScriptIndex"
+                class="flex items-start gap-2 p-1.5 rounded-lg transition-colors cursor-pointer"
+                [ngClass]="isSelected(c.id, idx) ? 'bg-indigo-500/10 border border-indigo-500/30' : 'hover:bg-slate-800/40 border border-transparent'"
+              >
+                <input
+                  [type]="c.multiSelect ? 'checkbox' : 'radio'"
+                  [name]="'cmd_' + c.id"
+                  [value]="idx"
+                  [checked]="isSelected(c.id, idx)"
+                  (change)="onToggleVariant(c, idx, $event)"
+                  (click)="$event.stopPropagation()"
+                  class="mt-0.5 shrink-0 accent-indigo-500 cursor-pointer"
+                />
+                <div class="w-full min-w-0">
+                  <code class="text-[10px] text-slate-300 code-font line-clamp-1 block select-text" [title]="scr">
+                    {{ scr }}
+                  </code>
+                  <span
+                    *ngIf="c.isBat && c.batPath"
+                    class="text-[9px] text-slate-500 font-mono block truncate opacity-70 mt-0.5"
+                    [title]="c.batPath"
+                  >
+                    📁 {{ c.batPath }}
+                  </span>
+                </div>
+              </label>
+            </div>
           </div>
 
+          <!-- Pie: Botón de Ejecutar -->
           <button
             (click)="onRun(c)"
-            class="w-full py-2.5 rounded-xl text-[10px] font-black tracking-widest uppercase flex items-center justify-center gap-2 transition-all active:scale-95"
+            class="w-full py-2 px-3 rounded-xl text-[11px] font-bold tracking-wide flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
             [ngClass]="getBtnColorClass(c.color)"
           >
-            <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i> Ejecutar
+            <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+            <span>Ejecutar</span>
           </button>
         </div>
 
-        <!-- VISTA DE LISTA -->
+        <!-- VISTA DE LISTA (LIST) -->
         <div
           *ngIf="viewMode === 'list'"
-          class="bg-[#0f172a] border border-slate-800 hover:border-indigo-500/50 transition-all p-3 rounded-xl flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4 group relative overflow-hidden shadow-sm animate-fade"
-          [ngClass]="c.isBat ? 'hover:border-emerald-500/50' : ''"
+          class="cmd-card bg-[#0b1329]/80 backdrop-blur-sm border border-slate-800/80 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center gap-3 group relative overflow-hidden shadow-sm animate-fade"
+          [ngClass]="getCardHoverClass(c)"
         >
-          <div class="flex items-center sm:min-w-[180px] sm:max-w-[240px]">
-            <div class="w-2 h-2 rounded-full shrink-0" [ngClass]="getDotColorClass(c.color)"></div>
+          <!-- Título y Badges -->
+          <div class="flex items-center gap-2 sm:min-w-[200px] sm:max-w-[260px]">
+            <span class="w-1.5 h-4.5 rounded-full shrink-0" [ngClass]="getAccentBarClass(c)"></span>
             <h4
-              class="font-bold text-white text-sm ml-2 truncate group-hover:text-indigo-400 transition-colors"
+              class="font-semibold text-slate-100 text-sm truncate group-hover:text-white transition-colors"
               [title]="c.label"
             >
               {{ c.label }}
             </h4>
             <span
               *ngIf="c.isBat"
-              class="ml-2 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 shrink-0 select-none"
+              class="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 shrink-0 select-none"
               title="Archivo ejecutable .bat"
             >
-              <i data-lucide="file-code" class="w-2.5 h-2.5"></i> .BAT
+              <i data-lucide="terminal" class="w-2.5 h-2.5"></i> .BAT
             </span>
             <i
               *ngIf="c.background"
               data-lucide="monitor-off"
-              class="w-3.5 h-3.5 text-slate-500 ml-2 shrink-0"
+              class="w-3.5 h-3.5 text-slate-400 shrink-0"
               title="Segundo Plano"
             ></i>
+            <!-- Tags en vista lista -->
+            <div *ngIf="c.tags && c.tags.length > 0" class="hidden md:flex items-center gap-1">
+              <span
+                *ngFor="let t of c.tags"
+                class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-800/90 text-indigo-300/80 border border-indigo-500/20"
+              >
+                #{{ t }}
+              </span>
+            </div>
           </div>
 
-          <div
-            class="flex-1 bg-[#020617] px-3 py-2 rounded-lg border border-white/5 flex flex-col gap-1 overflow-y-auto custom-scrollbar max-h-24 sm:max-h-20 min-h-[40px] justify-center w-full sm:w-auto"
-          >
-            <label
-              *ngFor="let scr of getScripts(c); let idx = index; trackBy: trackByScriptIndex"
-              class="flex items-start gap-2 cursor-pointer group/radio p-1 rounded-lg transition-colors"
-              [ngClass]="getScripts(c).length > 1 ? 'hover:bg-white/5' : ''"
+          <!-- Snippet o Variantes -->
+          <div class="flex-1 min-w-0">
+            <!-- Caso Script Único en Lista -->
+            <div
+              *ngIf="getScripts(c).length <= 1"
+              class="bg-slate-950/60 px-3 py-1.5 rounded-lg border border-slate-800/60 flex items-center gap-2"
             >
-              <input
-                *ngIf="getScripts(c).length > 1"
-                [type]="c.multiSelect ? 'checkbox' : 'radio'"
-                [name]="'cmd_list_' + c.id"
-                [value]="idx"
-                [checked]="isSelected(c.id, idx)"
-                (change)="onToggleVariant(c, idx, $event)"
-                (click)="$event.stopPropagation()"
-                class="mt-1 sm:mt-0.5 shrink-0 accent-indigo-500 cursor-pointer"
-              />
-              <div class="w-full min-w-0">
-                <code class="text-[10px] text-slate-300 code-font line-clamp-2 w-full select-text" [title]="scr">{{
-                  scr
-                }}</code>
-                <span
-                  *ngIf="c.isBat && c.batPath"
-                  class="text-[9px] text-slate-500 font-mono block truncate opacity-70 mt-0.5"
-                  [title]="c.batPath"
-                >
-                  📁 {{ c.batPath }}
-                </span>
-              </div>
-            </label>
+              <span class="text-[10px] font-mono text-slate-500 select-none shrink-0">$</span>
+              <code class="text-[10px] text-slate-300 code-font truncate block flex-1 select-text" [title]="getScripts(c)[0]">
+                {{ getScripts(c)[0] }}
+              </code>
+              <span
+                *ngIf="c.isBat && c.batPath"
+                class="text-[9px] text-slate-500 font-mono truncate max-w-[150px] opacity-75 shrink-0"
+                [title]="c.batPath"
+              >
+                📁 {{ c.batPath }}
+              </span>
+            </div>
+
+            <!-- Caso Múltiples Variantes en Lista -->
+            <div
+              *ngIf="getScripts(c).length > 1"
+              class="bg-slate-950/60 p-1 rounded-lg border border-slate-800/60 flex flex-col gap-1 max-h-20 overflow-y-auto custom-scrollbar"
+            >
+              <label
+                *ngFor="let scr of getScripts(c); let idx = index; trackBy: trackByScriptIndex"
+                class="flex items-center gap-2 px-2 py-1 rounded transition-colors cursor-pointer"
+                [ngClass]="isSelected(c.id, idx) ? 'bg-indigo-500/10' : 'hover:bg-slate-800/40'"
+              >
+                <input
+                  [type]="c.multiSelect ? 'checkbox' : 'radio'"
+                  [name]="'cmd_list_' + c.id"
+                  [value]="idx"
+                  [checked]="isSelected(c.id, idx)"
+                  (change)="onToggleVariant(c, idx, $event)"
+                  (click)="$event.stopPropagation()"
+                  class="shrink-0 accent-indigo-500 cursor-pointer"
+                />
+                <code class="text-[10px] text-slate-300 code-font truncate block flex-1 select-text" [title]="scr">
+                  {{ scr }}
+                </code>
+              </label>
+            </div>
           </div>
 
-          <div class="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-            <div class="flex gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-all">
-              <!-- Botón Exportar .bat en lista -->
+          <!-- Acciones y Botón Ejecutar -->
+          <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+            <div class="flex items-center gap-0.5 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 *ngIf="c.isBat"
                 (click)="onExportBat($event, c)"
-                class="text-slate-500 hover:text-emerald-400 transition-all p-2 sm:p-1.5 hover:bg-emerald-500/10 rounded-lg"
-                title="Exportar / Descargar archivo .bat"
+                class="text-slate-400 hover:text-emerald-400 transition-colors p-1.5 hover:bg-emerald-500/10 rounded-lg"
+                title="Exportar archivo .bat"
               >
-                <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
               </button>
 
               <button
                 (click)="onEditCmd(c)"
-                class="text-slate-500 hover:text-indigo-400 transition-all p-2 sm:p-1.5 hover:bg-indigo-500/10 rounded-lg"
-                [title]="c.isBat ? 'Editar Script .bat' : 'Editar'"
+                class="text-slate-400 hover:text-indigo-400 transition-colors p-1.5 hover:bg-indigo-500/10 rounded-lg"
+                [title]="c.isBat ? 'Editar Script .bat' : 'Editar comando'"
               >
-                <i [attr.data-lucide]="c.isBat ? 'file-code' : 'pencil'" class="w-4 h-4" [ngClass]="c.isBat ? 'text-emerald-400' : ''"></i>
+                <i [attr.data-lucide]="c.isBat ? 'file-code' : 'pencil'" class="w-3.5 h-3.5"></i>
               </button>
+
               <button
                 (click)="deleteCommand.emit(c.id)"
-                class="text-slate-500 hover:text-red-400 transition-all p-2 sm:p-1.5 hover:bg-red-500/10 rounded-lg"
-                title="Eliminar"
+                class="text-slate-400 hover:text-rose-400 transition-colors p-1.5 hover:bg-rose-500/10 rounded-lg"
+                title="Eliminar comando"
               >
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
               </button>
             </div>
+
             <button
               (click)="onRun(c)"
-              class="px-5 py-2.5 md:py-2 rounded-xl text-[10px] font-black tracking-widest uppercase flex items-center justify-center gap-2 transition-all active:scale-95"
+              class="px-4 py-1.5 rounded-xl text-[10px] font-bold tracking-wide flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
               [ngClass]="getBtnColorClass(c.color)"
             >
-              <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i> Ejecutar
+              <i data-lucide="play" class="w-3 h-3 fill-current"></i>
+              <span>Ejecutar</span>
             </button>
           </div>
         </div>

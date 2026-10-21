@@ -2,6 +2,7 @@ export interface CmdProject {
   id: string;
   name: string;
   path: string;
+  tags?: string[];
 }
 
 export interface CmdScriptVariant {
@@ -23,6 +24,7 @@ export interface CmdCommandItem {
   batFileName?: string;
   batPath?: string;
   batContent?: string;
+  tags?: string[];
 }
 
 export interface CmdCategoryItem {
