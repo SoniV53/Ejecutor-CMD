@@ -7,6 +7,7 @@ const dataController = require('./controllers/dataController');
 const dataEmuladorController = require('./controllers/dataEmuladorController');
 const executeController = require('./controllers/executeController');
 const apiDocController = require('./controllers/apiDocController');
+const batController = require('./controllers/batController');
 const routing = require('./navegacion');
 
 // --- TRUCO PARA MODO PORTABLE (.EXE) ---
@@ -122,6 +123,26 @@ const server = http.createServer((req, res) => {
     if (req.url.startsWith('/api/doc/analyze-git')) return apiDocController.analyzeGitRepository(req, res);
     if (req.url.startsWith('/api/doc/browse-dirs')) return apiDocController.browseDirectories(req, res);
     if (req.url.startsWith('/api/doc/branch-commits')) return apiDocController.getBranchCommits(req, res);
+
+    // BAT SCRIPT MANAGER (Almacenados en carpeta "bat" de la app, igual que "json")
+    if (req.method === 'POST' && req.url === '/api/bat/save') return batController.saveBat(req, res);
+    if (req.method === 'GET' && req.url.startsWith('/api/bat/read')) return batController.readBat(req, res);
+    if (req.method === 'GET' && req.url.startsWith('/api/bat/list')) return batController.listBats(req, res);
+    if (req.method === 'GET' && req.url.startsWith('/api/bat/export')) return batController.exportBat(req, res);
+    if (req.method === 'GET' && req.url === '/api/bat/info') return batController.getBatInfo(req, res);
+    if (req.method === 'POST' && req.url === '/api/bat/delete') return batController.deleteBat(req, res);
+
+    // DIÁLOGO DEL SISTEMA PARA SELECCIONAR CARPETA NATIVA
+    if (req.method === 'POST' && req.url === '/api/system/select-directory') {
+        const { exec } = require('child_process');
+        const psCmd = 'powershell -NoProfile -Command "[System.Reflection.Assembly]::LoadWithPartialName(\'System.windows.forms\') | Out-Null; $f = New-Object System.Windows.Forms.FolderBrowserDialog; $f.Description = \'Seleccionar Carpeta del Proyecto\'; $f.ShowNewFolderButton = $true; if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $f.SelectedPath }"';
+        exec(psCmd, { windowsHide: false }, (err, stdout) => {
+            const selected = (stdout || '').trim();
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ selectedPath: selected || null }));
+        });
+        return;
+    }
 
     // 404 para cualquier otra ruta que no exista
     res.writeHead(404);

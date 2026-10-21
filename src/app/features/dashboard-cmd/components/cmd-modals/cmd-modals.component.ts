@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CmdCommandItem, CmdProject, CmdScriptVariant } from '../../models/cmd.models';
 import { LucideIconService } from '../../../../core/services/lucide-icon.service';
+import { ElectronService } from '../../../../core/services/electron.service';
+import { ConsoleFlowApiService } from '../../../../core/services/console-flow-api.service';
 
 @Component({
   selector: 'app-cmd-modals',
@@ -60,7 +62,11 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
 
   readonly colors = ['indigo', 'emerald', 'rose', 'amber'];
 
-  constructor(private lucide: LucideIconService) {}
+  constructor(
+    private lucide: LucideIconService,
+    private electronService: ElectronService,
+    private api: ConsoleFlowApiService
+  ) {}
 
   ngAfterViewInit(): void {
     this.lucide.refresh();
@@ -110,13 +116,64 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
     this.lucide.refresh();
   }
 
+  async onBrowseProjectDir(fallbackInput?: HTMLInputElement): Promise<void> {
+    // 1. Intentar con Electron si está disponible
+    if (this.electronService.isElectron) {
+      const selected = await this.electronService.selectDirectory(this.inProjPath);
+      if (selected) {
+        this.inProjPath = selected;
+        if (!this.inProjName) {
+          const parts = selected.replace(/\\/g, '/').split('/').filter(Boolean);
+          this.inProjName = parts[parts.length - 1] || 'Proyecto';
+        }
+        return;
+      }
+    }
+
+    // 2. Si no es Electron o falló, intentar con el diálogo de Windows del backend
+    try {
+      const res = await this.api.selectDirectoryDialog();
+      if (res && res.selectedPath) {
+        this.inProjPath = res.selectedPath;
+        if (!this.inProjName) {
+          const parts = res.selectedPath.replace(/\\/g, '/').split('/').filter(Boolean);
+          this.inProjName = parts[parts.length - 1] || 'Proyecto';
+        }
+        return;
+      }
+    } catch {}
+
+    // 3. Fallback: input HTML webkitdirectory
+    if (fallbackInput) {
+      fallbackInput.click();
+    }
+  }
+
   handleDirSelect(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
       const file = input.files[0] as any;
+      let folderPath = '';
       const folderName = (file.webkitRelativePath || '').split('/')[0] || file.name;
-      this.inProjName = folderName;
-      this.inProjPath = `C:\\...\\${folderName}`;
+
+      if (file.path) {
+        const normalized = file.path.replace(/\\/g, '/');
+        const rel = (file.webkitRelativePath || '').replace(/\\/g, '/');
+        if (rel && normalized.endsWith(rel)) {
+          const baseIndex = normalized.length - rel.length;
+          folderPath = (normalized.substring(0, baseIndex) + folderName).replace(/\//g, '\\');
+        } else {
+          const lastSlash = normalized.lastIndexOf('/');
+          folderPath = (lastSlash !== -1 ? normalized.substring(0, lastSlash) : normalized).replace(/\//g, '\\');
+        }
+      }
+
+      if (folderPath) {
+        this.inProjPath = folderPath;
+      }
+      if (!this.inProjName && folderName) {
+        this.inProjName = folderName;
+      }
     }
   }
 

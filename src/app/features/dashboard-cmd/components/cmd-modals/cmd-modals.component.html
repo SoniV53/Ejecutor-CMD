@@ -40,8 +40,9 @@
           />
           <button
             type="button"
-            (click)="dirPicker.click()"
-            class="bg-slate-800 hover:bg-slate-700 px-4 rounded-xl border border-slate-700"
+            (click)="onBrowseProjectDir(dirPicker)"
+            class="bg-slate-800 hover:bg-slate-700 px-4 rounded-xl border border-slate-700 cursor-pointer active:scale-95 transition-all"
+            title="Buscar Carpeta"
           >
             <i data-lucide="search" class="w-4 h-4 text-indigo-400"></i>
           </button>

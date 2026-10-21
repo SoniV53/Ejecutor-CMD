@@ -21,6 +21,9 @@ export class CmdHeaderComponent implements OnChanges, AfterViewInit {
   @Output() toggleSidebar = new EventEmitter<void>();
   @Output() openNewCategory = new EventEmitter<void>();
   @Output() openNewCommand = new EventEmitter<void>();
+  @Output() openNewBat = new EventEmitter<void>();
+  @Output() importBatFiles = new EventEmitter<FileList>();
+  @Output() exportAllBats = new EventEmitter<void>();
   @Output() deselectProject = new EventEmitter<void>();
 
   constructor(private lucide: LucideIconService) {}
@@ -35,5 +38,12 @@ export class CmdHeaderComponent implements OnChanges, AfterViewInit {
 
   onSearchInput(value: string): void {
     this.searchTermChange.emit(value);
+  }
+
+  onImportChange(event: any): void {
+    if (event.target.files && event.target.files.length > 0) {
+      this.importBatFiles.emit(event.target.files);
+      event.target.value = '';
+    }
   }
 }

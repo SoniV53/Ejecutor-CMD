@@ -39,7 +39,8 @@
       </button>
     </div>
 
-    <div class="flex items-center gap-2 shrink-0">
+    <!-- Acciones de Comandos y Scripts -->
+    <div class="flex items-center gap-2 shrink-0 flex-wrap">
       <button
         (click)="openNewCategory.emit()"
         class="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 md:px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all active:scale-95 whitespace-nowrap shrink-0"
@@ -47,6 +48,7 @@
         <i data-lucide="folder-plus" class="w-4 h-4 shrink-0"></i>
         <span class="hidden sm:inline">Categoría</span>
       </button>
+
       <button
         (click)="openNewCommand.emit()"
         class="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 md:px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold shadow-xl shadow-indigo-600/30 transition-all active:scale-95 whitespace-nowrap shrink-0"
@@ -54,6 +56,47 @@
         <i data-lucide="plus" class="w-4 h-4 shrink-0"></i>
         <span class="hidden sm:inline">Nuevo Comando</span>
       </button>
+
+      <!-- Grupo de Botones .BAT (Crear, Importar, Exportar) -->
+      <div class="flex items-center gap-1.5 bg-emerald-950/40 border border-emerald-500/30 p-1 rounded-2xl shrink-0">
+        <!-- Crear .bat -->
+        <button
+          (click)="openNewBat.emit()"
+          class="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-xs md:text-sm font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95 whitespace-nowrap"
+          title="Crear un script ejecutable .bat guardado en la carpeta de la app"
+        >
+          <i data-lucide="file-code" class="w-4 h-4 shrink-0"></i>
+          <span>Crear .bat</span>
+        </button>
+
+        <!-- Importar .bat -->
+        <input
+          #headerImportInput
+          type="file"
+          accept=".bat,.cmd"
+          multiple
+          class="hidden"
+          (change)="onImportChange($event)"
+        />
+        <button
+          (click)="headerImportInput.click()"
+          class="flex items-center justify-center gap-1.5 bg-emerald-900/60 hover:bg-emerald-800/80 text-emerald-300 px-2.5 md:px-3 py-2 rounded-xl text-xs font-bold border border-emerald-500/20 transition-all active:scale-95 whitespace-nowrap"
+          title="Importar archivos .bat desde tu computadora hacia la app"
+        >
+          <i data-lucide="upload" class="w-3.5 h-3.5 shrink-0"></i>
+          <span class="hidden md:inline">Importar</span>
+        </button>
+
+        <!-- Exportar todos los .bat -->
+        <button
+          (click)="exportAllBats.emit()"
+          class="flex items-center justify-center gap-1.5 bg-emerald-900/60 hover:bg-emerald-800/80 text-emerald-300 px-2.5 md:px-3 py-2 rounded-xl text-xs font-bold border border-emerald-500/20 transition-all active:scale-95 whitespace-nowrap"
+          title="Exportar / Descargar todos los scripts .bat de la app"
+        >
+          <i data-lucide="download" class="w-3.5 h-3.5 shrink-0"></i>
+          <span class="hidden md:inline">Exportar</span>
+        </button>
+      </div>
     </div>
   </div>
 </header>

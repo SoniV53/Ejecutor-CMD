@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, Tray, Menu, ipcMain, webContents } = require('electron');
+const { app, BrowserWindow, session, Tray, Menu, ipcMain, dialog, webContents } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -149,6 +149,22 @@ app.on('ready', () => {
   });
 
 
+});
+
+ipcMain.handle('select-directory', async (_event, defaultPath) => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Seleccionar Carpeta del Proyecto',
+      properties: ['openDirectory'],
+      defaultPath: defaultPath && fs.existsSync(defaultPath) ? defaultPath : undefined
+    });
+    if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
+      return result.filePaths[0];
+    }
+  } catch (err) {
+    console.error('Error en select-directory dialog:', err);
+  }
+  return null;
 });
 
 ipcMain.on('set-run-in-background', (_event, enabled) => {

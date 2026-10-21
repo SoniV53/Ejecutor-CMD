@@ -9,6 +9,7 @@ import { CmdHeaderComponent } from './components/cmd-header/cmd-header.component
 import { CmdGridComponent } from './components/cmd-grid/cmd-grid.component';
 import { CmdConsoleDrawerComponent } from './components/cmd-console-drawer/cmd-console-drawer.component';
 import { CmdModalsComponent } from './components/cmd-modals/cmd-modals.component';
+import { CmdBatModalComponent, SaveBatPayload } from './components/cmd-bat-modal/cmd-bat-modal.component';
 
 @Component({
   selector: 'app-dashboard-cmd',
@@ -19,7 +20,8 @@ import { CmdModalsComponent } from './components/cmd-modals/cmd-modals.component
     CmdHeaderComponent,
     CmdGridComponent,
     CmdConsoleDrawerComponent,
-    CmdModalsComponent
+    CmdModalsComponent,
+    CmdBatModalComponent
   ],
   templateUrl: './dashboard-cmd.component.html',
   styleUrls: ['./dashboard-cmd.component.css']
@@ -54,6 +56,10 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
 
   showCmdModal = false;
   editingCmdId: string | null = null;
+
+  // Bat Modal state
+  showBatModal = false;
+  editingBatCmd: CmdCommandItem | null = null;
 
   private pollInterval: any;
 
@@ -429,6 +435,175 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  // Bat Modal Actions
+  openNewBatModal(): void {
+    this.editingBatCmd = null;
+    this.showBatModal = true;
+  }
+
+  async editBatCommand(cmd: CmdCommandItem): Promise<void> {
+    // Si el comando tiene batPath y batFileName, intentar cargar el contenido más reciente desde disco
+    if (cmd.batPath && cmd.batFileName) {
+      try {
+        const full = `${cmd.batPath}\\${cmd.batFileName}`.replace(/\\\\/g, '\\');
+        const res = await this.api.readBatFile(full);
+        if (res && res.content !== undefined) {
+          cmd = { ...cmd, batContent: res.content };
+        }
+      } catch {
+        // Usar batContent guardado en el modelo
+      }
+    }
+    this.editingBatCmd = cmd;
+    this.showBatModal = true;
+  }
+
+  async onSaveBat(payload: SaveBatPayload): Promise<void> {
+    try {
+      // 1. Guardar físicamente el archivo .bat en la carpeta "bat" de la app
+      const batRes = await this.api.saveBatFile(payload.dirPath, payload.fileName, payload.content);
+
+      if (!this.explicitCategories.includes(payload.category)) {
+        this.explicitCategories = [...this.explicitCategories, payload.category];
+      }
+
+      const scriptCommand = batRes.scriptCommand || `call "${batRes.fullPath}"`;
+      const cmdId = payload.id || Date.now().toString();
+
+      if (payload.id) {
+        this.commands = this.commands.map(c =>
+          c.id === payload.id
+            ? {
+                ...c,
+                label: payload.label,
+                category: payload.category,
+                color: payload.color,
+                background: payload.background,
+                projectId: payload.projectId,
+                isBat: true,
+                batFileName: batRes.fileName,
+                batPath: batRes.dirPath,
+                batContent: payload.content,
+                script: scriptCommand,
+                scripts: [scriptCommand]
+              }
+            : c
+        );
+      } else {
+        const newCmd: CmdCommandItem = {
+          id: cmdId,
+          label: payload.label,
+          category: payload.category,
+          color: payload.color,
+          background: payload.background,
+          projectId: payload.projectId,
+          isBat: true,
+          batFileName: batRes.fileName,
+          batPath: batRes.dirPath,
+          batContent: payload.content,
+          script: scriptCommand,
+          scripts: [scriptCommand],
+          multiSelect: false
+        };
+        this.commands = [...this.commands, newCmd];
+      }
+
+      const ok = await this.syncData();
+      if (ok) {
+        this.showBatModal = false;
+        this.editingBatCmd = null;
+      }
+
+      // Si se seleccionó "Guardar y Ejecutar", iniciar ejecución inmediatamente en la consola
+      if (payload.runImmediately) {
+        const execCwd = this.activeProject
+          ? this.activeProject.path
+          : (payload.projectId ? this.projects.find(p => p.id === payload.projectId)?.path || 'C:\\' : 'C:\\');
+
+        await this.executeInInternalCmd(
+          scriptCommand,
+          execCwd,
+          payload.background,
+          payload.label
+        );
+      }
+    } catch (err: any) {
+      alert('Error al guardar archivo .bat: ' + (err.message || err));
+    }
+  }
+
+  async handleImportBatFiles(files: FileList): Promise<void> {
+    if (!files || files.length === 0) return;
+
+    let importedCount = 0;
+    const activeProj = this.activeProject;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const content = await file.text();
+        const res = await this.api.saveBatFile('', file.name, content);
+
+        const cleanLabel = file.name.replace(/\.(bat|cmd)$/i, '');
+        const scriptCommand = res.scriptCommand || `call "${res.fullPath}"`;
+        const cmdId = `bat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+        const newCmd: CmdCommandItem = {
+          id: cmdId,
+          label: cleanLabel,
+          category: 'General',
+          color: 'emerald',
+          background: false,
+          projectId: activeProj ? activeProj.id : null,
+          isBat: true,
+          batFileName: res.fileName,
+          batPath: res.dirPath,
+          batContent: content,
+          script: scriptCommand,
+          scripts: [scriptCommand],
+          multiSelect: false
+        };
+
+        this.commands = [...this.commands, newCmd];
+        importedCount++;
+      } catch (err: any) {
+        console.error('Error importando archivo .bat:', file.name, err);
+      }
+    }
+
+    if (importedCount > 0) {
+      if (!this.explicitCategories.includes('General')) {
+        this.explicitCategories = [...this.explicitCategories, 'General'];
+      }
+      await this.syncData();
+      alert(`Se importó con éxito ${importedCount} archivo(s) .bat a la carpeta "bat" de la app.`);
+    }
+  }
+
+  async exportSingleBat(cmd: CmdCommandItem): Promise<void> {
+    if (!cmd.isBat) return;
+    let content = cmd.batContent || '';
+    if (!content && cmd.batPath && cmd.batFileName) {
+      try {
+        const full = `${cmd.batPath}\\${cmd.batFileName}`.replace(/\\\\/g, '\\');
+        const res = await this.api.readBatFile(full);
+        content = res.content || '';
+      } catch {}
+    }
+    this.api.downloadBatFile(cmd.batFileName || cmd.label, content);
+  }
+
+  exportAllBats(): void {
+    const bats = this.commands.filter(c => c.isBat);
+    if (bats.length === 0) {
+      alert('No hay comandos .bat registrados para exportar.');
+      return;
+    }
+    bats.forEach(b => {
+      this.exportSingleBat(b);
+    });
+  }
+
   async deleteCommand(id: string): Promise<void> {
     if (confirm('¿Borrar permanentemente?')) {
       this.commands = this.commands.filter(c => c.id !== id);
@@ -440,8 +615,16 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
     const cmd = this.commands.find(c => c.id === event.id);
     if (!cmd) return;
 
-    const p = this.activeProject;
-    const path = p ? p.path : 'C:\\';
+    // El directorio de trabajo para la ejecución es el proyecto activo o el asignado
+    let path = 'C:\\';
+    if (this.activeProject) {
+      path = this.activeProject.path;
+    } else if (cmd.projectId) {
+      const p = this.projects.find(proj => proj.id === cmd.projectId);
+      if (p) path = p.path;
+    } else if (cmd.batPath && cmd.batPath.trim()) {
+      path = cmd.batPath.trim();
+    }
 
     if (event.selectedScripts.length === 0) {
       alert('Selecciona al menos un script para ejecutar.');
@@ -619,4 +802,3 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 }
-

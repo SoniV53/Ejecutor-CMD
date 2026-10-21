@@ -19,6 +19,10 @@ export interface CmdCommandItem {
   multiSelect?: boolean;
   script?: string;
   scripts?: (string | CmdScriptVariant)[];
+  isBat?: boolean;
+  batFileName?: string;
+  batPath?: string;
+  batContent?: string;
 }
 
 export interface CmdCategoryItem {
@@ -54,4 +58,3 @@ export interface CmdConsoleLog {
   running: boolean;
   exitCode?: number | null;
 }
-

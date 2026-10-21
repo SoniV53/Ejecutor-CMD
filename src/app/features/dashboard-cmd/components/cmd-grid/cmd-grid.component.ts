@@ -26,6 +26,8 @@ export class CmdGridComponent implements OnChanges, AfterViewInit {
   @Output() editCategory = new EventEmitter<string>();
   @Output() deleteCategory = new EventEmitter<string>();
   @Output() editCommand = new EventEmitter<string>();
+  @Output() editBatCommand = new EventEmitter<CmdCommandItem>();
+  @Output() exportBatCommand = new EventEmitter<CmdCommandItem>();
   @Output() deleteCommand = new EventEmitter<string>();
   @Output() runCommand = new EventEmitter<{ id: string; selectedScripts: string[] }>();
 
@@ -88,9 +90,11 @@ export class CmdGridComponent implements OnChanges, AfterViewInit {
       ? this.commands
       : this.commands.filter(c => {
           const scriptsStr = this.getScripts(c).join(' ').toLowerCase();
+          const batInfo = (c.batFileName || '') + ' ' + (c.batPath || '');
           return (
             c.label.toLowerCase().includes(search) ||
             scriptsStr.includes(search) ||
+            batInfo.toLowerCase().includes(search) ||
             (c.category && c.category.toLowerCase().includes(search))
           );
         });
@@ -141,6 +145,19 @@ export class CmdGridComponent implements OnChanges, AfterViewInit {
     }
   }
 
+  onEditCmd(cmd: CmdCommandItem): void {
+    if (cmd.isBat) {
+      this.editBatCommand.emit(cmd);
+    } else {
+      this.editCommand.emit(cmd.id);
+    }
+  }
+
+  onExportBat(e: Event, cmd: CmdCommandItem): void {
+    e.stopPropagation();
+    this.exportBatCommand.emit(cmd);
+  }
+
   onRun(cmd: CmdCommandItem): void {
     const scrs = this.getScripts(cmd);
     let scriptsToRun: string[] = [];
@@ -151,33 +168,45 @@ export class CmdGridComponent implements OnChanges, AfterViewInit {
           scriptsToRun.push(s);
         }
       });
-      if (!cmd.multiSelect && scriptsToRun.length > 1) {
-        scriptsToRun = [scriptsToRun[0]];
-      }
-    } else {
+    } else if (scrs.length === 1) {
       scriptsToRun = [scrs[0]];
     }
-    this.runCommand.emit({ id: cmd.id, selectedScripts: scriptsToRun });
+
+    if (scriptsToRun.length === 0) {
+      scriptsToRun = [scrs[0] || ''];
+    }
+
+    this.runCommand.emit({
+      id: cmd.id,
+      selectedScripts: scriptsToRun
+    });
   }
 
-  onEditCat(event: Event, cat: string): void {
-    event.stopPropagation();
+  getDotColorClass(color?: string): string {
+    switch (color) {
+      case 'emerald':
+        return 'bg-emerald-500 shadow-sm shadow-emerald-500/50';
+      case 'rose':
+        return 'bg-rose-500 shadow-sm shadow-rose-500/50';
+      case 'amber':
+        return 'bg-amber-500 shadow-sm shadow-amber-500/50';
+      case 'indigo':
+      default:
+        return 'bg-indigo-500 shadow-sm shadow-indigo-500/50';
+    }
+  }
+
+  getBtnColorClass(color?: string): string {
+    return this.btnColorMap[color || 'indigo'] || this.btnColorMap['indigo'];
+  }
+
+  onEditCat(e: Event, cat: string): void {
+    e.stopPropagation();
     this.editCategory.emit(cat);
   }
 
-  onDeleteCat(event: Event, cat: string): void {
-    event.stopPropagation();
+  onDeleteCat(e: Event, cat: string): void {
+    e.stopPropagation();
     this.deleteCategory.emit(cat);
-  }
-
-  getDotColorClass(color: string): string {
-    if (color === 'emerald') return 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]';
-    if (color === 'rose') return 'bg-rose-500';
-    if (color === 'amber') return 'bg-amber-500';
-    return 'bg-indigo-500';
-  }
-
-  getBtnColorClass(color: string): string {
-    return this.btnColorMap[color] || this.btnColorMap['indigo'];
   }
 }

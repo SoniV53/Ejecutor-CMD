@@ -22,6 +22,9 @@
       (toggleSidebar)="toggleSidebar()"
       (openNewCategory)="openNewCategoryModal()"
       (openNewCommand)="openNewCommandModal()"
+      (openNewBat)="openNewBatModal()"
+      (importBatFiles)="handleImportBatFiles($event)"
+      (exportAllBats)="exportAllBats()"
       (deselectProject)="deselectProject()"
     ></app-cmd-header>
 
@@ -36,6 +39,8 @@
         (editCategory)="editCategory($event)"
         (deleteCategory)="deleteCategory($event)"
         (editCommand)="editCommand($event)"
+        (editBatCommand)="editBatCommand($event)"
+        (exportBatCommand)="exportSingleBat($event)"
         (deleteCommand)="deleteCommand($event)"
         (runCommand)="runCommand($event)"
       ></app-cmd-grid>
@@ -62,6 +67,7 @@
     ></app-cmd-console-drawer>
   </main>
 
+  <!-- Modales clásicos (Proyecto, Categoría, Comando Estándar) -->
   <app-cmd-modals
     [showProjModal]="showProjModal"
     [editingProject]="editingProject"
@@ -77,4 +83,15 @@
     (closeCmdModal)="showCmdModal = false; editingCmdId = null"
     (saveCommand)="onSaveCommand($event)"
   ></app-cmd-modals>
+
+  <!-- Modal dedicado para Archivos .BAT Ejecutables -->
+  <app-cmd-bat-modal
+    [showBatModal]="showBatModal"
+    [editingCommand]="editingBatCmd"
+    [projects]="projects"
+    [activeProject]="activeProject"
+    [allCategories]="allCategories"
+    (closeBatModal)="showBatModal = false; editingBatCmd = null"
+    (saveBat)="onSaveBat($event)"
+  ></app-cmd-bat-modal>
 </div>

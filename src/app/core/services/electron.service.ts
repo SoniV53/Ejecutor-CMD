@@ -50,5 +50,23 @@ export class ElectronService {
       // Ignorar si no está en Electron
     }
   }
+
+  async selectDirectory(defaultPath?: string): Promise<string | null> {
+    try {
+      if (this.ipcRenderer) {
+        return await this.ipcRenderer.invoke('select-directory', defaultPath);
+      }
+      const win = window as any;
+      if (win.require) {
+        const electron = win.require('electron');
+        if (electron && electron.ipcRenderer) {
+          return await electron.ipcRenderer.invoke('select-directory', defaultPath);
+        }
+      }
+    } catch (e) {
+      console.warn('Error en Electron selectDirectory:', e);
+    }
+    return null;
+  }
 }
 
