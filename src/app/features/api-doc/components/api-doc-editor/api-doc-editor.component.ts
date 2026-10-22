@@ -17,6 +17,9 @@ import { LucideIconService } from '../../../../core/services/lucide-icon.service
 import { NoteTab } from '../../models/api-doc.models';
 import * as beautify from 'js-beautify';
 import * as Prism from 'prismjs';
+import 'prismjs/components/prism-clike';
+import 'prismjs/components/prism-java';
+import 'prismjs/components/prism-kotlin';
 import 'prismjs/components/prism-json';
 import 'prismjs/components/prism-javascript';
 import 'prismjs/components/prism-typescript';
@@ -405,6 +408,34 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
     }
   }
 
+  formatJavaCode(code: string): string {
+    try {
+      return beautify.js(code, {
+        indent_size: 4,
+        preserve_newlines: true,
+        max_preserve_newlines: 2,
+        brace_style: 'collapse',
+        space_before_conditional: true
+      });
+    } catch {
+      return code;
+    }
+  }
+
+  formatKotlinCode(code: string): string {
+    try {
+      return beautify.js(code, {
+        indent_size: 4,
+        preserve_newlines: true,
+        max_preserve_newlines: 2,
+        brace_style: 'collapse',
+        space_before_conditional: true
+      });
+    } catch {
+      return code;
+    }
+  }
+
   formatCssCode(css: string): string {
     try {
       return beautify.css(css, {
@@ -424,12 +455,18 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
     if (l === 'json') {
       grammar = Prism.languages['json'] || Prism.languages['javascript'];
       prismLang = 'json';
-    } else if (['js', 'javascript'].includes(l)) {
-      grammar = Prism.languages['javascript'];
-      prismLang = 'javascript';
+    } else if (['java'].includes(l)) {
+      grammar = Prism.languages['java'] || Prism.languages['clike'];
+      prismLang = 'java';
+    } else if (['kt', 'kotlin'].includes(l)) {
+      grammar = Prism.languages['kotlin'] || Prism.languages['clike'];
+      prismLang = 'kotlin';
     } else if (['ts', 'typescript'].includes(l)) {
       grammar = Prism.languages['typescript'] || Prism.languages['javascript'];
       prismLang = 'typescript';
+    } else if (['js', 'javascript'].includes(l)) {
+      grammar = Prism.languages['javascript'];
+      prismLang = 'javascript';
     } else if (['css', 'scss'].includes(l)) {
       grammar = Prism.languages['css'];
       prismLang = 'css';
@@ -442,7 +479,7 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
     } else if (['py', 'python'].includes(l)) {
       grammar = Prism.languages['python'];
       prismLang = 'python';
-    } else if (['html', 'xml'].includes(l) || /<[a-zA-Z0-9_\-]+[\s>]/.test(code)) {
+    } else if (['html', 'xml'].includes(l) || /<!DOCTYPE|<\/?[a-zA-Z0-9_\-]+>/i.test(code)) {
       grammar = Prism.languages['markup'];
       prismLang = 'markup';
     }
@@ -958,6 +995,56 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
     const codeEl = currentEl.tagName?.toLowerCase() === 'code' ? currentEl : currentEl.closest('code');
     if (codeEl) {
       const codeBlock = codeEl.closest('.code-block-dark') as HTMLElement;
+
+      // Ctrl + A dentro del bloque de código: Seleccionar únicamente el contenido del bloque
+      if ((event.ctrlKey || event.metaKey) && (event.key === 'a' || event.key === 'A')) {
+        event.preventDefault();
+        event.stopPropagation();
+        const range = document.createRange();
+        range.selectNodeContents(codeEl);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+        this.saveSelection();
+        return;
+      }
+
+      // Manejo de Backspace y Delete para que el bloque NUNCA quede roto o en blanco
+      if (event.key === 'Backspace' || event.key === 'Delete') {
+        const sel = window.getSelection();
+        // Caso A: Si todo el bloque de código está seleccionado y se presiona Backspace o Delete
+        if (sel && !sel.isCollapsed) {
+          const selectedText = sel.toString();
+          const totalText = codeEl.innerText || codeEl.textContent || '';
+          if (selectedText.trim() === totalText.trim() && totalText.trim().length > 0) {
+            event.preventDefault();
+            codeEl.innerHTML = '<br>';
+            this.updateCodeGutter(codeBlock);
+            this.focusNode(codeEl);
+            this.onRichInput();
+            this.saveSelection();
+            return;
+          }
+        }
+
+        // Caso B: Si ya está completamente vacío y presiona Backspace una vez más
+        if (event.key === 'Backspace' && (!codeEl.textContent || codeEl.textContent.trim() === '')) {
+          event.preventDefault();
+          codeBlock?.remove();
+          this.onRichInput();
+          return;
+        }
+
+        // Caso C: Borrado normal, asegurar que el gutter y el <br> se mantengan sincronizados
+        setTimeout(() => {
+          if (!codeEl.innerHTML || codeEl.innerHTML === '' || codeEl.innerHTML === '<br>') {
+            codeEl.innerHTML = '<br>';
+          }
+          this.updateCodeGutter(codeBlock);
+          this.onRichInput();
+        }, 0);
+      }
+
       if (event.key === 'Tab') {
         event.preventDefault();
         document.execCommand('insertText', false, '    ');
@@ -972,12 +1059,6 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
         this.updateCodeGutter(codeBlock);
         this.onRichInput();
         this.saveSelection();
-        return;
-      }
-      if (event.key === 'Backspace' && (!codeEl.textContent || codeEl.textContent.trim() === '')) {
-        event.preventDefault();
-        codeBlock?.remove();
-        this.onRichInput();
         return;
       }
     }
@@ -1248,99 +1329,197 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
 
     const trimmed = rawCode;
 
-    // 1. Detección de HTML / XML / Angular Template
-    const isHtml =
-      lang === 'html' ||
-      lang === 'xml' ||
-      /<([a-zA-Z0-9_\-]+)[\s>]/i.test(trimmed) ||
-      /<\/([a-zA-Z0-9_\-]+)>/i.test(trimmed);
-
-    if (isHtml) {
-      const prettyHtml = this.formatHtmlCode(rawCode);
-      codeEl.innerHTML = this.highlightCode(prettyHtml, 'markup');
-      if (langSpan && (!lang || lang === 'código' || lang === 'codigo')) {
-        langSpan.textContent = 'html';
+    // A) SI EL LENGUAJE FUE ESPECIFICADO EXPLÍCITAMENTE
+    if (lang && lang !== 'código' && lang !== 'codigo') {
+      if (lang === 'html' || lang === 'xml') {
+        const prettyHtml = this.formatHtmlCode(rawCode);
+        codeEl.innerHTML = this.highlightCode(prettyHtml, 'markup');
+        this.updateCodeGutter(codeBlock);
+        this.onRichInput();
+        if (notify) this.showToast('HTML formateado con sangría de 4 espacios');
+        return;
       }
-      this.updateCodeGutter(codeBlock);
-      this.onRichInput();
-      if (notify) this.showToast('HTML / Template formateado con js-beautify', 'check', 'text-emerald-400');
-      return;
+
+      if (lang === 'css' || lang === 'scss') {
+        const prettyCss = this.formatCssCode(rawCode);
+        codeEl.innerHTML = this.highlightCode(prettyCss, 'css');
+        this.updateCodeGutter(codeBlock);
+        this.onRichInput();
+        if (notify) this.showToast('CSS formateado con sangría de 4 espacios');
+        return;
+      }
+
+      if (lang === 'json') {
+        try {
+          const parsed = JSON.parse(rawCode);
+          const pretty = JSON.stringify(parsed, null, 4);
+          codeEl.innerHTML = this.highlightCode(pretty, 'json');
+          this.updateCodeGutter(codeBlock);
+          this.onRichInput();
+          if (notify) this.showToast('JSON formateado con sangría de 4 espacios');
+          return;
+        } catch (e: any) {
+          if (notify) this.showToast('JSON Inválido: ' + (e.message || ''));
+          return;
+        }
+      }
+
+      if (['java'].includes(lang)) {
+        const prettyJava = this.formatJavaCode(rawCode);
+        codeEl.innerHTML = this.highlightCode(prettyJava, 'java');
+        this.updateCodeGutter(codeBlock);
+        this.onRichInput();
+        if (notify) this.showToast('Java formateado e indentado');
+        return;
+      }
+
+      if (['kt', 'kotlin'].includes(lang)) {
+        const prettyKt = this.formatKotlinCode(rawCode);
+        codeEl.innerHTML = this.highlightCode(prettyKt, 'kotlin');
+        this.updateCodeGutter(codeBlock);
+        this.onRichInput();
+        if (notify) this.showToast('Kotlin formateado e indentado');
+        return;
+      }
+
+      if (['ts', 'typescript'].includes(lang)) {
+        const prettyTs = this.formatJsCode(rawCode);
+        codeEl.innerHTML = this.highlightCode(prettyTs, 'typescript');
+        this.updateCodeGutter(codeBlock);
+        this.onRichInput();
+        if (notify) this.showToast('TypeScript formateado e indentado');
+        return;
+      }
+
+      if (['js', 'javascript'].includes(lang)) {
+        const prettyJs = this.formatJsCode(rawCode);
+        codeEl.innerHTML = this.highlightCode(prettyJs, 'javascript');
+        this.updateCodeGutter(codeBlock);
+        this.onRichInput();
+        if (notify) this.showToast('JavaScript formateado e indentado');
+        return;
+      }
+
+      if (lang === 'sql') {
+        const prettySql = this.formatSqlCode(rawCode);
+        codeEl.innerHTML = this.highlightCode(prettySql, 'sql');
+        this.updateCodeGutter(codeBlock);
+        this.onRichInput();
+        if (notify) this.showToast('SQL formateado e indentado');
+        return;
+      }
+
+      if (['py', 'python'].includes(lang)) {
+        const cleanCode = this.formatGenericCode(rawCode);
+        codeEl.innerHTML = this.highlightCode(cleanCode, 'python');
+        this.updateCodeGutter(codeBlock);
+        this.onRichInput();
+        if (notify) this.showToast('Python formateado');
+        return;
+      }
     }
 
-    // 2. Detección de JSON
-    const isJsonCandidate =
-      lang === 'json' ||
-      ((trimmed.startsWith('{') || trimmed.startsWith('[')) && (trimmed.endsWith('}') || trimmed.endsWith(']')));
-
-    if (isJsonCandidate) {
+    // B) AUTO-DETECCIÓN INTELIGENTE
+    // 1. JSON
+    if ((trimmed.startsWith('{') || trimmed.startsWith('[')) && (trimmed.endsWith('}') || trimmed.endsWith(']'))) {
       try {
         const parsed = JSON.parse(rawCode);
         const pretty = JSON.stringify(parsed, null, 4);
         codeEl.innerHTML = this.highlightCode(pretty, 'json');
-        if (langSpan && (!lang || lang === 'código' || lang === 'codigo')) {
-          langSpan.textContent = 'json';
-        }
+        if (langSpan) langSpan.textContent = 'json';
         this.updateCodeGutter(codeBlock);
         this.onRichInput();
-        if (notify) this.showToast('JSON formateado con sangría de 4 espacios', 'check', 'text-amber-400');
+        if (notify) this.showToast('JSON detectado y formateado');
         return;
-      } catch (e: any) {
-        if (lang === 'json') {
-          if (notify) this.showToast('JSON Inválido: ' + (e.message || ''), 'alert-triangle', 'text-rose-400');
-          return;
-        }
+      } catch {
+        // continuar
       }
     }
 
-    // 3. Detección de SQL
-    if (lang === 'sql' || /\b(SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM|CREATE\s+TABLE)\b/i.test(trimmed)) {
+    // 2. Kotlin
+    if (/\b(fun\s+[a-zA-Z0-9_]+|data\s+class|companion\s+object|val\s+[a-zA-Z0-9_]+)\b/.test(trimmed)) {
+      const prettyKt = this.formatKotlinCode(rawCode);
+      codeEl.innerHTML = this.highlightCode(prettyKt, 'kotlin');
+      if (langSpan) langSpan.textContent = 'kotlin';
+      this.updateCodeGutter(codeBlock);
+      this.onRichInput();
+      if (notify) this.showToast('Kotlin detectado y formateado');
+      return;
+    }
+
+    // 3. Java
+    if (/\b(public\s+class|public\s+static\s+void\s+main|System\.out\.println|import\s+java\.|package\s+[a-z0-9_.]+;)\b/.test(trimmed)) {
+      const prettyJava = this.formatJavaCode(rawCode);
+      codeEl.innerHTML = this.highlightCode(prettyJava, 'java');
+      if (langSpan) langSpan.textContent = 'java';
+      this.updateCodeGutter(codeBlock);
+      this.onRichInput();
+      if (notify) this.showToast('Java detectado y formateado');
+      return;
+    }
+
+    // 4. TypeScript
+    if (/\b(interface\s+[A-Z]|type\s+[A-Z]|:\s*(string|number|boolean|any|void)\b|as\s+const)\b/.test(trimmed)) {
+      const prettyTs = this.formatJsCode(rawCode);
+      codeEl.innerHTML = this.highlightCode(prettyTs, 'typescript');
+      if (langSpan) langSpan.textContent = 'typescript';
+      this.updateCodeGutter(codeBlock);
+      this.onRichInput();
+      if (notify) this.showToast('TypeScript detectado y formateado');
+      return;
+    }
+
+    // 5. JavaScript
+    if (/\b(const\s+[a-zA-Z0-9_]+|let\s+[a-zA-Z0-9_]+|function\s+[a-zA-Z0-9_]+|console\.log|export\s+default)\b/.test(trimmed)) {
+      const prettyJs = this.formatJsCode(rawCode);
+      codeEl.innerHTML = this.highlightCode(prettyJs, 'javascript');
+      if (langSpan) langSpan.textContent = 'javascript';
+      this.updateCodeGutter(codeBlock);
+      this.onRichInput();
+      if (notify) this.showToast('JavaScript detectado y formateado');
+      return;
+    }
+
+    // 6. SQL
+    if (/\b(SELECT\s+.+\s+FROM|INSERT\s+INTO|UPDATE\s+.+\s+SET|DELETE\s+FROM|CREATE\s+TABLE)\b/i.test(trimmed)) {
       const prettySql = this.formatSqlCode(rawCode);
       codeEl.innerHTML = this.highlightCode(prettySql, 'sql');
-      if (langSpan && (!lang || lang === 'código' || lang === 'codigo')) {
-        langSpan.textContent = 'sql';
-      }
+      if (langSpan) langSpan.textContent = 'sql';
       this.updateCodeGutter(codeBlock);
       this.onRichInput();
-      if (notify) this.showToast('SQL formateado e indentado', 'check', 'text-emerald-400');
+      if (notify) this.showToast('SQL detectado y formateado');
       return;
     }
 
-    // 4. Detección de CSS / SCSS
-    if (lang === 'css' || lang === 'scss' || (trimmed.includes('{') && /:\s*[^;]+;/i.test(trimmed))) {
+    // 7. CSS
+    if (trimmed.includes('{') && /:\s*[^;]+;/i.test(trimmed) && !trimmed.includes('fun ') && !trimmed.includes('class ')) {
       const prettyCss = this.formatCssCode(rawCode);
       codeEl.innerHTML = this.highlightCode(prettyCss, 'css');
-      if (langSpan && (!lang || lang === 'código' || lang === 'codigo')) {
-        langSpan.textContent = 'css';
-      }
+      if (langSpan) langSpan.textContent = 'css';
       this.updateCodeGutter(codeBlock);
       this.onRichInput();
-      if (notify) this.showToast('CSS formateado con js-beautify', 'check', 'text-pink-400');
+      if (notify) this.showToast('CSS detectado y formateado');
       return;
     }
 
-    // 5. Detección de JavaScript / TypeScript
-    if (
-      ['js', 'javascript', 'ts', 'typescript'].includes(lang) ||
-      /\b(const|let|var|function|return|import|export|class)\b/.test(trimmed)
-    ) {
-      const prettyJs = this.formatJsCode(rawCode);
-      codeEl.innerHTML = this.highlightCode(prettyJs, lang.includes('ts') ? 'typescript' : 'javascript');
-      if (langSpan && (!lang || lang === 'código' || lang === 'codigo')) {
-        langSpan.textContent = 'typescript';
-      }
+    // 8. HTML / XML (Tags reales de marcado)
+    if (/<!DOCTYPE|<html|<head|<body|<div\b|<span\b|<p\b|<table\b|<button\b|<input\b|<form\b|<\/[a-zA-Z0-9_\-]+>/i.test(trimmed)) {
+      const prettyHtml = this.formatHtmlCode(rawCode);
+      codeEl.innerHTML = this.highlightCode(prettyHtml, 'markup');
+      if (langSpan) langSpan.textContent = 'html';
       this.updateCodeGutter(codeBlock);
       this.onRichInput();
-      if (notify) this.showToast('Código JS/TS formateado con js-beautify', 'check', 'text-sky-400');
+      if (notify) this.showToast('HTML detectado y formateado');
       return;
     }
 
-    // 6. Código genérico (Python, Bash, etc.)
+    // 9. Código genérico (Fallback)
     const cleanCode = this.formatGenericCode(rawCode);
     codeEl.innerHTML = this.highlightCode(cleanCode, lang);
     this.updateCodeGutter(codeBlock);
     this.onRichInput();
     if (notify) {
-      this.showToast(`Código ${lang && lang !== 'código' ? lang.toUpperCase() : 'general'} normalizado`, 'check', 'text-indigo-400');
+      this.showToast(`Código ${lang && lang !== 'código' ? lang.toUpperCase() : 'general'} normalizado`);
     }
   }
 
@@ -1414,7 +1593,7 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
               </div>
               <div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-t bg-[#161922] border-t-2 border-indigo-500 border-x border-[#242938] text-xs font-mono text-slate-200">
                 <i data-lucide="file-code" class="w-3.5 h-3.5 text-indigo-400"></i>
-                <span contenteditable="true" spellcheck="false" class="code-lang-label outline-none font-bold cursor-text select-text transition-colors" title="Haz clic para editar el lenguaje (ej: json, sql, js, ts, html, css)">código</span>
+                <span contenteditable="true" spellcheck="false" class="code-lang-label outline-none font-bold cursor-text select-text transition-colors" title="Haz clic para editar el lenguaje (ej: html, css, ts, js, java, kotlin, json, sql)">código</span>
               </div>
             </div>
             <div class="flex items-center gap-1.5">
@@ -1819,14 +1998,25 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
     const canvas = this.richCanvas?.nativeElement;
     if (!canvas) return;
 
-    // Si el clic fue en un elemento editable, botón o input, no interferir
+    // 0. Si el usuario seleccionó texto, NUNCA interferir ni cambiar el foco
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) {
+      return;
+    }
+
+    // 1. Si el clic fue en un elemento editable, botón, input, o dentro del canvas, no interferir
     if (target.isContentEditable || target.closest('button') || target.closest('input')) {
+      return;
+    }
+
+    // Si el clic ocurrió dentro de cualquier elemento hijo del canvas, no interferir
+    if (canvas.contains(target) && target !== canvas) {
       return;
     }
 
     const rect = canvas.getBoundingClientRect();
 
-    // 1. Clic en la parte superior (arriba del primer elemento para poder escribir al inicio)
+    // 2. Clic en la parte superior (arriba del primer elemento para poder escribir al inicio)
     if (event.clientY < rect.top + 36) {
       const firstChild = canvas.firstElementChild;
       if (firstChild && (firstChild.classList.contains('code-block-dark') || firstChild.classList.contains('excel-table-widget') || firstChild.tagName.toLowerCase() === 'blockquote')) {
@@ -1840,17 +2030,19 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
       }
     }
 
-    // 2. Clic en el lienzo o en el wrapper de la hoja por debajo del contenido
-    if (event.clientY > rect.bottom - 100 || target === canvas || target.id === 'documentSheetCanvas' || target.classList.contains('document-sheet-canvas')) {
-      const lastChild = canvas.lastElementChild;
-      if (!lastChild || lastChild.classList.contains('code-block-dark') || lastChild.classList.contains('excel-table-widget') || lastChild.tagName.toLowerCase() !== 'p') {
-        const p = document.createElement('p');
-        p.className = 'my-3';
-        p.innerHTML = '<br>';
-        canvas.appendChild(p);
-        this.focusNode(p);
-      } else if (lastChild.tagName.toLowerCase() === 'p') {
-        this.focusNode(lastChild as HTMLElement);
+    // 3. Clic EXCLUSIVAMENTE en el espacio vacío del fondo por debajo de la hoja
+    if (target.id === 'documentSheetCanvas' || target.classList.contains('document-sheet-canvas')) {
+      if (event.clientY > rect.bottom - 40) {
+        const lastChild = canvas.lastElementChild;
+        if (!lastChild || lastChild.classList.contains('code-block-dark') || lastChild.classList.contains('excel-table-widget') || lastChild.tagName.toLowerCase() !== 'p') {
+          const p = document.createElement('p');
+          p.className = 'my-3';
+          p.innerHTML = '<br>';
+          canvas.appendChild(p);
+          this.focusNode(p);
+        } else if (lastChild.tagName.toLowerCase() === 'p') {
+          this.focusNode(lastChild as HTMLElement);
+        }
       }
     }
   }

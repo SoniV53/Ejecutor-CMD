@@ -197,6 +197,13 @@
   white-space: pre !important;
   word-break: normal !important;
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace !important;
+  display: block;
+  min-height: 24px;
+}
+
+:host ::ng-deep .code-block-dark pre code:empty::before {
+  content: '\A';
+  white-space: pre;
 }
 
 /* ==========================================================================
@@ -206,7 +213,7 @@
 :host ::ng-deep .code-block-dark .token.prolog,
 :host ::ng-deep .code-block-dark .token.doctype,
 :host ::ng-deep .code-block-dark .token.cdata {
-  color: #64748b !important;
+  color: #6a9955 !important;
   font-style: italic !important;
 }
 
@@ -228,31 +235,46 @@
 :host ::ng-deep .code-block-dark .token.attr-value,
 :host ::ng-deep .code-block-dark .token.string,
 :host ::ng-deep .code-block-dark .token.char {
-  color: #6ee7b7 !important;
+  color: #ce9178 !important;
 }
 
 :host ::ng-deep .code-block-dark .token.keyword {
-  color: #c084fc !important;
+  color: #c586c0 !important;
   font-weight: 600 !important;
 }
 
 :host ::ng-deep .code-block-dark .token.function,
-:host ::ng-deep .code-block-dark .token.class-name {
-  color: #60a5fa !important;
+:host ::ng-deep .code-block-dark .token.method {
+  color: #dcdcaa !important;
+}
+
+:host ::ng-deep .code-block-dark .token.class-name,
+:host ::ng-deep .code-block-dark .token.type,
+:host ::ng-deep .code-block-dark .token.generics {
+  color: #4ec9b0 !important;
+  font-weight: 600 !important;
+}
+
+:host ::ng-deep .code-block-dark .token.annotation,
+:host ::ng-deep .code-block-dark .token.decorator {
+  color: #eab308 !important;
+  font-weight: 500 !important;
 }
 
 :host ::ng-deep .code-block-dark .token.number,
 :host ::ng-deep .code-block-dark .token.boolean {
-  color: #fde047 !important;
+  color: #b5cea8 !important;
   font-weight: 600 !important;
 }
 
 :host ::ng-deep .code-block-dark .token.operator {
-  color: #f472b6 !important;
+  color: #d4d4d4 !important;
 }
 
-:host ::ng-deep .code-block-dark .token.property {
-  color: #38bdf8 !important;
+:host ::ng-deep .code-block-dark .token.property,
+:host ::ng-deep .code-block-dark .token.variable,
+:host ::ng-deep .code-block-dark .token.constant {
+  color: #9cdcfe !important;
 }
 
 :host ::ng-deep .code-gutter {

@@ -1,10 +1,9 @@
-<!-- TOAST -->
+<!-- TOAST (Limpio y minimalista sin imagen/icono) -->
 <div
-  class="toast bg-slate-900 border border-indigo-500/30 text-white shadow-2xl"
+  class="toast bg-slate-900/95 backdrop-blur-md border border-slate-700/80 text-white shadow-2xl px-5 py-2.5 rounded-2xl"
   [ngClass]="toastVisible ? 'show' : ''"
 >
-  <i [attr.data-lucide]="toastIcon" class="w-5 h-5" [ngClass]="toastColor"></i>
-  <span class="text-sm font-medium">{{ toastMsg }}</span>
+  <span class="text-xs md:text-sm font-medium tracking-wide">{{ toastMsg }}</span>
 </div>
 
 <!-- Modal Nueva Carpeta -->
