@@ -6,6 +6,7 @@ export interface DocExplorerItem {
   path: string;
   fullPath?: string;
   extension?: string;
+  children?: DocExplorerItem[];
 }
 
 export interface GitScannedBranch {
@@ -76,6 +77,16 @@ export class DocApiService {
 
     const res = await fetch(`${this.baseUrl}/api/doc/list?${params.toString()}`);
     if (!res.ok) throw new Error('Error al listar directorio');
+    return res.json();
+  }
+
+  async getDocTree(root = ''): Promise<DocExplorerItem[]> {
+    const params = new URLSearchParams();
+    if (root) params.set('root', root);
+    params.set('_t', Date.now().toString());
+
+    const res = await fetch(`${this.baseUrl}/api/doc/tree?${params.toString()}`);
+    if (!res.ok) throw new Error('Error al obtener árbol de directorios');
     return res.json();
   }
 

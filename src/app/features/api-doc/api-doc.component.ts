@@ -195,13 +195,16 @@ export class ApiDocComponent implements OnInit, AfterViewInit, AfterViewChecked 
 
   // --- EXPLORADOR Y ARCHIVOS ---
 
-  async refreshExplorer(folder = ''): Promise<void> {
-    this.currentFolder = folder;
+  async refreshExplorer(_folder = ''): Promise<void> {
     try {
-      this.items = await this.docApi.listDocs(folder, this.currentRoot);
+      this.items = await this.docApi.getDocTree(this.currentRoot);
     } catch (e) {
-      console.error('Error listando archivos:', e);
-      this.items = [];
+      console.error('Error listando árbol de archivos:', e);
+      try {
+        this.items = await this.docApi.listDocs('', this.currentRoot);
+      } catch {
+        this.items = [];
+      }
     }
     this.lucide.refresh();
   }
@@ -437,7 +440,10 @@ export class ApiDocComponent implements OnInit, AfterViewInit, AfterViewChecked 
 
   // --- CREACIÓN / RENOMBRADO / BORRADO ---
 
-  createFolder(): void {
+  targetCreateFolder = '';
+
+  createFolder(folder = ''): void {
+    this.targetCreateFolder = folder || '';
     this.showFolderModal = true;
   }
 
@@ -449,7 +455,8 @@ export class ApiDocComponent implements OnInit, AfterViewInit, AfterViewChecked 
     }
 
     this.showFolderModal = false;
-    const targetFolder = this.currentFolder ? `${this.currentFolder}/${name}` : name;
+    const base = this.targetCreateFolder || '';
+    const targetFolder = base ? `${base}/${name}` : name;
 
     try {
       // Guardar archivo inicializador en la subcarpeta
@@ -460,13 +467,14 @@ export class ApiDocComponent implements OnInit, AfterViewInit, AfterViewChecked 
         this.currentRoot
       );
       this.showToast(`Carpeta "${name}" creada`, 'folder-plus');
-      await this.refreshExplorer(this.currentFolder);
+      await this.refreshExplorer();
     } catch (e: any) {
       this.showToast('Error creando carpeta: ' + (e.message || e), 'alert-circle', 'text-rose-400');
     }
   }
 
-  createFile(): void {
+  createFile(folder = ''): void {
+    this.targetCreateFolder = folder || '';
     this.showFileModal = true;
   }
 
@@ -474,17 +482,18 @@ export class ApiDocComponent implements OnInit, AfterViewInit, AfterViewChecked 
     this.showFileModal = false;
     const name = payload.name;
     const initialContent = payload.type === 'json' ? '{\n  \n}\n' : '';
+    const base = this.targetCreateFolder || '';
 
     try {
       const res = await this.docApi.saveDoc(
         name,
-        this.currentFolder,
+        base,
         initialContent,
         this.currentRoot
       );
 
       this.showToast(`Archivo "${res.fileName}" creado`, 'file-plus');
-      await this.refreshExplorer(this.currentFolder);
+      await this.refreshExplorer();
       // Abrir en nueva pestaña
       this.createNewTab(res.fileName, initialContent, res.path, false);
     } catch (e: any) {
@@ -505,11 +514,14 @@ export class ApiDocComponent implements OnInit, AfterViewInit, AfterViewChecked 
     try {
       const res = await this.docApi.renameItem(oldPath, newName.trim(), this.currentRoot);
       if (res && res.status === 'success') {
+        const parentDir = oldPath.includes('/') ? oldPath.substring(0, oldPath.lastIndexOf('/')) : '';
+        const newPath = parentDir ? `${parentDir}/${res.newName}` : res.newName;
+
         // Actualizar pestañas que apunten al archivo renombrado
         this.tabs.forEach(t => {
           if (t.path === oldPath) {
             t.name = res.newName;
-            t.path = (this.currentFolder ? this.currentFolder + '/' : '') + res.newName;
+            t.path = newPath;
             const lower = res.newName.toLowerCase();
             if (lower.endsWith('.json')) t.fileType = 'json';
             else if (lower.endsWith('.md')) t.fileType = 'md';
@@ -518,7 +530,7 @@ export class ApiDocComponent implements OnInit, AfterViewInit, AfterViewChecked 
         });
 
         this.showToast(`Renombrado a "${res.newName}"`, 'pencil');
-        await this.refreshExplorer(this.currentFolder);
+        await this.refreshExplorer();
       }
     } catch (e: any) {
       this.showToast('Error al renombrar: ' + (e.message || e), 'alert-circle', 'text-rose-400');
@@ -528,7 +540,7 @@ export class ApiDocComponent implements OnInit, AfterViewInit, AfterViewChecked 
   }
 
   deleteItem(path: string): void {
-    const isFolder = this.items.find(i => i.path === path)?.isFolder;
+    const isFolder = path.endsWith('/') || !path.includes('.') || (this.items && this.items.some(i => i.path === path && i.isFolder));
     const label = isFolder ? 'esta carpeta y su contenido' : 'este archivo';
 
     this.showConfirm(
@@ -539,13 +551,13 @@ export class ApiDocComponent implements OnInit, AfterViewInit, AfterViewChecked 
           await this.docApi.deleteItem(path, this.currentRoot);
           this.showToast('Eliminado de Windows', 'trash-2');
 
-          // Cerrar pestañas asociadas
-          const openTab = this.tabs.find(t => t.path === path);
-          if (openTab) {
-            this.closeTab(openTab.id);
+          // Cerrar pestañas asociadas (el archivo o archivos dentro de la carpeta eliminada)
+          this.tabs = this.tabs.filter(t => t.path !== path && !t.path.startsWith(path + '/'));
+          if (!this.tabs.some(t => t.id === this.activeTabId) && this.tabs.length > 0) {
+            this.activeTabId = this.tabs[0].id;
           }
 
-          await this.refreshExplorer(this.currentFolder);
+          await this.refreshExplorer();
         } catch (e: any) {
           this.showToast('Error al eliminar: ' + (e.message || e), 'alert-circle', 'text-rose-400');
         }

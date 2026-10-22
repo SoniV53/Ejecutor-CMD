@@ -91,6 +91,54 @@ const listDocs = (req, res) => {
     }
 };
 
+function readDirTree(dirPath, rootPath, maxDepth = 12, currentDepth = 0) {
+    if (currentDepth > maxDepth || !fs.existsSync(dirPath)) return [];
+    try {
+        const items = fs.readdirSync(dirPath, { withFileTypes: true });
+        return items
+            .filter(item => !item.name.startsWith('.') && item.name !== '_init.txt' && item.name !== '.keep.txt' && item.name !== '.keep' && item.name !== 'node_modules')
+            .map(item => {
+                const fullPath = path.join(dirPath, item.name);
+                const relPath = path.relative(rootPath, fullPath).replace(/\\/g, '/');
+                const isFolder = item.isDirectory();
+                const ext = isFolder ? '' : path.extname(item.name).toLowerCase();
+                return {
+                    name: item.name,
+                    isFolder,
+                    path: relPath,
+                    fullPath,
+                    extension: ext,
+                    children: isFolder ? readDirTree(fullPath, rootPath, maxDepth, currentDepth + 1) : []
+                };
+            })
+            .sort((a, b) => {
+                if (a.isFolder && !b.isFolder) return -1;
+                if (!a.isFolder && b.isFolder) return 1;
+                return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+            });
+    } catch {
+        return [];
+    }
+}
+
+const getDocTree = (req, res) => {
+    const urlParams = new URL(req.url, `http://${req.headers.host}`);
+    const rootParam = urlParams.searchParams.get('root') || '';
+    const effectiveRoot = resolveRoot(rootParam);
+
+    try {
+        if (!fs.existsSync(effectiveRoot)) {
+            fs.mkdirSync(effectiveRoot, { recursive: true });
+        }
+        const tree = readDirTree(effectiveRoot, effectiveRoot);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(tree));
+    } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+    }
+};
+
 const saveDoc = (req, res) => {
     let body = '';
     req.on('data', chunk => body += chunk.toString());
@@ -558,7 +606,8 @@ module.exports = {
     saveJsonDoc,
     analyzeGitRepository,
     browseDirectories,
-    getBranchCommits
+    getBranchCommits,
+    getDocTree
 };
 
 
