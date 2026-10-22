@@ -1,73 +1,501 @@
-<main class="flex-1 flex flex-col p-6 gap-6 overflow-hidden h-full">
-  <div class="flex gap-4 shrink-0">
-    <div class="flex-1">
-      <label class="text-[10px] font-bold text-slate-500 uppercase mb-2 block ml-1">Nombre del Servicio</label>
-      <input
-        type="text"
-        [ngModel]="docName"
-        (ngModelChange)="docNameChange.emit($event)"
-        placeholder="auth_login_v1"
-        class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-600 outline-none text-white transition-all"
-      />
+<main class="flex-1 flex flex-col h-full overflow-hidden bg-[#040814]">
+  <!-- BARRA DE PESTAÑAS (ESTILO BLOC DE NOTAS DE WINDOWS) -->
+  <div class="flex items-center bg-[#070d1e] border-b border-slate-800/90 px-2 pt-2 gap-1 overflow-x-auto custom-scrollbar shrink-0 select-none">
+    <div
+      *ngFor="let tab of tabs"
+      (click)="selectTab.emit(tab.id)"
+      class="group/tab flex items-center gap-2 px-3.5 py-2 cursor-pointer transition-all min-w-[120px] max-w-[200px]"
+      [ngClass]="
+        tab.id === activeTab?.id
+          ? 'bg-[#0b1329] border-t-2 border-t-indigo-500 border-x border-slate-800/80 text-white rounded-t-xl shadow-md z-10'
+          : 'bg-slate-900/30 hover:bg-slate-800/50 text-slate-400 hover:text-slate-200 rounded-t-xl border border-transparent'
+      "
+      [title]="tab.path || tab.name"
+    >
+      <i
+        [attr.data-lucide]="getTabIcon(tab.fileType)"
+        class="w-3.5 h-3.5 shrink-0"
+        [ngClass]="getTabIconColor(tab.fileType)"
+      ></i>
+
+      <span class="text-xs font-semibold truncate flex-1">
+        {{ tab.name }}
+      </span>
+
+      <!-- Indicador de cambios sin guardar -->
+      <span
+        *ngIf="tab.isDirty"
+        class="w-2 h-2 rounded-full bg-amber-400 shrink-0 shadow-sm shadow-amber-400/50"
+        title="Cambios sin guardar"
+      ></span>
+
+      <!-- Botón Cerrar Pestaña -->
+      <button
+        type="button"
+        (click)="$event.stopPropagation(); closeTab.emit(tab.id)"
+        class="w-4 h-4 rounded flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-700/60 transition-colors shrink-0 ml-0.5"
+        title="Cerrar pestaña"
+      >
+        <i data-lucide="x" class="w-3 h-3"></i>
+      </button>
     </div>
-    <div class="w-48">
-      <label class="text-[10px] font-bold text-slate-500 uppercase mb-2 block ml-1">Tipo de Trama</label>
-      <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+
+    <!-- Botón Nueva Pestaña (+) -->
+    <button
+      type="button"
+      (click)="newTab.emit()"
+      class="p-2 hover:bg-slate-800/80 text-slate-400 hover:text-white rounded-xl transition-all flex items-center gap-1.5 ml-1 my-auto shrink-0 text-xs font-bold"
+      title="Nueva Pestaña (Ctrl+N)"
+    >
+      <i data-lucide="plus" class="w-4 h-4"></i>
+      <span class="hidden md:inline text-[11px]">Nueva Pestaña</span>
+    </button>
+  </div>
+
+  <!-- BARRA DE HERRAMIENTAS Y CONTROLES -->
+  <div *ngIf="activeTab" class="p-2.5 md:p-3 border-b border-slate-900 bg-[#0b1329]/90 backdrop-blur-md flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+    <!-- Bloque 1: Nombre de Archivo y Selector de Extensión (Siempre visible y accesible) -->
+    <div class="flex items-center gap-2 flex-1 min-w-[200px]">
+      <div class="relative flex-1 min-w-[130px] max-w-sm">
+        <input
+          type="text"
+          [ngModel]="activeTab.name"
+          (ngModelChange)="onNameChange($event)"
+          placeholder="nombre_archivo.txt"
+          class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs code-font text-white focus:ring-2 focus:ring-indigo-600 outline-none shadow-inner"
+        />
+      </div>
+
+      <!-- Selector Rápido de Extensión -->
+      <div class="flex items-center bg-slate-950 p-0.5 rounded-xl border border-slate-800 shrink-0">
         <button
           type="button"
-          (click)="docTypeChange.emit('req')"
-          class="flex-1 py-2 text-[10px] font-bold rounded-lg transition-all"
-          [ngClass]="currentDocType === 'req' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'"
+          (click)="setExtension('json')"
+          class="px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all"
+          [ngClass]="activeTab.fileType === 'json' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black' : 'text-slate-400 hover:text-white'"
+          title="Cambiar a formato JSON"
         >
-          REQ
+          .json
         </button>
         <button
           type="button"
-          (click)="docTypeChange.emit('res')"
-          class="flex-1 py-2 text-[10px] font-bold rounded-lg transition-all"
-          [ngClass]="currentDocType === 'res' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'"
+          (click)="setExtension('txt')"
+          class="px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all"
+          [ngClass]="activeTab.fileType === 'txt' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-black' : 'text-slate-400 hover:text-white'"
+          title="Cambiar a formato TXT"
         >
-          RES
+          .txt
+        </button>
+        <button
+          type="button"
+          (click)="setExtension('md')"
+          class="px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all"
+          [ngClass]="activeTab.fileType === 'md' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black' : 'text-slate-400 hover:text-white'"
+          title="Cambiar a formato Markdown (.md)"
+        >
+          .md
         </button>
       </div>
+
+      <!-- Para Markdown: Conmutador de Hoja Visual vs Código Fuente -->
+      <div *ngIf="activeTab.fileType === 'md'" class="flex items-center bg-slate-950 p-0.5 rounded-xl border border-slate-800 shrink-0 ml-1">
+        <button
+          type="button"
+          (click)="mdViewMode = 'rich'"
+          class="px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1"
+          [ngClass]="mdViewMode === 'rich' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
+          title="Modo Hoja Visual (Estilo Word / Notion con tablas interactivas)"
+        >
+          <i data-lucide="layout" class="w-3 h-3 text-emerald-400"></i>
+          <span>Hoja Visual</span>
+        </button>
+        <button
+          type="button"
+          (click)="mdViewMode = 'source'"
+          class="px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1"
+          [ngClass]="mdViewMode === 'source' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
+          title="Modo Código Fuente Markdown (.md)"
+        >
+          <i data-lucide="code" class="w-3 h-3 text-indigo-400"></i>
+          <span>Código .MD</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Bloque 2: Botonera de Acciones Rápidas y Exportaciones -->
+    <div class="flex items-center gap-1.5 flex-wrap shrink-0">
+      <!-- Formatear / Indentar JSON -->
+      <button
+        *ngIf="activeTab.fileType === 'json'"
+        type="button"
+        (click)="formatContent.emit('json')"
+        class="flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-800 rounded-xl text-xs font-bold transition-all active:scale-95"
+        title="Formatear e Indentar JSON con 2 espacios"
+      >
+        <i data-lucide="braces" class="w-3.5 h-3.5 text-amber-400"></i>
+        <span>Indentar</span>
+      </button>
+
+      <!-- EXPORTAR A PDF -->
+      <button
+        type="button"
+        (click)="exportPdf()"
+        class="flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-slate-800 rounded-xl text-xs font-bold transition-all active:scale-95"
+        title="Exportar documento activo a PDF de alta resolución"
+      >
+        <i data-lucide="file-down" class="w-3.5 h-3.5 text-rose-400"></i>
+        <span>PDF</span>
+      </button>
+
+      <!-- EXPORTAR A IMAGEN (PNG) -->
+      <button
+        type="button"
+        (click)="exportImage()"
+        class="flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 hover:bg-sky-500/20 text-slate-300 hover:text-sky-300 border border-slate-800 rounded-xl text-xs font-bold transition-all active:scale-95"
+        title="Exportar documento activo a Imagen PNG"
+      >
+        <i data-lucide="image" class="w-3.5 h-3.5 text-sky-400"></i>
+        <span>PNG</span>
+      </button>
+
+      <div class="h-4 w-px bg-slate-800 mx-0.5"></div>
+
+      <!-- Copiar -->
+      <button
+        type="button"
+        (click)="copyContent.emit()"
+        class="p-2 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 rounded-xl transition-all active:scale-95"
+        title="Copiar contenido al portapapeles"
+      >
+        <i data-lucide="copy" class="w-4 h-4"></i>
+      </button>
+
+      <!-- Limpiar -->
+      <button
+        type="button"
+        (click)="clearContent.emit()"
+        class="p-2 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-rose-400 border border-slate-800 rounded-xl transition-all active:scale-95"
+        title="Limpiar contenido de la nota activa"
+      >
+        <i data-lucide="eraser" class="w-4 h-4"></i>
+      </button>
+
+      <!-- Descargar Archivo -->
+      <button
+        type="button"
+        (click)="downloadActive.emit()"
+        class="flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all active:scale-95"
+        title="Descargar archivo en disco"
+      >
+        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+        <span class="hidden sm:inline">Archivo</span>
+      </button>
+
+      <!-- Guardar en Windows -->
+      <button
+        type="button"
+        [disabled]="saving"
+        (click)="saveActive.emit()"
+        class="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all active:scale-95 disabled:opacity-50"
+        title="Guardar archivo en Windows (Ctrl+S)"
+      >
+        <i [attr.data-lucide]="saving ? 'loader' : 'save'" class="w-3.5 h-3.5" [ngClass]="saving ? 'animate-spin' : ''"></i>
+        <span>{{ saving ? 'Guardando...' : 'Guardar' }}</span>
+      </button>
     </div>
   </div>
 
-  <div class="flex-1 flex flex-col overflow-hidden relative">
-    <!-- Herramientas de Formateo -->
-    <div class="flex items-center justify-between mb-2">
-      <label class="text-[10px] font-bold text-slate-500 uppercase block ml-1"
-        >Cuerpo del Mensaje (Request/Response)</label
-      >
+  <!-- BARRA DE FORMATO RÁPIDO PARA MARKDOWN (.MD) -->
+  <div
+    *ngIf="activeTab && activeTab.fileType === 'md'"
+    class="px-4 py-2 bg-[#070d1e] border-b border-slate-800/80 flex items-center gap-1.5 overflow-x-auto custom-scrollbar select-none shrink-0"
+  >
+    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mr-1 flex items-center gap-1">
+      <i data-lucide="type" class="w-3.5 h-3.5 text-emerald-400"></i>
+      Insertar:
+    </span>
 
-      <!-- Botonera de Formateadores -->
-      <div class="flex items-center gap-1.5">
-        <span class="text-[9px] font-bold text-slate-600 uppercase mr-1">Formato:</span>
-        <button
-          type="button"
-          (click)="formatContent.emit('json')"
-          class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-indigo-600/20 text-slate-400 hover:text-indigo-400 border border-slate-800 rounded-lg text-[9px] font-bold transition-all"
-          title="Formatear como JSON"
-        >
-          <i data-lucide="braces" class="w-3 h-3"></i> JSON
-        </button>
-        <button
-          type="button"
-          (click)="formatContent.emit('txt')"
-          class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-emerald-600/20 text-slate-400 hover:text-emerald-400 border border-slate-800 rounded-lg text-[9px] font-bold transition-all"
-          title="Limpiar y formatear Texto"
-        >
-          <i data-lucide="align-left" class="w-3 h-3"></i> TXT
-        </button>
+    <!-- Negrita -->
+    <button
+      type="button"
+      (mousedown)="$event.preventDefault()"
+      (click)="insertBold()"
+      class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs font-black transition-colors"
+      title="Negrita (**texto**)"
+    >
+      <strong>B</strong>
+    </button>
+
+    <!-- Cursiva -->
+    <button
+      type="button"
+      (mousedown)="$event.preventDefault()"
+      (click)="insertItalic()"
+      class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs italic font-serif transition-colors"
+      title="Cursiva (*texto*)"
+    >
+      <em>I</em>
+    </button>
+
+    <div class="h-4 w-px bg-slate-800 mx-1"></div>
+
+    <!-- Títulos H1, H2, H3 -->
+    <button
+      type="button"
+      (mousedown)="$event.preventDefault()"
+      (click)="insertHeading(1)"
+      class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-indigo-400 hover:text-indigo-300 border border-slate-800 text-xs font-bold transition-colors"
+      title="Título Principal (# H1)"
+    >
+      H1
+    </button>
+    <button
+      type="button"
+      (mousedown)="$event.preventDefault()"
+      (click)="insertHeading(2)"
+      class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-indigo-400 hover:text-indigo-300 border border-slate-800 text-xs font-bold transition-colors"
+      title="Subtítulo (## H2)"
+    >
+      H2
+    </button>
+    <button
+      type="button"
+      (mousedown)="$event.preventDefault()"
+      (click)="insertHeading(3)"
+      class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-indigo-400 hover:text-indigo-300 border border-slate-800 text-xs font-bold transition-colors"
+      title="Sección (### H3)"
+    >
+      H3
+    </button>
+
+    <div class="h-4 w-px bg-slate-800 mx-1"></div>
+
+    <!-- TABLA EXCEL / WORD -->
+    <button
+      type="button"
+      (mousedown)="$event.preventDefault()"
+      (click)="insertTable()"
+      class="px-2.5 py-1 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 border border-emerald-800/60 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+      title="Insertar Tabla de Datos Estilo Excel / Word"
+    >
+      <i data-lucide="sheet" class="w-3.5 h-3.5 text-emerald-400"></i>
+      <span>+ Tabla Excel</span>
+    </button>
+
+    <!-- Checklist -->
+    <button
+      type="button"
+      (mousedown)="$event.preventDefault()"
+      (click)="insertChecklist()"
+      class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs transition-colors flex items-center gap-1"
+      title="Checklist (- [ ] Tarea)"
+    >
+      <i data-lucide="check-square" class="w-3 h-3 text-emerald-400"></i>
+      <span class="text-[11px]">Checklist</span>
+    </button>
+
+    <!-- Lista con Viñetas -->
+    <button
+      type="button"
+      (mousedown)="$event.preventDefault()"
+      (click)="insertBulletList()"
+      class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs transition-colors flex items-center gap-1"
+      title="Lista con viñetas (- Item)"
+    >
+      <i data-lucide="list" class="w-3 h-3 text-emerald-400"></i>
+      <span class="text-[11px]">Viñetas</span>
+    </button>
+
+    <!-- Lista Numerada -->
+    <button
+      type="button"
+      (mousedown)="$event.preventDefault()"
+      (click)="insertNumberedList()"
+      class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs transition-colors flex items-center gap-1"
+      title="Lista numerada (1. Item)"
+    >
+      <i data-lucide="list-ordered" class="w-3 h-3 text-emerald-400"></i>
+      <span class="text-[11px]">Numerada</span>
+    </button>
+
+    <!-- Bloque de Código -->
+    <button
+      type="button"
+      (mousedown)="$event.preventDefault()"
+      (click)="insertCodeBlock()"
+      class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs transition-colors flex items-center gap-1 font-mono"
+      title="Bloque de código (```language ... ```)"
+    >
+      <i data-lucide="code" class="w-3 h-3 text-amber-400"></i>
+      <span class="text-[11px]">Código</span>
+    </button>
+
+    <!-- Cita -->
+    <button
+      type="button"
+      (mousedown)="$event.preventDefault()"
+      (click)="insertQuote()"
+      class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs transition-colors flex items-center gap-1"
+      title="Cita (> Cita)"
+    >
+      <i data-lucide="quote" class="w-3 h-3 text-indigo-400"></i>
+      <span class="text-[11px]">Cita</span>
+    </button>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- ÁREA DE EDICIÓN UNIFICADA (UNA SOLA HOJA PARA CADA TIPO DE DOCUMENTO)    -->
+  <!-- ========================================================================= -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- CASO 1: ARCHIVO JSON UNIFICADO (EDICIÓN Y RESALTADO EN LA MISMA HOJA) -->
+    <div
+      *ngIf="activeTab && activeTab.fileType === 'json'"
+      class="flex-1 flex overflow-hidden relative bg-[#161922]"
+      id="documentSheetCanvas"
+    >
+      <!-- Gutter de números de línea -->
+      <div #jsonGutter class="editor-gutter">
+        <div *ngFor="let n of linesArray" class="editor-gutter-line">{{ n }}</div>
+      </div>
+
+      <!-- Canvas de código en vivo con doble capa sincronizada -->
+      <div class="json-live-canvas">
+        <!-- Indicador de estado de JSON en esquina superior derecha -->
+        <div class="absolute top-2 right-4 z-20 pointer-events-none select-none">
+          <span
+            *ngIf="isJsonValid"
+            class="px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold font-mono flex items-center gap-1"
+          >
+            <i data-lucide="check" class="w-3 h-3"></i> JSON Válido
+          </span>
+          <span
+            *ngIf="!isJsonValid"
+            class="px-2 py-0.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-bold font-mono flex items-center gap-1"
+          >
+            <i data-lucide="alert-triangle" class="w-3 h-3"></i> Sintaxis con errores
+          </span>
+        </div>
+
+        <!-- Capa de presentación con sintaxis a color -->
+        <pre
+          #jsonHighlightPre
+          aria-hidden="true"
+          class="json-live-pre code-font custom-scrollbar"
+          [innerHTML]="highlightedJsonContent"
+        ></pre>
+
+        <!-- Capa de edición con cursor interactivo transparente -->
+        <textarea
+          #jsonTextarea
+          [ngModel]="activeTab.content"
+          (ngModelChange)="onJsonContentChange($event)"
+          (scroll)="onJsonScroll($event)"
+          spellcheck="false"
+          class="json-live-textarea code-font custom-scrollbar"
+          placeholder="{\n  &quot;clave&quot;: &quot;valor&quot;\n}"
+        ></textarea>
       </div>
     </div>
 
-    <textarea
-      [ngModel]="docContent"
-      (ngModelChange)="docContentChange.emit($event)"
-      spellcheck="false"
-      class="flex-1 w-full editor-area rounded-2xl p-6 code-font text-sm text-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-600/50 resize-none custom-scrollbar"
-      placeholder='{ "header": { ... }, "body": { ... } }'
-    ></textarea>
+    <!-- CASO 2: ARCHIVO MARKDOWN (.MD) UNIFICADO (HOJA VISUAL NOTION/WORD O FUENTE) -->
+    <div
+      *ngIf="activeTab && activeTab.fileType === 'md'"
+      class="flex-1 flex flex-col overflow-hidden relative bg-[#080c18]"
+    >
+      <!-- MODO 1: HOJA VISUAL UNIFICADA (Estilo Word / Notion con Tablas Excel Interactivas) -->
+      <div
+        *ngIf="mdViewMode === 'rich'"
+        class="flex-1 overflow-y-auto custom-scrollbar p-3 md:p-6"
+        id="documentSheetCanvas"
+        (click)="onCanvasWrapperClick($event)"
+      >
+        <div class="max-w-4xl mx-auto document-sheet-canvas rounded-2xl md:rounded-3xl p-5 md:p-10 pb-36 border border-slate-800/80 min-h-[500px]">
+          <!-- Canvas de edición directa unificada (Edición directa de títulos, texto y tablas) -->
+          <div
+            #richCanvas
+            contenteditable="true"
+            spellcheck="false"
+            (input)="onRichInput()"
+            (click)="onPreviewClick($event)"
+            (focusout)="onRichFocusOut()"
+            (keydown)="onCanvasKeyDown($event)"
+            class="rich-canvas-editor outline-none leading-relaxed text-slate-100 min-h-[450px] pb-28"
+          ></div>
+        </div>
+      </div>
+
+      <!-- MODO 2: CÓDIGO FUENTE MARKDOWN (Si el usuario desea editar directamente la sintaxis .md) -->
+      <div
+        *ngIf="mdViewMode === 'source'"
+        class="flex-1 flex overflow-hidden relative bg-[#141720]"
+      >
+        <div #editorGutter class="editor-gutter">
+          <div *ngFor="let n of linesArray" class="editor-gutter-line">{{ n }}</div>
+        </div>
+        <textarea
+          #editorTextarea
+          [ngModel]="activeTab.content"
+          (ngModelChange)="onContentChange($event)"
+          (scroll)="onTextareaScroll($event)"
+          spellcheck="false"
+          class="editor-textarea custom-scrollbar"
+          placeholder="# Escribe tu documento Markdown aquí..."
+        ></textarea>
+      </div>
+    </div>
+
+    <!-- CASO 3: ARCHIVO DE TEXTO PLANO (.TXT) - BLOC DE NOTAS PURO SIN PREVIEW -->
+    <div
+      *ngIf="activeTab && activeTab.fileType === 'txt'"
+      class="flex-1 flex overflow-hidden relative bg-[#141720]"
+      id="documentSheetCanvas"
+    >
+      <div #editorGutter class="editor-gutter">
+        <div *ngFor="let n of linesArray" class="editor-gutter-line">{{ n }}</div>
+      </div>
+
+      <textarea
+        #editorTextarea
+        [ngModel]="activeTab.content"
+        (ngModelChange)="onContentChange($event)"
+        (scroll)="onTextareaScroll($event)"
+        spellcheck="false"
+        class="editor-textarea custom-scrollbar"
+        placeholder="Escribe tu texto plano aquí..."
+      ></textarea>
+    </div>
+
+    <!-- SI NO HAY NINGUNA NOTA ABIERTA -->
+    <div
+      *ngIf="!activeTab"
+      class="flex-1 flex flex-col items-center justify-center text-slate-500 gap-3 border border-dashed border-slate-800 m-6 rounded-2xl"
+    >
+      <i data-lucide="file-plus" class="w-10 h-10 text-slate-600"></i>
+      <p class="text-sm">No hay notas abiertas.</p>
+      <button
+        (click)="newTab.emit()"
+        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md transition-all active:scale-95"
+      >
+        Crear nueva nota
+      </button>
+    </div>
+  </div>
+
+  <!-- BARRA DE ESTADO INFERIOR (ESTILO BLOC DE NOTAS) -->
+  <div class="h-8 bg-[#070d1e] border-t border-slate-900 px-4 flex items-center justify-between text-[11px] text-slate-400 font-mono select-none shrink-0">
+    <div class="flex items-center gap-4">
+      <span>Líneas: <strong class="text-slate-300">{{ lineCount }}</strong></span>
+      <span>Caracteres: <strong class="text-slate-300">{{ charCount }}</strong></span>
+      <span class="hidden sm:inline">Palabras: <strong class="text-slate-300">{{ wordCount }}</strong></span>
+    </div>
+
+    <div class="flex items-center gap-4">
+      <span class="uppercase font-semibold text-slate-400">UTF-8</span>
+      <span class="uppercase font-semibold" [ngClass]="activeTab?.fileType === 'json' ? 'text-amber-400 font-bold' : (activeTab?.fileType === 'md' ? 'text-emerald-400 font-bold' : 'text-indigo-400 font-bold')">
+        {{ activeTab?.fileType || 'txt' }}
+      </span>
+      <span *ngIf="activeTab?.isDirty" class="text-amber-400 font-bold hidden sm:inline">● Sin Guardar</span>
+    </div>
   </div>
 </main>

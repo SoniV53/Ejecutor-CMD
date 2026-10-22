@@ -1,75 +1,193 @@
-<aside class="w-72 glass-sidebar flex flex-col shrink-0 overflow-hidden h-full">
-  <div class="p-4 border-b border-slate-900 flex justify-between items-center">
-    <span class="text-[10px] font-black uppercase text-slate-500 tracking-widest">Explorador</span>
-    <div class="flex gap-1">
+<aside
+  class="fixed md:static inset-y-0 left-0 z-30 w-72 sm:w-80 glass-sidebar flex flex-col shrink-0 overflow-hidden h-full border-r border-slate-900 bg-[#070d1e]/95 md:bg-[#070d1e]/90 backdrop-blur-md transition-all duration-300 ease-in-out shadow-2xl md:shadow-none"
+  [ngClass]="isOpen ? 'translate-x-0' : '-translate-x-full md:!w-0 md:!p-0 md:!border-r-0 md:opacity-0'"
+>
+  <!-- APARTADO DE CARPETA DE WINDOWS (COMO .BAT Y COMO GIT LOCAL) -->
+  <div class="p-3.5 border-b border-slate-800/80 bg-slate-950/60">
+    <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center gap-1.5 text-slate-400">
+        <i data-lucide="hard-drive" class="w-3.5 h-3.5 text-indigo-400"></i>
+        <span class="text-[10px] font-bold uppercase tracking-wider">Carpeta de Windows</span>
+      </div>
+
+      <div class="flex items-center gap-1.5">
+        <span *ngIf="isCustomRoot" class="text-[9px] px-1.5 py-0.2 rounded font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+          Personalizada
+        </span>
+        <span *ngIf="!isCustomRoot" class="text-[9px] px-1.5 py-0.2 rounded font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+          App (api_docs)
+        </span>
+
+        <!-- Botón cerrar sidebar en móvil -->
+        <button
+          type="button"
+          (click)="closeSidebar.emit()"
+          class="md:hidden p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors ml-1"
+          title="Cerrar panel lateral"
+        >
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Ruta actual de Windows -->
+    <div class="p-2 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-2 mb-2 shadow-inner">
+      <div class="flex items-center gap-2 min-w-0 flex-1">
+        <i data-lucide="folder" class="w-3.5 h-3.5 text-amber-400 shrink-0"></i>
+        <span class="text-[11px] font-mono text-slate-200 truncate select-all" [title]="displayRootPath">
+          {{ displayRootPath }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Botones de Gestión de Carpeta Windows -->
+    <div class="flex items-center gap-1.5">
+      <button
+        type="button"
+        (click)="selectRootDirectory.emit()"
+        class="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[10px] font-bold border border-slate-700 transition-all active:scale-95"
+        title="Seleccionar otra carpeta en tu computadora"
+      >
+        <i data-lucide="search" class="w-3 h-3 text-indigo-400"></i>
+        <span>Cambiar Carpeta</span>
+      </button>
+
+      <button
+        type="button"
+        (click)="openInWindowsExplorer.emit()"
+        class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition-all active:scale-95"
+        title="Abrir esta carpeta en el Explorador de Windows"
+      >
+        <i data-lucide="folder-open" class="w-3.5 h-3.5 text-amber-400"></i>
+      </button>
+
+      <button
+        *ngIf="isCustomRoot"
+        type="button"
+        (click)="resetRootDirectory.emit()"
+        class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg border border-slate-700 transition-all active:scale-95"
+        title="Volver a la carpeta de la app (api_docs)"
+      >
+        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- CABECERA DEL EXPLORADOR -->
+  <div class="p-3 border-b border-slate-800/80 flex justify-between items-center bg-[#070d1e]">
+    <span class="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1.5">
+      <i data-lucide="folder-tree" class="w-3.5 h-3.5 text-indigo-400"></i>
+      Archivos y Carpetas
+    </span>
+
+    <div class="flex items-center gap-1">
+      <!-- Nueva Carpeta -->
       <button
         (click)="createFolder.emit()"
-        class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 transition-colors"
+        class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
         title="Nueva Carpeta"
       >
         <i data-lucide="folder-plus" class="w-4 h-4"></i>
       </button>
+
+      <!-- Nuevo Archivo -->
+      <button
+        (click)="createFile.emit()"
+        class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
+        title="Nuevo Archivo"
+      >
+        <i data-lucide="file-plus" class="w-4 h-4"></i>
+      </button>
+
+      <!-- Refrescar -->
       <button
         (click)="refresh.emit(currentFolder)"
-        class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 transition-colors"
-        title="Refrescar"
+        class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
+        title="Refrescar lista"
       >
         <i data-lucide="rotate-cw" class="w-4 h-4"></i>
       </button>
     </div>
   </div>
 
+  <!-- LISTA DE ARCHIVOS Y CARPETAS -->
   <div class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+    <!-- Volver a carpeta padre -->
     <div
       *ngIf="currentFolder"
       (click)="goBack.emit()"
-      class="item-row flex items-center gap-3 p-2.5 rounded-xl cursor-pointer text-slate-500 transition-colors"
+      class="item-row flex items-center gap-2.5 p-2 rounded-xl cursor-pointer text-slate-400 hover:text-white hover:bg-slate-800/40 transition-colors select-none"
     >
-      <i data-lucide="chevron-left" class="w-4 h-4"></i>
-      <span class="text-xs font-bold">...volver</span>
+      <i data-lucide="chevron-left" class="w-4 h-4 text-indigo-400"></i>
+      <span class="text-xs font-bold font-mono">.. / carpeta superior</span>
     </div>
 
-    <p
-      *ngIf="filteredItems.length === 0 && !currentFolder"
-      class="text-[10px] text-slate-600 text-center py-10 font-bold uppercase"
-    >
-      Vacío
-    </p>
-
+    <!-- Vacío -->
     <div
-      *ngFor="let item of filteredItems"
-      (click)="onItemClick(item)"
-      class="item-row group flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all"
-      [ngClass]="!item.isFolder && item.path === activeFile ? 'active-file' : ''"
+      *ngIf="filteredItems.length === 0"
+      class="text-[11px] text-slate-500 text-center py-12 flex flex-col items-center gap-2"
     >
-      <div class="flex items-center gap-3 truncate flex-1 pointer-events-none">
+      <i data-lucide="folder-open" class="w-8 h-8 text-slate-600"></i>
+      <span>Esta carpeta está vacía.</span>
+      <button
+        (click)="createFile.emit()"
+        class="text-[10px] text-indigo-400 hover:underline mt-1"
+      >
+        + Crear primer archivo
+      </button>
+    </div>
+
+    <!-- Elementos -->
+    <div
+      *ngFor="let item of filteredItems; trackBy: trackByPath"
+      (click)="onItemClick(item)"
+      class="item-row group flex items-center justify-between p-2 rounded-xl cursor-pointer transition-all select-none"
+      [ngClass]="!item.isFolder && item.path === activeFile ? 'bg-indigo-600/15 border border-indigo-500/30' : 'hover:bg-slate-800/40 border border-transparent'"
+    >
+      <div class="flex items-center gap-2.5 truncate flex-1 pointer-events-none min-w-0">
         <i
-          [attr.data-lucide]="item.isFolder ? 'folder' : 'file-text'"
+          [attr.data-lucide]="getFileIcon(item)"
           class="w-4 h-4 shrink-0"
-          [ngClass]="item.isFolder ? 'text-amber-500' : 'text-indigo-400'"
+          [ngClass]="getFileIconColor(item)"
         ></i>
         <span
           class="text-xs font-medium truncate"
-          [ngClass]="!item.isFolder && item.path === activeFile ? 'text-indigo-300' : ''"
+          [ngClass]="!item.isFolder && item.path === activeFile ? 'text-indigo-200 font-bold' : 'text-slate-300 group-hover:text-white'"
         >
           {{ item.name }}
         </span>
       </div>
 
-      <button
-        (click)="onDeleteItem($event, item.path)"
-        class="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-slate-800 hover:text-red-400 rounded-lg transition-all"
-        title="Eliminar"
-      >
-        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-      </button>
+      <!-- Acciones de elemento (hover) -->
+      <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        <!-- Renombrar -->
+        <button
+          type="button"
+          (click)="onRename($event, item)"
+          class="p-1 text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-md transition-colors"
+          title="Renombrar"
+        >
+          <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+        </button>
+
+        <!-- Eliminar -->
+        <button
+          type="button"
+          (click)="onDeleteItem($event, item.path)"
+          class="p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors"
+          title="Eliminar"
+        >
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
     </div>
   </div>
 
-  <div class="p-4 bg-slate-950/50 border-t border-slate-900">
-    <div class="text-[9px] text-slate-600 font-bold uppercase mb-1">Directorio:</div>
-    <div class="text-[11px] text-indigo-400 font-mono truncate">
-      /api_docs{{ currentFolder ? '/' + currentFolder : '' }}
+  <!-- PIE DE EXPLORADOR -->
+  <div class="p-3 bg-slate-950/80 border-t border-slate-900 select-none">
+    <div class="text-[9px] text-slate-500 font-bold uppercase mb-0.5">Subdirectorio activo:</div>
+    <div class="text-[11px] text-indigo-400 font-mono truncate" [title]="currentFolder || '(raíz)'">
+      /{{ currentFolder || '(raíz)' }}
     </div>
   </div>
 </aside>

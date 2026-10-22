@@ -3,17 +3,12 @@
 }
 
 .code-font {
-  font-family: 'Fira Code', monospace;
-}
-
-.editor-area {
-  background: #020617;
-  border: 1px solid #1e293b;
+  font-family: 'Fira Code', 'Cascadia Code', Consolas, monospace;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -21,6 +16,394 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 10px;
+  background: #2a3142;
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #3e485e;
+}
+
+/* ==========================================================================
+   EDITOR ESTÁNDAR / TXT: GUTTER Y TEXTAREA
+   ========================================================================== */
+.editor-gutter {
+  width: 48px;
+  background-color: #10131c;
+  border-right: 1px solid #1e2436;
+  color: #4b5568;
+  font-family: 'Fira Code', 'Cascadia Code', Consolas, monospace;
+  font-size: 13px;
+  line-height: 22px;
+  padding-top: 14px;
+  padding-bottom: 14px;
+  text-align: right;
+  padding-right: 10px;
+  user-select: none;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.editor-gutter-line {
+  height: 22px;
+  line-height: 22px;
+}
+
+.editor-textarea {
+  font-family: 'Fira Code', 'Cascadia Code', Consolas, monospace;
+  font-size: 13px;
+  line-height: 22px;
+  padding: 14px 14px;
+  color: #f1f5f9;
+  background-color: #141720;
+  outline: none;
+  resize: none;
+  width: 100%;
+  height: 100%;
+}
+
+/* ==========================================================================
+   JSON UNIFICADO: EDICIÓN Y COLORES EN VIVO EN LA MISMA HOJA
+   ========================================================================== */
+.json-live-canvas {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+  background-color: #161922; /* Fondo negro agrisado exacto */
+}
+
+.json-live-pre {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 14px 16px;
+  font-family: 'Fira Code', 'Cascadia Code', Consolas, monospace;
+  font-size: 13px;
+  line-height: 22px;
+  tab-size: 2;
+  white-space: pre;
+  pointer-events: none;
+  overflow: hidden;
+  color: #cbd5e1;
+}
+
+.json-live-textarea {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  padding: 14px 16px;
+  font-family: 'Fira Code', 'Cascadia Code', Consolas, monospace;
+  font-size: 13px;
+  line-height: 22px;
+  tab-size: 2;
+  white-space: pre;
+  color: transparent;
+  caret-color: #38bdf8;
+  background: transparent;
+  outline: none;
+  resize: none;
+  border: none;
+  overflow: auto;
+}
+
+.json-live-textarea::selection {
+  background: rgba(99, 102, 241, 0.45);
+}
+
+/* Tokens de sintaxis según imagen del usuario */
+:host ::ng-deep .json-key {
+  color: #4ade80 !important; /* Verde brillante para claves */
+  font-weight: 600;
+}
+
+:host ::ng-deep .json-string {
+  color: #38bdf8 !important; /* Celeste cielo brillante para strings */
+}
+
+:host ::ng-deep .json-number {
+  color: #fb923c !important; /* Naranja / Coral para números */
+  font-weight: 500;
+}
+
+:host ::ng-deep .json-boolean {
+  color: #f472b6 !important; /* Rosa / Fucsia para booleanos */
+  font-weight: 700;
+}
+
+:host ::ng-deep .json-null {
+  color: #fb7185 !important; /* Rosa apagado para null */
+  font-style: italic;
+}
+
+:host ::ng-deep .json-brace {
+  color: #facc15 !important; /* Llaves {} en amarillo brillante */
+  font-weight: 700;
+}
+
+:host ::ng-deep .json-bracket {
+  color: #e879f9 !important; /* Corchetes [] en violeta / lila */
+  font-weight: 700;
+}
+
+:host ::ng-deep .json-colon {
+  color: #94a3b8;
+  margin-right: 4px;
+}
+
+:host ::ng-deep .json-comma {
+  color: #64748b;
+}
+
+/* ==========================================================================
+   DOCUMENTO UNIFICADO MARKDOWN (.MD) - TIPO WORD / NOTION
+   ========================================================================== */
+.document-sheet-wrapper {
+  background-color: #080c18;
+}
+
+.document-sheet-canvas {
+  background-color: #0f1424;
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.7);
+  word-break: break-word;
+}
+
+:host ::ng-deep .code-block-dark {
+  background-color: #12151e !important;
+  border: 1px solid #242938 !important;
+  border-radius: 12px;
+}
+
+:host ::ng-deep .code-lang-label {
+  cursor: text;
+  user-select: text;
+}
+
+:host ::ng-deep .code-lang-label:focus {
+  background-color: rgba(99, 102, 241, 0.3) !important;
+  outline: 1px solid #6366f1 !important;
+  color: #a5b4fc !important;
+}
+
+/* ==========================================================================
+   ENCABEZADOS H1, H2, H3 EN EL LIENZO RICO
+   ========================================================================== */
+:host ::ng-deep .rich-canvas-editor h1 {
+  display: block !important;
+  font-size: 1.65rem !important;
+  font-weight: 800 !important;
+  color: #ffffff !important;
+  border-bottom: 2px solid rgba(99, 102, 241, 0.4) !important;
+  padding-bottom: 6px !important;
+  margin-top: 24px !important;
+  margin-bottom: 12px !important;
+  line-height: 1.3 !important;
+}
+
+:host ::ng-deep .rich-canvas-editor h2 {
+  display: block !important;
+  font-size: 1.35rem !important;
+  font-weight: 700 !important;
+  color: #f1f5f9 !important;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.8) !important;
+  padding-bottom: 4px !important;
+  margin-top: 20px !important;
+  margin-bottom: 10px !important;
+  line-height: 1.35 !important;
+}
+
+:host ::ng-deep .rich-canvas-editor h3 {
+  display: block !important;
+  font-size: 1.15rem !important;
+  font-weight: 700 !important;
+  color: #a5b4fc !important;
+  margin-top: 16px !important;
+  margin-bottom: 8px !important;
+  line-height: 1.4 !important;
+}
+
+/* ==========================================================================
+   LISTAS EN EL LIENZO RICO (.rich-canvas-editor)
+   ========================================================================== */
+:host ::ng-deep .rich-canvas-editor ul {
+  list-style-type: disc !important;
+  margin: 10px 0 10px 24px !important;
+  padding-left: 8px !important;
+}
+
+:host ::ng-deep .rich-canvas-editor ol {
+  list-style-type: decimal !important;
+  margin: 10px 0 10px 24px !important;
+  padding-left: 8px !important;
+}
+
+:host ::ng-deep .rich-canvas-editor li {
+  display: list-item !important;
+  margin-top: 4px !important;
+  margin-bottom: 4px !important;
+  padding-left: 4px !important;
+  color: #e2e8f0 !important;
+  line-height: 1.6;
+}
+
+:host ::ng-deep blockquote {
+  border-left: 4px solid #6366f1;
+  background-color: rgba(99, 102, 241, 0.08);
+  padding: 10px 16px;
+  margin: 14px 0;
+  border-radius: 0 10px 10px 0;
+  color: #cbd5e1;
+  font-style: italic;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+:host ::ng-deep .checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  margin: 4px 0;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+:host ::ng-deep .checklist-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+:host ::ng-deep .checklist-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #10b981;
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   TABLA DE DATOS ESTILO EXCEL / WORD CON SCROLL HORIZONTAL PROPIO
+   ========================================================================== */
+:host ::ng-deep .excel-table-widget {
+  border: 1px solid #28334a;
+  background-color: #0b0f1d;
+  border-radius: 14px;
+  margin: 20px 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  max-width: 100%;
+}
+
+:host ::ng-deep .excel-table-scroll {
+  overflow-x: auto !important;
+  max-width: 100% !important;
+  display: block !important;
+  border-radius: 0 0 14px 14px;
+}
+
+/* Barra de scroll horizontal personalizada y llamativa para la tabla */
+:host ::ng-deep .custom-table-scrollbar::-webkit-scrollbar {
+  height: 8px !important;
+}
+
+:host ::ng-deep .custom-table-scrollbar::-webkit-scrollbar-track {
+  background: #0a0d16 !important;
+  border-radius: 4px;
+}
+
+:host ::ng-deep .custom-table-scrollbar::-webkit-scrollbar-thumb {
+  background: #27334d !important;
+  border-radius: 4px;
+  border: 1px solid #1a2233;
+}
+
+:host ::ng-deep .custom-table-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #4f46e5 !important;
+}
+
+:host ::ng-deep .excel-grid {
+  border-collapse: collapse !important;
+  width: max-content !important;
+  min-width: 100% !important;
+  table-layout: fixed !important;
+}
+
+:host ::ng-deep .excel-grid th,
+:host ::ng-deep .excel-grid td {
+  border: 1px solid #20293d;
+  padding: 7px 10px;
+}
+
+:host ::ng-deep .table-editable-cell {
+  position: relative;
+  outline: none;
+  cursor: text;
+  width: 160px !important;
+  min-width: 160px !important;
+  max-width: 320px !important;
+  box-sizing: border-box;
+  word-break: break-word;
+  white-space: normal;
+  transition: background-color 0.12s ease;
+}
+
+:host ::ng-deep .table-editable-cell:hover {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+}
+
+:host ::ng-deep .table-editable-cell:focus {
+  background-color: rgba(99, 102, 241, 0.25) !important;
+  box-shadow: inset 0 0 0 2px #6366f1;
+  color: #ffffff !important;
+}
+
+/* Cabeceras de columnas Excel (A, B, C...) */
+:host ::ng-deep .excel-col-header {
+  background-color: #0c101c;
+  color: #94a3b8;
+  font-family: monospace;
+  font-size: 11px;
+  text-align: center;
+  padding: 5px 8px;
+  user-select: none;
+  position: relative;
+  width: 160px !important;
+  min-width: 160px !important;
+  max-width: 320px !important;
+  box-sizing: border-box;
+}
+
+:host ::ng-deep .excel-col-header:hover .col-del-btn {
+  opacity: 1;
+}
+
+:host ::ng-deep .excel-row-num {
+  background-color: #0c101c;
+  color: #64748b;
+  font-family: monospace;
+  font-size: 10px;
+  text-align: center;
+  width: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  user-select: none;
+  position: relative;
+  box-sizing: border-box;
+}
+
+:host ::ng-deep .excel-row-num:hover .row-del-btn {
+  opacity: 1;
+}
+
+:host ::ng-deep .col-del-btn,
+:host ::ng-deep .row-del-btn {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  cursor: pointer;
 }

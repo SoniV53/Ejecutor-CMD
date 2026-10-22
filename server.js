@@ -115,11 +115,14 @@ const server = http.createServer((req, res) => {
     }
 
     // API DOC MANAGER
+    if (req.url.startsWith('/api/doc/info')) return apiDocController.getDocInfo(req, res);
     if (req.url.startsWith('/api/doc/list')) return apiDocController.listDocs(req, res);
     if (req.url.startsWith('/api/doc/saveJsonDoc')) return apiDocController.saveJsonDoc(req, res);
     if (req.url.startsWith('/api/doc/save')) return apiDocController.saveDoc(req, res);
     if (req.url.startsWith('/api/doc/read')) return apiDocController.readFile(req, res);
     if (req.url.startsWith('/api/doc/delete')) return apiDocController.deleteItem(req, res);
+    if (req.url.startsWith('/api/doc/rename')) return apiDocController.renameItem(req, res);
+    if (req.url.startsWith('/api/doc/open-explorer')) return apiDocController.openInExplorer(req, res);
     if (req.url.startsWith('/api/doc/analyze-git')) return apiDocController.analyzeGitRepository(req, res);
     if (req.url.startsWith('/api/doc/browse-dirs')) return apiDocController.browseDirectories(req, res);
     if (req.url.startsWith('/api/doc/branch-commits')) return apiDocController.getBranchCommits(req, res);

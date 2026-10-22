@@ -12,6 +12,22 @@ if (!fs.existsSync(DOCS_ROOT)) {
     fs.mkdirSync(DOCS_ROOT, { recursive: true });
 }
 
+function resolveRoot(root) {
+    const trimmed = (root || '').trim();
+    if (trimmed && fs.existsSync(trimmed)) {
+        return trimmed;
+    }
+    return DOCS_ROOT;
+}
+
+const getDocInfo = (req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+        defaultDocsDir: DOCS_ROOT,
+        baseDir: BASE_DIR
+    }));
+};
+
 // Migración suave: si existen archivos en json/json/rama que no estén en api_docs/json/rama, copiarlos
 try {
     const legacyRamaDir = path.join(DOCS_ROOT_JSON, 'json', 'rama');
@@ -36,22 +52,37 @@ try {
 }
 
 const listDocs = (req, res) => {
-    let targetPath = DOCS_ROOT;
     const urlParams = new URL(req.url, `http://${req.headers.host}`);
+    const rootParam = urlParams.searchParams.get('root') || '';
     const subDir = urlParams.searchParams.get('path') || '';
+    const effectiveRoot = resolveRoot(rootParam);
 
-    if (subDir) targetPath = path.join(DOCS_ROOT, subDir);
+    const targetPath = subDir ? path.join(effectiveRoot, subDir) : effectiveRoot;
 
     try {
         if (!fs.existsSync(targetPath)) {
             fs.mkdirSync(targetPath, { recursive: true });
         }
         const items = fs.readdirSync(targetPath, { withFileTypes: true });
-        const list = items.map(item => ({
-            name: item.name,
-            isFolder: item.isDirectory(),
-            path: path.join(subDir, item.name).replace(/\\/g, '/')
-        }));
+        const list = items
+            .filter(item => !item.name.startsWith('.') && item.name !== '_init.txt')
+            .map(item => {
+                const itemRelPath = path.join(subDir, item.name).replace(/\\/g, '/');
+                const ext = path.extname(item.name).toLowerCase();
+                return {
+                    name: item.name,
+                    isFolder: item.isDirectory(),
+                    path: itemRelPath,
+                    fullPath: path.join(targetPath, item.name),
+                    extension: ext
+                };
+            })
+            .sort((a, b) => {
+                if (a.isFolder && !b.isFolder) return -1;
+                if (!a.isFolder && b.isFolder) return 1;
+                return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+            });
+
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(list));
     } catch (e) {
@@ -65,18 +96,41 @@ const saveDoc = (req, res) => {
     req.on('data', chunk => body += chunk.toString());
     req.on('end', () => {
         try {
-            const { fileName, folder, content } = JSON.parse(body);
-            const targetFolder = path.join(DOCS_ROOT, folder);
+            const { fileName, folder, content, root } = JSON.parse(body);
+            const effectiveRoot = resolveRoot(root);
+            const targetFolder = folder ? path.join(effectiveRoot, folder) : effectiveRoot;
 
             if (!fs.existsSync(targetFolder)) {
                 fs.mkdirSync(targetFolder, { recursive: true });
             }
 
-            const filePath = path.join(targetFolder, fileName.endsWith('.txt') ? fileName : `${fileName}.txt`);
-            fs.writeFileSync(filePath, content);
+            let cleanName = (fileName || '').trim();
+            if (!cleanName) {
+                cleanName = 'nota.txt';
+            }
+
+            // Si no tiene extensión, verificar si el contenido es JSON o usar .txt
+            if (!path.extname(cleanName)) {
+                try {
+                    JSON.parse(content);
+                    cleanName += '.json';
+                } catch {
+                    cleanName += '.txt';
+                }
+            }
+
+            const filePath = path.join(targetFolder, cleanName);
+            fs.writeFileSync(filePath, content || '', 'utf-8');
+
+            const relPath = path.join(folder || '', cleanName).replace(/\\/g, '/');
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ status: 'success', path: filePath }));
+            res.end(JSON.stringify({
+                status: 'success',
+                fileName: cleanName,
+                path: relPath,
+                fullPath: filePath
+            }));
         } catch (e) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: e.message }));
@@ -89,23 +143,24 @@ const saveJsonDoc = (req, res) => {
     req.on('data', chunk => body += chunk.toString());
     req.on('end', () => {
         try {
-            const { fileName, folder, content } = JSON.parse(body);
-            // Guardar en DOCS_ROOT para que coincida con listDocs y readFile
-            const targetFolder = path.join(DOCS_ROOT, folder);
+            const { fileName, folder, content, root } = JSON.parse(body);
+            const effectiveRoot = resolveRoot(root);
+            const targetFolder = folder ? path.join(effectiveRoot, folder) : effectiveRoot;
 
             if (!fs.existsSync(targetFolder)) {
                 fs.mkdirSync(targetFolder, { recursive: true });
             }
 
-            // Aseguramos la extensión .json
             const cleanName = fileName.replace(/\.json$/i, '');
             const filePath = path.join(targetFolder, `${cleanName}.json`);
 
             const formattedJson = JSON.stringify(JSON.parse(content), null, 2);
             fs.writeFileSync(filePath, formattedJson, 'utf-8');
 
+            const relPath = path.join(folder || '', `${cleanName}.json`).replace(/\\/g, '/');
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ status: 'success', path: filePath }));
+            res.end(JSON.stringify({ status: 'success', path: relPath, fullPath: filePath }));
         } catch (e) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Error procesando JSON: ' + e.message }));
@@ -116,16 +171,27 @@ const saveJsonDoc = (req, res) => {
 const readFile = (req, res) => {
     const urlParams = new URL(req.url, `http://${req.headers.host}`);
     const filePath = urlParams.searchParams.get('path');
-    if (!filePath) return res.end();
+    const rootParam = urlParams.searchParams.get('root') || '';
+    if (!filePath) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Ruta no especificada' }));
+    }
+
+    const effectiveRoot = resolveRoot(rootParam);
 
     try {
-        const fullPath = path.join(DOCS_ROOT, filePath);
+        const fullPath = path.isAbsolute(filePath) ? filePath : path.join(effectiveRoot, filePath);
         const content = fs.readFileSync(fullPath, 'utf-8');
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ content }));
+        res.end(JSON.stringify({
+            content,
+            fileName: path.basename(fullPath),
+            fullPath,
+            path: filePath
+        }));
     } catch (e) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'No se encontró el archivo' }));
+        res.end(JSON.stringify({ error: 'No se encontró el archivo: ' + e.message }));
     }
 };
 
@@ -134,17 +200,77 @@ const deleteItem = (req, res) => {
     req.on('data', chunk => body += chunk.toString());
     req.on('end', () => {
         try {
-            const { itemPath } = JSON.parse(body);
-            const fullPath = path.join(DOCS_ROOT, itemPath);
+            const { itemPath, root } = JSON.parse(body);
+            const effectiveRoot = resolveRoot(root);
+            const fullPath = path.isAbsolute(itemPath) ? itemPath : path.join(effectiveRoot, itemPath);
 
-            if (fs.lstatSync(fullPath).isDirectory()) {
-                fs.rmSync(fullPath, { recursive: true, force: true });
-            } else {
-                fs.unlinkSync(fullPath);
+            if (fs.existsSync(fullPath)) {
+                if (fs.lstatSync(fullPath).isDirectory()) {
+                    fs.rmSync(fullPath, { recursive: true, force: true });
+                } else {
+                    fs.unlinkSync(fullPath);
+                }
             }
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ status: 'deleted' }));
+        } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: e.message }));
+        }
+    });
+};
+
+const renameItem = (req, res) => {
+    let body = '';
+    req.on('data', chunk => body += chunk.toString());
+    req.on('end', () => {
+        try {
+            const { oldPath, newName, root } = JSON.parse(body);
+            const effectiveRoot = resolveRoot(root);
+            const fullOldPath = path.isAbsolute(oldPath) ? oldPath : path.join(effectiveRoot, oldPath);
+
+            if (!fs.existsSync(fullOldPath)) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'El archivo original no existe.' }));
+                return;
+            }
+
+            const dir = path.dirname(fullOldPath);
+            const fullNewPath = path.join(dir, (newName || '').trim());
+            fs.renameSync(fullOldPath, fullNewPath);
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                status: 'success',
+                newPath: fullNewPath,
+                newName: path.basename(fullNewPath)
+            }));
+        } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: e.message }));
+        }
+    });
+};
+
+const openInExplorer = (req, res) => {
+    let body = '';
+    req.on('data', chunk => body += chunk.toString());
+    req.on('end', () => {
+        try {
+            const { folder, root } = JSON.parse(body || '{}');
+            const effectiveRoot = resolveRoot(root);
+            const targetFolder = folder ? (path.isAbsolute(folder) ? folder : path.join(effectiveRoot, folder)) : effectiveRoot;
+
+            if (!fs.existsSync(targetFolder)) {
+                fs.mkdirSync(targetFolder, { recursive: true });
+            }
+
+            const { exec } = require('child_process');
+            exec(`explorer.exe "${targetFolder}"`, { windowsHide: false });
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'success', targetFolder }));
         } catch (e) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: e.message }));
@@ -422,10 +548,13 @@ const getBranchCommits = (req, res) => {
 };
 
 module.exports = {
+    getDocInfo,
     listDocs,
     saveDoc,
     readFile,
     deleteItem,
+    renameItem,
+    openInExplorer,
     saveJsonDoc,
     analyzeGitRepository,
     browseDirectories,

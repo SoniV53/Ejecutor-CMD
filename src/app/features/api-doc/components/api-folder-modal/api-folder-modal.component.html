@@ -14,11 +14,11 @@
 >
   <div class="bg-[#0f172a] border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-fade">
     <h3 class="text-xl font-bold text-white mb-2">Nueva Carpeta</h3>
-    <p class="text-xs text-slate-400 mb-4">Ingresa el nombre del nuevo directorio de servicios.</p>
+    <p class="text-xs text-slate-400 mb-4">Ingresa el nombre del nuevo directorio en Windows.</p>
     <input
       type="text"
       [(ngModel)]="inFolderName"
-      placeholder="Ej: v1_pagos"
+      placeholder="Ej: reportes_v1 o notas_spring"
       (keydown.enter)="onConfirmFolder()"
       class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-600 outline-none text-white mb-6"
     />
@@ -36,6 +36,108 @@
         class="flex-1 py-3 rounded-xl bg-indigo-600 font-bold text-white shadow-lg shadow-indigo-600/30 transition-all hover:bg-indigo-500"
       >
         Crear
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nuevo Archivo -->
+<div
+  *ngIf="showFileModal"
+  class="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm"
+>
+  <div class="bg-[#0f172a] border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-fade">
+    <h3 class="text-xl font-bold text-white mb-2">Nuevo Archivo</h3>
+    <p class="text-xs text-slate-400 mb-4">Ingresa el nombre y tipo de archivo para crearlo en Windows.</p>
+
+    <div class="mb-4">
+      <label class="text-[10px] font-bold text-slate-400 uppercase mb-1.5 block">Nombre del Archivo</label>
+      <input
+        type="text"
+        [(ngModel)]="inFileName"
+        placeholder="Ej: auth_login o notas"
+        (keydown.enter)="onConfirmFile()"
+        class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm code-font focus:ring-2 focus:ring-indigo-600 outline-none text-white"
+      />
+    </div>
+
+    <div class="mb-6">
+      <label class="text-[10px] font-bold text-slate-400 uppercase mb-1.5 block">Tipo / Extensión</label>
+      <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800 gap-1">
+        <button
+          type="button"
+          (click)="inFileType = 'txt'"
+          class="flex-1 py-1.5 text-xs font-bold rounded-lg transition-all"
+          [ngClass]="inFileType === 'txt' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'"
+        >
+          .txt
+        </button>
+        <button
+          type="button"
+          (click)="inFileType = 'json'"
+          class="flex-1 py-1.5 text-xs font-bold rounded-lg transition-all"
+          [ngClass]="inFileType === 'json' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'"
+        >
+          .json
+        </button>
+        <button
+          type="button"
+          (click)="inFileType = 'md'"
+          class="flex-1 py-1.5 text-xs font-bold rounded-lg transition-all"
+          [ngClass]="inFileType === 'md' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'"
+        >
+          .md
+        </button>
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button
+        type="button"
+        (click)="closeFileModal.emit()"
+        class="flex-1 py-3 rounded-xl bg-slate-800 font-bold text-slate-300 transition-colors hover:bg-slate-700"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        (click)="onConfirmFile()"
+        class="flex-1 py-3 rounded-xl bg-indigo-600 font-bold text-white shadow-lg shadow-indigo-600/30 transition-all hover:bg-indigo-500"
+      >
+        Crear Archivo
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Renombrar -->
+<div
+  *ngIf="showRenameModal"
+  class="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm"
+>
+  <div class="bg-[#0f172a] border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-fade">
+    <h3 class="text-xl font-bold text-white mb-2">Renombrar</h3>
+    <p class="text-xs text-slate-400 mb-4">Ingresa el nuevo nombre para este elemento.</p>
+    <input
+      type="text"
+      [(ngModel)]="inRenameName"
+      (keydown.enter)="onConfirmRename()"
+      class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-600 outline-none text-white mb-6"
+    />
+    <div class="flex gap-3">
+      <button
+        type="button"
+        (click)="closeRenameModal.emit()"
+        class="flex-1 py-3 rounded-xl bg-slate-800 font-bold text-slate-300 transition-colors hover:bg-slate-700"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        (click)="onConfirmRename()"
+        class="flex-1 py-3 rounded-xl bg-indigo-600 font-bold text-white shadow-lg shadow-indigo-600/30 transition-all hover:bg-indigo-500"
+      >
+        Renombrar
       </button>
     </div>
   </div>

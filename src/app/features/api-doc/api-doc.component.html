@@ -1,75 +1,124 @@
 <div class="flex flex-col h-full w-full bg-[#020617] text-[#f1f5f9] overflow-hidden">
-  <!-- HEADER -->
+  <!-- CABECERA PRINCIPAL -->
   <header
-    class="min-h-[4rem] py-2 border-b border-slate-900 bg-[#020617]/90 backdrop-blur-xl flex flex-wrap items-center justify-between gap-3 px-4 md:px-6 shrink-0 z-10"
+    class="min-h-[4rem] py-2 border-b border-slate-900 bg-[#020617]/90 backdrop-blur-xl flex flex-wrap items-center justify-between gap-3 px-4 md:px-6 shrink-0 z-10 select-none"
   >
     <div class="flex items-center gap-3 md:gap-4 shrink-0">
-      <a routerLink="/hub" class="text-slate-400 hover:text-white transition-colors cursor-pointer">
+      <a routerLink="/hub" class="text-slate-400 hover:text-white transition-colors cursor-pointer" title="Volver al Hub">
         <i data-lucide="arrow-left" class="w-5 h-5"></i>
       </a>
       <div class="flex items-center gap-3">
-        <div class="bg-indigo-600 p-2 rounded-lg shadow-lg shrink-0">
-          <i data-lucide="file-json" class="text-white w-5 h-5"></i>
+        <div class="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-600/30 shrink-0">
+          <i data-lucide="file-text" class="text-white w-5 h-5"></i>
         </div>
-        <h1 class="font-bold text-base md:text-lg whitespace-nowrap">API Doc Manager</h1>
+        <div>
+          <h1 class="font-bold text-base md:text-lg whitespace-nowrap leading-tight">API Doc & Notes Manager</h1>
+          <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest block">Bloc de Notas con Pestañas</span>
+        </div>
       </div>
     </div>
-    <div class="flex flex-wrap items-center gap-2 md:gap-3 shrink-0 ml-auto">
+
+    <!-- Acciones Rápidas de Cabecera -->
+    <div class="flex flex-wrap items-center gap-2 shrink-0 ml-auto">
+      <!-- Toggle Explorador de Carpetas -->
       <button
         type="button"
-        (click)="clearEditor()"
-        class="p-2 text-slate-500 hover:text-white transition-colors shrink-0"
-        title="Limpiar Editor"
+        (click)="toggleSidebar()"
+        class="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all active:scale-95"
+        [title]="sidebarOpen ? 'Ocultar explorador de archivos' : 'Mostrar explorador de archivos'"
       >
-        <i data-lucide="eraser" class="w-5 h-5"></i>
+        <i [attr.data-lucide]="sidebarOpen ? 'panel-left-close' : 'panel-left'" class="w-4 h-4 text-indigo-400"></i>
+        <span class="hidden sm:inline">{{ sidebarOpen ? 'Ocultar Panel' : 'Explorador' }}</span>
       </button>
+
+      <!-- Nueva Pestaña -->
       <button
         type="button"
-        (click)="downloadAsTxt()"
-        class="flex items-center gap-2 px-3 md:px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0"
+        (click)="createNewTab()"
+        class="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all active:scale-95"
+        title="Crear nueva nota en pestaña (Ctrl+N)"
       >
-        <i data-lucide="download" class="w-4 h-4 shrink-0"></i>
-        <span class="hidden sm:inline">Descargar</span> .txt
+        <i data-lucide="plus" class="w-4 h-4 text-indigo-400"></i>
+        <span class="hidden sm:inline">Nueva Nota</span>
       </button>
+
+      <!-- Abrir Carpeta en Windows -->
+      <button
+        type="button"
+        (click)="openInWindowsExplorer()"
+        class="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all active:scale-95"
+        title="Abrir carpeta en el Explorador de Windows"
+      >
+        <i data-lucide="folder-open" class="w-4 h-4 text-amber-400"></i>
+        <span class="hidden md:inline">Abrir en Windows</span>
+      </button>
+
+      <!-- Guardar Activo -->
       <button
         type="button"
         [disabled]="saving"
-        [ngClass]="saving ? 'opacity-50' : ''"
-        (click)="saveToProject()"
-        class="flex items-center gap-2 px-3 md:px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/20 transition-all whitespace-nowrap shrink-0"
+        (click)="saveActiveTab()"
+        class="flex items-center gap-2 px-3.5 md:px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all whitespace-nowrap disabled:opacity-50 active:scale-95 text-white"
+        title="Guardar archivo actual en Windows (Ctrl+S)"
       >
-        <i data-lucide="save" class="w-4 h-4 shrink-0"></i>
-        <span>Guardar<span class="hidden sm:inline"> en Proyecto</span></span>
+        <i [attr.data-lucide]="saving ? 'loader' : 'save'" class="w-4 h-4 shrink-0" [ngClass]="saving ? 'animate-spin' : ''"></i>
+        <span>{{ saving ? 'Guardando...' : 'Guardar' }}</span>
       </button>
     </div>
   </header>
 
+  <!-- CONTENEDOR PRINCIPAL (SIDEBAR + EDITOR CON PESTAÑAS) -->
   <div class="flex flex-1 overflow-hidden relative">
+    <!-- Backdrop oscuro para móvil cuando el sidebar está abierto -->
+    <div
+      *ngIf="sidebarOpen"
+      (click)="sidebarOpen = false"
+      class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-20 md:hidden transition-opacity"
+    ></div>
+
     <app-api-explorer-sidebar
+      [isOpen]="sidebarOpen"
       [items]="items"
       [currentFolder]="currentFolder"
-      [activeFile]="activeFile"
+      [currentRoot]="currentRoot"
+      [defaultDocsDir]="defaultDocsDir"
+      [activeFile]="activeFilePath"
+      (closeSidebar)="sidebarOpen = false"
       (createFolder)="createFolder()"
+      (createFile)="createFile()"
+      (selectRootDirectory)="selectRootDirectory()"
+      (openInWindowsExplorer)="openInWindowsExplorer()"
+      (resetRootDirectory)="resetRootDirectory()"
       (refresh)="refreshExplorer($event)"
       (goBack)="goBack()"
       (openFolder)="refreshExplorer($event)"
       (loadFile)="loadFile($event)"
+      (renameItem)="renameItem($event)"
       (deleteItem)="deleteItem($event)"
     ></app-api-explorer-sidebar>
 
     <app-api-doc-editor
-      [docName]="docName"
-      [docContent]="docContent"
-      [currentDocType]="currentDocType"
-      (docNameChange)="docName = $event"
-      (docContentChange)="docContent = $event"
-      (docTypeChange)="currentDocType = $event"
+      [tabs]="tabs"
+      [activeTabId]="activeTabId"
+      [saving]="saving"
+      [currentFolder]="currentFolder"
+      (selectTab)="selectTab($event)"
+      (newTab)="createNewTab()"
+      (closeTab)="closeTab($event)"
+      (saveActive)="saveActiveTab()"
+      (downloadActive)="downloadActiveTab()"
       (formatContent)="formatContent($event)"
+      (copyContent)="copyContent()"
+      (clearContent)="clearActiveContent()"
     ></app-api-doc-editor>
   </div>
 
+  <!-- MODALES DE CARPETAS, ARCHIVOS Y CONFIRMACIONES -->
   <app-api-folder-modal
     [showFolderModal]="showFolderModal"
+    [showFileModal]="showFileModal"
+    [showRenameModal]="showRenameModal"
+    [renameOldName]="renameTargetItem?.name || ''"
     [showConfirmModal]="showConfirmModal"
     [confirmTitle]="confirmTitle"
     [confirmText]="confirmText"
@@ -79,6 +128,10 @@
     [toastColor]="toastColor"
     (closeFolderModal)="showFolderModal = false"
     (confirmCreateFolder)="confirmCreateFolder($event)"
+    (closeFileModal)="showFileModal = false"
+    (confirmCreateFile)="confirmCreateFile($event)"
+    (closeRenameModal)="showRenameModal = false; renameTargetItem = null"
+    (confirmRename)="confirmRename($event)"
     (closeConfirmModal)="closeConfirmModal()"
     (confirmAction)="onConfirmAction()"
   ></app-api-folder-modal>
