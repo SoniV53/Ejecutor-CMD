@@ -15,6 +15,15 @@ import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { LucideIconService } from '../../../../core/services/lucide-icon.service';
 import { NoteTab } from '../../models/api-doc.models';
+import * as beautify from 'js-beautify';
+import * as Prism from 'prismjs';
+import 'prismjs/components/prism-json';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-css';
+import 'prismjs/components/prism-sql';
+import 'prismjs/components/prism-bash';
+import 'prismjs/components/prism-python';
 
 @Component({
   selector: 'app-api-doc-editor',
@@ -37,6 +46,7 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
   @Output() formatContent = new EventEmitter<'json' | 'minify' | 'txt'>();
   @Output() copyContent = new EventEmitter<void>();
   @Output() clearContent = new EventEmitter<void>();
+  @Output() toastRequested = new EventEmitter<{ msg: string; icon?: string; color?: string }>();
 
   // Referencias para editor estándar / TXT / fuente MD
   @ViewChild('editorTextarea') editorTextarea?: ElementRef<HTMLTextAreaElement>;
@@ -145,14 +155,24 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
   setMdViewMode(mode: 'rich' | 'source'): void {
     if (this.mdViewMode === mode) return;
 
-    if (mode === 'rich' && this.mdViewMode === 'source') {
-      this.mdViewMode = 'rich';
-      setTimeout(() => this.syncRichEditorFromTab(), 10);
-    } else if (mode === 'source' && this.mdViewMode === 'rich') {
+    if (mode === 'source' && this.mdViewMode === 'rich') {
       this.onRichInput();
       this.mdViewMode = 'source';
+    } else if (mode === 'rich' && this.mdViewMode === 'source') {
+      this.mdViewMode = 'rich';
+      setTimeout(() => {
+        this.syncRichEditorFromTab();
+      }, 50);
     }
     this.lucide.refresh();
+  }
+
+  onSwitchTab(tabId: string): void {
+    if (this.activeTabId === tabId) return;
+    if (this.mdViewMode === 'rich') {
+      this.onRichInput();
+    }
+    this.selectTab.emit(tabId);
   }
 
   getTabIcon(fileType: string): string {
@@ -296,6 +316,145 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
 
   onRichFocusOut(): void {
     this.onRichInput();
+  }
+
+  private savedRange: Range | null = null;
+
+  saveSelection(): void {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      if (this.richCanvas?.nativeElement.contains(range.commonAncestorContainer)) {
+        this.savedRange = range.cloneRange();
+      }
+    }
+  }
+
+  restoreSelection(): boolean {
+    if (this.savedRange) {
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(this.savedRange);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  updateCodeGutter(codeBlock: HTMLElement | null): void {
+    if (!codeBlock) return;
+    const gutter = codeBlock.querySelector('.code-gutter');
+    const code = codeBlock.querySelector('code');
+    if (!gutter || !code) return;
+
+    const lines = Math.max((code.innerText || code.textContent || '').split('\n').length, 1);
+    gutter.innerHTML = Array.from({ length: lines }, (_, i) => i + 1).join('<br>');
+  }
+
+  formatSqlCode(sql: string): string {
+    const keywords = [
+      'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'ORDER BY', 'GROUP BY', 'HAVING',
+      'LIMIT', 'OFFSET', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN',
+      'INSERT INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE FROM'
+    ];
+    let formatted = sql.replace(/\s+/g, ' ').trim();
+    keywords.forEach(kw => {
+      const reg = new RegExp(`\\b${kw}\\b`, 'gi');
+      if (['AND', 'OR', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN'].includes(kw)) {
+        formatted = formatted.replace(reg, `\n    ${kw}`);
+      } else {
+        formatted = formatted.replace(reg, `\n${kw}`);
+      }
+    });
+    return formatted.trim();
+  }
+
+  formatGenericCode(code: string): string {
+    return code
+      .split('\n')
+      .map(line => line.replace(/\t/g, '    ').trimEnd())
+      .join('\n')
+      .trim();
+  }
+
+  formatHtmlCode(html: string): string {
+    try {
+      return beautify.html(html, {
+        indent_size: 4,
+        wrap_attributes: 'force-expand-multiline',
+        indent_inner_html: true,
+        preserve_newlines: true,
+        max_preserve_newlines: 2,
+        end_with_newline: false
+      });
+    } catch {
+      return html;
+    }
+  }
+
+  formatJsCode(code: string): string {
+    try {
+      return beautify.js(code, {
+        indent_size: 4,
+        preserve_newlines: true,
+        max_preserve_newlines: 2
+      });
+    } catch {
+      return code;
+    }
+  }
+
+  formatCssCode(css: string): string {
+    try {
+      return beautify.css(css, {
+        indent_size: 4,
+        newline_between_rules: true
+      });
+    } catch {
+      return css;
+    }
+  }
+
+  highlightCode(code: string, lang: string): string {
+    const l = (lang || '').trim().toLowerCase();
+    let grammar = Prism.languages['markup'];
+    let prismLang = 'markup';
+
+    if (l === 'json') {
+      grammar = Prism.languages['json'] || Prism.languages['javascript'];
+      prismLang = 'json';
+    } else if (['js', 'javascript'].includes(l)) {
+      grammar = Prism.languages['javascript'];
+      prismLang = 'javascript';
+    } else if (['ts', 'typescript'].includes(l)) {
+      grammar = Prism.languages['typescript'] || Prism.languages['javascript'];
+      prismLang = 'typescript';
+    } else if (['css', 'scss'].includes(l)) {
+      grammar = Prism.languages['css'];
+      prismLang = 'css';
+    } else if (l === 'sql') {
+      grammar = Prism.languages['sql'];
+      prismLang = 'sql';
+    } else if (['bash', 'sh', 'shell', 'cmd', 'ps1'].includes(l)) {
+      grammar = Prism.languages['bash'];
+      prismLang = 'bash';
+    } else if (['py', 'python'].includes(l)) {
+      grammar = Prism.languages['python'];
+      prismLang = 'python';
+    } else if (['html', 'xml'].includes(l) || /<[a-zA-Z0-9_\-]+[\s>]/.test(code)) {
+      grammar = Prism.languages['markup'];
+      prismLang = 'markup';
+    }
+
+    if (grammar) {
+      try {
+        return Prism.highlight(code, grammar, prismLang);
+      } catch {
+        return this.escapeHtml(code);
+      }
+    }
+    return this.escapeHtml(code);
   }
 
   insertHtmlAtCursor(html: string): void {
@@ -460,26 +619,29 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
         <div class="flex items-center justify-between px-4 py-2.5 bg-[#101626] border-b border-[#242e44] select-none">
           <div class="flex items-center gap-2">
             <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px] uppercase tracking-wider flex items-center gap-1">
-              <i data-lucide="sheet" class="w-3 h-3"></i> Tabla de Datos
+              <i data-lucide="sheet" class="w-3 h-3 pointer-events-none"></i> Tabla de Datos
             </span>
             <span class="text-[11px] text-slate-400 font-mono">(${rows.length} filas × ${headers.length} columnas)</span>
           </div>
           <div class="flex items-center gap-1.5">
-            <button type="button" class="btn-table-action flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-emerald-600/30 text-slate-200 hover:text-emerald-300 text-[11px] font-bold border border-slate-700 transition-all active:scale-95" data-action="add-row" data-table-id="${idx}" title="Insertar nueva fila al final">
-              <i data-lucide="plus" class="w-3 h-3 text-emerald-400"></i>
-              <span>Fila</span>
+            <button type="button" class="btn-table-action flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-emerald-600/30 text-slate-200 hover:text-emerald-300 text-[11px] font-bold border border-slate-700 transition-all active:scale-95 cursor-pointer" data-action="add-row" data-table-id="${idx}" title="Insertar nueva fila al final">
+              <i data-lucide="plus" class="w-3 h-3 text-emerald-400 pointer-events-none"></i>
+              <span class="pointer-events-none">Fila</span>
             </button>
-            <button type="button" class="btn-table-action flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-indigo-600/30 text-slate-200 hover:text-indigo-300 text-[11px] font-bold border border-slate-700 transition-all active:scale-95" data-action="add-col" data-table-id="${idx}" title="Insertar nueva columna a la derecha">
-              <i data-lucide="plus" class="w-3 h-3 text-indigo-400"></i>
-              <span>Columna</span>
+            <button type="button" class="btn-table-action flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-indigo-600/30 text-slate-200 hover:text-indigo-300 text-[11px] font-bold border border-slate-700 transition-all active:scale-95 cursor-pointer" data-action="add-col" data-table-id="${idx}" title="Insertar nueva columna a la derecha">
+              <i data-lucide="plus" class="w-3 h-3 text-indigo-400 pointer-events-none"></i>
+              <span class="pointer-events-none">Columna</span>
             </button>
-            <button type="button" class="btn-table-action flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-rose-900/30 text-slate-400 hover:text-rose-300 text-[11px] font-bold border border-slate-700 transition-all active:scale-95" data-action="del-row" data-table-id="${idx}" title="Eliminar última fila">
-              <i data-lucide="minus" class="w-3 h-3 text-rose-400"></i>
-              <span>Fila</span>
+            <button type="button" class="btn-table-action flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-rose-900/30 text-slate-400 hover:text-rose-300 text-[11px] font-bold border border-slate-700 transition-all active:scale-95 cursor-pointer" data-action="del-row" data-table-id="${idx}" title="Eliminar última fila">
+              <i data-lucide="minus" class="w-3 h-3 text-rose-400 pointer-events-none"></i>
+              <span class="pointer-events-none">Fila</span>
             </button>
-            <button type="button" class="btn-table-action flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-rose-900/30 text-slate-400 hover:text-rose-300 text-[11px] font-bold border border-slate-700 transition-all active:scale-95" data-action="del-col" data-table-id="${idx}" title="Eliminar última columna">
-              <i data-lucide="minus" class="w-3 h-3 text-rose-400"></i>
-              <span>Col</span>
+            <button type="button" class="btn-table-action flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-rose-900/30 text-slate-400 hover:text-rose-300 text-[11px] font-bold border border-slate-700 transition-all active:scale-95 cursor-pointer" data-action="del-col" data-table-id="${idx}" title="Eliminar última columna">
+              <i data-lucide="minus" class="w-3 h-3 text-rose-400 pointer-events-none"></i>
+              <span class="pointer-events-none">Col</span>
+            </button>
+            <button type="button" class="del-table-btn flex items-center justify-center w-7 h-7 rounded-lg hover:bg-rose-950/50 text-slate-500 hover:text-rose-400 border border-transparent hover:border-rose-900/40 transition-colors cursor-pointer ml-1" data-table-id="${idx}" title="Eliminar tabla completa">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i>
             </button>
           </div>
         </div>
@@ -496,7 +658,7 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
         <th class="excel-col-header" data-col-idx="${cIdx}">
           <div class="flex items-center justify-between px-1.5">
             <span>${letter}</span>
-            <button type="button" class="col-del-btn text-rose-400 hover:text-rose-200" data-table-id="${idx}" data-col-idx="${cIdx}" title="Eliminar Columna ${letter}">×</button>
+            <button type="button" class="col-del-btn text-rose-400 hover:text-rose-200 px-1 font-bold text-xs cursor-pointer" data-table-id="${idx}" data-col-idx="${cIdx}" title="Eliminar Columna ${letter}">×</button>
           </div>
         </th>`;
     });
@@ -518,7 +680,7 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
         <td class="excel-row-num">
           <div class="flex items-center justify-between px-1">
             <span>${rIdx + 1}</span>
-            <button type="button" class="row-del-btn text-rose-400 hover:text-rose-200" data-table-id="${idx}" data-row-idx="${rIdx}" title="Eliminar Fila ${rIdx + 1}">×</button>
+            <button type="button" class="row-del-btn text-rose-400 hover:text-rose-200 px-1 font-bold text-xs cursor-pointer" data-table-id="${idx}" data-row-idx="${rIdx}" title="Eliminar Fila ${rIdx + 1}">×</button>
           </div>
         </td>`;
 
@@ -533,12 +695,13 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
     return tableHtml;
   }
 
-  handleTableAction(tableIdx: number, action: string, paramIndex?: number): void {
+  handleTableAction(tableIdx: number, action: string, paramIndex?: number, originEl?: HTMLElement): void {
     const tab = this.activeTab;
     if (!tab) return;
 
     // 1. Intentar leer los datos directamente desde el DOM vivo para no perder ediciones
-    const widgetEl = document.querySelector(`.excel-table-widget[data-table-id="${tableIdx}"]`) as HTMLElement;
+    const widgetEl = (originEl?.closest('.excel-table-widget') as HTMLElement) ||
+      (document.querySelector(`.excel-table-widget[data-table-id="${tableIdx}"]`) as HTMLElement);
     let headers: string[] = [];
     let rows: string[][] = [];
 
@@ -551,6 +714,16 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
         const cellEls = Array.from(tr.querySelectorAll('td.table-editable-cell'));
         return cellEls.map(td => td.textContent?.trim() || '');
       });
+    }
+
+    // Si la acción es eliminar la tabla completa
+    if (action === 'del-table') {
+      if (widgetEl) {
+        widgetEl.remove();
+        this.onRichInput();
+        this.showToast('Tabla eliminada', 'trash-2', 'text-rose-400');
+        return;
+      }
     }
 
     // 2. Si no se encontró en el DOM, recurrir a tab.content
@@ -602,6 +775,14 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
         } else {
           rows.pop();
         }
+      } else {
+        // Si sólo queda 1 fila y se solicita eliminar, eliminar toda la tabla
+        if (widgetEl) {
+          widgetEl.remove();
+          this.onRichInput();
+          this.showToast('Tabla eliminada', 'trash-2', 'text-rose-400');
+          return;
+        }
       }
     } else if (action === 'del-col') {
       if (headers.length > 1) {
@@ -611,6 +792,14 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
         } else {
           headers.pop();
           rows.forEach(r => r.pop());
+        }
+      } else {
+        // Si sólo queda 1 columna y se solicita eliminar, eliminar toda la tabla
+        if (widgetEl) {
+          widgetEl.remove();
+          this.onRichInput();
+          this.showToast('Tabla eliminada', 'trash-2', 'text-rose-400');
+          return;
         }
       }
     }
@@ -652,6 +841,33 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
     const target = event.target as HTMLElement;
     if (!target || !target.classList.contains('table-editable-cell')) return;
 
+    if (event.key === 'Backspace') {
+      const isHeader0 = target.getAttribute('data-row') === 'header' && target.getAttribute('data-col') === '0';
+      if (isHeader0 && (!target.textContent || target.textContent.trim() === '')) {
+        const widget = target.closest('.excel-table-widget') as HTMLElement;
+        if (widget) {
+          const cells = Array.from(widget.querySelectorAll('.table-editable-cell'));
+          const hasAnyText = cells.some(c => (c.textContent || '').trim().length > 0);
+          if (!hasAnyText) {
+            event.preventDefault();
+            const prev = widget.previousElementSibling as HTMLElement;
+            widget.remove();
+            this.onRichInput();
+            if (prev) {
+              this.focusNode(prev);
+            } else {
+              const p = document.createElement('p');
+              p.innerHTML = '<br>';
+              this.richCanvas?.nativeElement.appendChild(p);
+              this.focusNode(p);
+            }
+            this.showToast('Tabla eliminada', 'trash-2', 'text-rose-400');
+            return;
+          }
+        }
+      }
+    }
+
     if (event.key === 'Tab') {
       event.preventDefault();
       const allCells = Array.from(document.querySelectorAll<HTMLElement>('.table-editable-cell'));
@@ -667,7 +883,7 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
           const tableWrapper = target.closest('[data-table-id]') as HTMLElement;
           if (tableWrapper) {
             const tableId = parseInt(tableWrapper.getAttribute('data-table-id') || '0', 10);
-            this.handleTableAction(tableId, 'add-row');
+            this.handleTableAction(tableId, 'add-row', undefined, tableWrapper);
             setTimeout(() => {
               const updatedCells = Array.from(document.querySelectorAll<HTMLElement>('.table-editable-cell'));
               if (updatedCells.length > currentIdx + 1) {
@@ -680,18 +896,132 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
     }
   }
 
+  showToast(msg: string, icon = 'check', color = 'text-emerald-400'): void {
+    this.toastRequested.emit({ msg, icon, color });
+  }
+
+  onCanvasPaste(event: ClipboardEvent): void {
+    const target = event.target as HTMLElement;
+    const text = event.clipboardData?.getData('text/plain');
+    if (!text) return;
+
+    // 1. Pegar dentro de un bloque de código -> Pegar texto y auto-formatear con sangría IDE
+    const codeEl = (target.tagName.toLowerCase() === 'code' ? target : target.closest('code')) as HTMLElement | null;
+    if (codeEl) {
+      event.preventDefault();
+      const codeBlock = codeEl.closest('.code-block-dark') as HTMLElement | null;
+      document.execCommand('insertText', false, text);
+      if (codeBlock) {
+        setTimeout(() => {
+          this.formatCodeBlockElement(codeBlock, false);
+          this.showToast('Código pegado y auto-formateado', 'wand-2', 'text-indigo-400');
+        }, 10);
+      } else {
+        this.onRichInput();
+      }
+      return;
+    }
+
+    if (
+      target &&
+      (target.classList.contains('table-editable-cell') ||
+        target.closest('.table-editable-cell') ||
+        target.classList.contains('task-label-text') ||
+        target.classList.contains('code-lang-label') ||
+        target.classList.contains('quote-content') ||
+        target.closest('.quote-content'))
+    ) {
+      event.preventDefault();
+      document.execCommand('insertText', false, text);
+      this.onRichInput();
+    }
+  }
+
   onCanvasKeyDown(event: KeyboardEvent): void {
     const target = event.target as HTMLElement;
+
+    // Resolver el elemento activo real a través de la selección actual
+    const sel = window.getSelection();
+    let currentEl = target;
+    if (sel && sel.rangeCount > 0) {
+      const anchor = sel.anchorNode;
+      const el = anchor?.nodeType === Node.ELEMENT_NODE ? (anchor as HTMLElement) : anchor?.parentElement;
+      if (el && this.richCanvas?.nativeElement.contains(el)) {
+        currentEl = el;
+      }
+    }
 
     // 1. Manejo de tabulaciones en tabla Excel
     this.onTableKeyDown(event);
 
-    // 2. Manejo de items de Checklist
+    // 2. Manejo de Bloques de Código (VS Code Style)
+    const codeEl = currentEl.tagName?.toLowerCase() === 'code' ? currentEl : currentEl.closest('code');
+    if (codeEl) {
+      const codeBlock = codeEl.closest('.code-block-dark') as HTMLElement;
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        document.execCommand('insertText', false, '    ');
+        this.updateCodeGutter(codeBlock);
+        this.onRichInput();
+        this.saveSelection();
+        return;
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        document.execCommand('insertLineBreak');
+        this.updateCodeGutter(codeBlock);
+        this.onRichInput();
+        this.saveSelection();
+        return;
+      }
+      if (event.key === 'Backspace' && (!codeEl.textContent || codeEl.textContent.trim() === '')) {
+        event.preventDefault();
+        codeBlock?.remove();
+        this.onRichInput();
+        return;
+      }
+    }
+
+    // 3. Manejo de Viñetas y Listas (Eliminación limpia sin dejar puntos atascados)
+    const liEl = currentEl.tagName?.toLowerCase() === 'li' ? currentEl : currentEl.closest('li');
+    if (liEl) {
+      const isEmpty = !liEl.textContent || liEl.textContent.trim() === '';
+      if (event.key === 'Backspace' && isEmpty) {
+        event.preventDefault();
+        const parentList = liEl.parentElement;
+        liEl.remove();
+        if (parentList && parentList.children.length === 0) {
+          const p = document.createElement('p');
+          p.innerHTML = '<br>';
+          parentList.replaceWith(p);
+          this.focusNode(p);
+        }
+        this.onRichInput();
+        return;
+      }
+      if (event.key === 'Enter' && isEmpty) {
+        event.preventDefault();
+        const parentList = liEl.parentElement;
+        liEl.remove();
+        const p = document.createElement('p');
+        p.innerHTML = '<br>';
+        if (parentList) {
+          parentList.after(p);
+          if (parentList.children.length === 0) {
+            parentList.remove();
+          }
+        }
+        this.focusNode(p);
+        this.onRichInput();
+        return;
+      }
+    }
+
+    // 4. Manejo de items de Checklist
     if (target && target.classList.contains('task-label-text')) {
       const taskItem = target.closest('.checklist-item') as HTMLElement;
       if (!taskItem) return;
 
-      // Al pulsar Backspace en una tarea vacía, eliminarla y regresar el foco
       if (event.key === 'Backspace' && (!target.textContent || target.textContent.trim() === '')) {
         event.preventDefault();
         const prev = taskItem.previousElementSibling as HTMLElement;
@@ -714,7 +1044,6 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
         return;
       }
 
-      // Al pulsar Enter, crear una nueva tarea inmediatamente debajo
       if (event.key === 'Enter') {
         event.preventDefault();
         const newIdx = document.querySelectorAll('.checklist-item').length;
@@ -740,10 +1069,97 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
         return;
       }
     }
+
+    // 5. Manejo de Backspace en párrafo vacío después de tabla o widget
+    if (event.key === 'Backspace') {
+      const p = currentEl.tagName?.toLowerCase() === 'p' ? currentEl : currentEl.closest('p');
+      if (p && (!p.textContent || p.textContent.trim() === '')) {
+        const prev = p.previousElementSibling as HTMLElement;
+        if (prev && prev.classList.contains('excel-table-widget')) {
+          event.preventDefault();
+          p.remove();
+          const lastCell = prev.querySelector('tbody tr:last-child td.table-editable-cell:last-child') as HTMLElement;
+          if (lastCell) {
+            this.focusNode(lastCell);
+          }
+          this.onRichInput();
+          return;
+        }
+      }
+    }
   }
 
   onPreviewClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;
+
+    // Botón borrar tabla completa
+    const delTableBtn = target.closest('.del-table-btn') as HTMLElement;
+    if (delTableBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const tableWidget = (delTableBtn.closest('.excel-table-widget') as HTMLElement) ||
+        (delTableBtn.getAttribute('data-table-id') ? document.querySelector(`.excel-table-widget[data-table-id="${delTableBtn.getAttribute('data-table-id')}"]`) as HTMLElement : null);
+      if (tableWidget) {
+        tableWidget.remove();
+        this.onRichInput();
+        this.showToast('Tabla eliminada', 'trash-2', 'text-rose-400');
+      }
+      return;
+    }
+
+    // Botón copiar código al portapapeles
+    const copyCodeBtn = target.closest('.copy-codeblock-btn') as HTMLElement;
+    if (copyCodeBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const codeBlock = copyCodeBtn.closest('.code-block-dark');
+      const codeEl = codeBlock?.querySelector('code');
+      if (codeEl) {
+        const text = codeEl.textContent || '';
+        navigator.clipboard.writeText(text).then(() => {
+          this.showToast('Código copiado al portapapeles', 'copy', 'text-emerald-400');
+        });
+      }
+      return;
+    }
+
+    // Botón formatear bloque de código dinámico (HTML, JSON, SQL, JS, TS, CSS, Python, etc.)
+    const formatCodeBtn = target.closest('.format-codeblock-btn') as HTMLElement;
+    if (formatCodeBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const codeBlock = formatCodeBtn.closest('.code-block-dark') as HTMLElement;
+      if (codeBlock) {
+        this.formatCodeBlockElement(codeBlock, true);
+      }
+      return;
+    }
+
+    // Botón borrar bloque de código
+    const delCodeBtn = target.closest('.del-codeblock-btn') as HTMLElement;
+    if (delCodeBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const codeBlock = delCodeBtn.closest('.code-block-dark');
+      if (codeBlock) {
+        codeBlock.remove();
+        this.onRichInput();
+      }
+      return;
+    }
+
+    // Botón borrar cita
+    const delQuoteBtn = target.closest('.del-quote-btn') as HTMLElement;
+    if (delQuoteBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const quoteEl = delQuoteBtn.closest('blockquote');
+      if (quoteEl) {
+        quoteEl.remove();
+        this.onRichInput();
+      }
+      return;
+    }
 
     // Botones de acción general de tabla (+ Fila, + Columna, - Fila, - Columna)
     const actionBtn = target.closest('.btn-table-action') as HTMLElement;
@@ -752,8 +1168,9 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
       event.stopPropagation();
       const action = actionBtn.getAttribute('data-action') as string;
       const tableIdStr = actionBtn.getAttribute('data-table-id');
-      if (action && tableIdStr !== null) {
-        this.handleTableAction(parseInt(tableIdStr, 10), action);
+      const tableId = tableIdStr !== null ? parseInt(tableIdStr, 10) : 0;
+      if (action) {
+        this.handleTableAction(tableId, action, undefined, actionBtn);
         return;
       }
     }
@@ -765,7 +1182,7 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
       event.stopPropagation();
       const tableId = parseInt(delColBtn.getAttribute('data-table-id') || '0', 10);
       const colIdx = parseInt(delColBtn.getAttribute('data-col-idx') || '0', 10);
-      this.handleTableAction(tableId, 'del-col', colIdx);
+      this.handleTableAction(tableId, 'del-col', colIdx, delColBtn);
       return;
     }
 
@@ -776,7 +1193,7 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
       event.stopPropagation();
       const tableId = parseInt(delRowBtn.getAttribute('data-table-id') || '0', 10);
       const rowIdx = parseInt(delRowBtn.getAttribute('data-row-idx') || '0', 10);
-      this.handleTableAction(tableId, 'del-row', rowIdx);
+      this.handleTableAction(tableId, 'del-row', rowIdx, delRowBtn);
       return;
     }
 
@@ -798,7 +1215,6 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
     if (taskRow) {
       const checkbox = taskRow.querySelector('input[type="checkbox"]') as HTMLInputElement;
       if (target.tagName.toLowerCase() === 'input') {
-        // Clic directo en el checkbox
         const label = taskRow.querySelector('.task-label-text');
         if (checkbox.checked) {
           label?.classList.add('line-through', 'text-slate-400');
@@ -807,6 +1223,124 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
         }
         this.onRichInput();
       }
+    }
+  }
+
+  formatCodeBlockElement(codeBlock: HTMLElement, notify: boolean = true): void {
+    const codeEl = codeBlock.querySelector('code');
+    const langSpan = codeBlock.querySelector('.code-lang-label');
+    let lang = langSpan?.textContent?.trim().toLowerCase() || '';
+
+    if (!codeEl) return;
+
+    let rawCode = (codeEl.innerText || codeEl.textContent || '').replace(/\r\n/g, '\n');
+    rawCode = rawCode
+      .replace(/"?text-[a-z]+-\d+[^"]*"*>/g, '')
+      .replace(/class="[^"]*">/g, '')
+      .replace(/<span[^>]*>/gi, '')
+      .replace(/<\/span>/gi, '')
+      .trim();
+
+    if (!rawCode) {
+      if (notify) this.showToast('El bloque de código está vacío', 'alert-circle', 'text-amber-400');
+      return;
+    }
+
+    const trimmed = rawCode;
+
+    // 1. Detección de HTML / XML / Angular Template
+    const isHtml =
+      lang === 'html' ||
+      lang === 'xml' ||
+      /<([a-zA-Z0-9_\-]+)[\s>]/i.test(trimmed) ||
+      /<\/([a-zA-Z0-9_\-]+)>/i.test(trimmed);
+
+    if (isHtml) {
+      const prettyHtml = this.formatHtmlCode(rawCode);
+      codeEl.innerHTML = this.highlightCode(prettyHtml, 'markup');
+      if (langSpan && (!lang || lang === 'código' || lang === 'codigo')) {
+        langSpan.textContent = 'html';
+      }
+      this.updateCodeGutter(codeBlock);
+      this.onRichInput();
+      if (notify) this.showToast('HTML / Template formateado con js-beautify', 'check', 'text-emerald-400');
+      return;
+    }
+
+    // 2. Detección de JSON
+    const isJsonCandidate =
+      lang === 'json' ||
+      ((trimmed.startsWith('{') || trimmed.startsWith('[')) && (trimmed.endsWith('}') || trimmed.endsWith(']')));
+
+    if (isJsonCandidate) {
+      try {
+        const parsed = JSON.parse(rawCode);
+        const pretty = JSON.stringify(parsed, null, 4);
+        codeEl.innerHTML = this.highlightCode(pretty, 'json');
+        if (langSpan && (!lang || lang === 'código' || lang === 'codigo')) {
+          langSpan.textContent = 'json';
+        }
+        this.updateCodeGutter(codeBlock);
+        this.onRichInput();
+        if (notify) this.showToast('JSON formateado con sangría de 4 espacios', 'check', 'text-amber-400');
+        return;
+      } catch (e: any) {
+        if (lang === 'json') {
+          if (notify) this.showToast('JSON Inválido: ' + (e.message || ''), 'alert-triangle', 'text-rose-400');
+          return;
+        }
+      }
+    }
+
+    // 3. Detección de SQL
+    if (lang === 'sql' || /\b(SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM|CREATE\s+TABLE)\b/i.test(trimmed)) {
+      const prettySql = this.formatSqlCode(rawCode);
+      codeEl.innerHTML = this.highlightCode(prettySql, 'sql');
+      if (langSpan && (!lang || lang === 'código' || lang === 'codigo')) {
+        langSpan.textContent = 'sql';
+      }
+      this.updateCodeGutter(codeBlock);
+      this.onRichInput();
+      if (notify) this.showToast('SQL formateado e indentado', 'check', 'text-emerald-400');
+      return;
+    }
+
+    // 4. Detección de CSS / SCSS
+    if (lang === 'css' || lang === 'scss' || (trimmed.includes('{') && /:\s*[^;]+;/i.test(trimmed))) {
+      const prettyCss = this.formatCssCode(rawCode);
+      codeEl.innerHTML = this.highlightCode(prettyCss, 'css');
+      if (langSpan && (!lang || lang === 'código' || lang === 'codigo')) {
+        langSpan.textContent = 'css';
+      }
+      this.updateCodeGutter(codeBlock);
+      this.onRichInput();
+      if (notify) this.showToast('CSS formateado con js-beautify', 'check', 'text-pink-400');
+      return;
+    }
+
+    // 5. Detección de JavaScript / TypeScript
+    if (
+      ['js', 'javascript', 'ts', 'typescript'].includes(lang) ||
+      /\b(const|let|var|function|return|import|export|class)\b/.test(trimmed)
+    ) {
+      const prettyJs = this.formatJsCode(rawCode);
+      codeEl.innerHTML = this.highlightCode(prettyJs, lang.includes('ts') ? 'typescript' : 'javascript');
+      if (langSpan && (!lang || lang === 'código' || lang === 'codigo')) {
+        langSpan.textContent = 'typescript';
+      }
+      this.updateCodeGutter(codeBlock);
+      this.onRichInput();
+      if (notify) this.showToast('Código JS/TS formateado con js-beautify', 'check', 'text-sky-400');
+      return;
+    }
+
+    // 6. Código genérico (Python, Bash, etc.)
+    const cleanCode = this.formatGenericCode(rawCode);
+    codeEl.innerHTML = this.highlightCode(cleanCode, lang);
+    this.updateCodeGutter(codeBlock);
+    this.onRichInput();
+    if (notify) {
+      this.showToast(`Código ${lang && lang !== 'código' ? lang.toUpperCase() : 'general'} normalizado`, 'check', 'text-indigo-400');
     }
   }
 
@@ -870,21 +1404,46 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
       const isEmpty = !canvas.textContent?.trim();
       const codeHtml = `
         ${isEmpty ? '<p class="my-2 leading-relaxed"><br></p>' : ''}
-        <div class="my-5 rounded-xl code-block-dark border border-[#242938] shadow-lg overflow-hidden select-text" contenteditable="false">
-          <div class="flex items-center justify-between px-3.5 py-1.5 bg-[#0f121a] border-b border-[#242938] text-[10px] uppercase font-bold text-slate-400 tracking-wider select-none">
-            <span class="flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-amber-400"></span>
-              <span contenteditable="true" spellcheck="false" class="code-lang-label outline-none px-2 py-0.5 rounded bg-slate-800/90 hover:bg-slate-700 text-amber-300 cursor-text select-text transition-colors border border-slate-700/60" title="Haz clic para editar el lenguaje o título">json</span>
-            </span>
-            <span class="text-[9px] text-slate-500 font-mono">bloque de código</span>
+        <div class="my-6 rounded-xl code-block-dark border border-[#242938] shadow-2xl overflow-hidden select-text group/codeblock" contenteditable="false">
+          <div class="flex items-center justify-between px-3.5 py-2 bg-[#0e1118] border-b border-[#242938] select-none">
+            <div class="flex items-center gap-2.5">
+              <div class="flex items-center gap-1.5 mr-1">
+                <span class="w-2.5 h-2.5 rounded-full bg-[#ff5f56]/80 hover:bg-[#ff5f56] transition-colors" title="Ventana IDE"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]/80 hover:bg-[#ffbd2e] transition-colors"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-[#27c93f]/80 hover:bg-[#27c93f] transition-colors"></span>
+              </div>
+              <div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-t bg-[#161922] border-t-2 border-indigo-500 border-x border-[#242938] text-xs font-mono text-slate-200">
+                <i data-lucide="file-code" class="w-3.5 h-3.5 text-indigo-400"></i>
+                <span contenteditable="true" spellcheck="false" class="code-lang-label outline-none font-bold cursor-text select-text transition-colors" title="Haz clic para editar el lenguaje (ej: json, sql, js, ts, html, css)">código</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button type="button" class="copy-codeblock-btn flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-bold border border-slate-700 transition-all cursor-pointer active:scale-95" title="Copiar código al portapapeles">
+                <i data-lucide="copy" class="w-3 h-3 text-slate-400 pointer-events-none"></i>
+                <span class="pointer-events-none">Copiar</span>
+              </button>
+              <button type="button" class="format-codeblock-btn flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/30 text-indigo-300 hover:text-indigo-100 text-[11px] font-bold border border-indigo-500/40 transition-all cursor-pointer active:scale-95" title="Formatear código con sangría IDE">
+                <i data-lucide="wand-2" class="w-3 h-3 text-indigo-400 pointer-events-none"></i>
+                <span class="pointer-events-none">Formatear</span>
+              </button>
+              <button type="button" class="del-codeblock-btn flex items-center justify-center w-7 h-7 rounded-lg hover:bg-rose-950/50 text-slate-500 hover:text-rose-400 border border-transparent hover:border-rose-900/40 transition-colors cursor-pointer" title="Eliminar bloque de código">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i>
+              </button>
+            </div>
           </div>
-          <pre class="p-3.5 code-font text-xs text-slate-200 select-text leading-relaxed overflow-x-auto custom-scrollbar"><code contenteditable="true" spellcheck="false" class="outline-none block min-h-[40px]">{\n  "status": 200\n}</code></pre>
+          <div class="flex bg-[#12151e] code-editor-body">
+            <div class="code-gutter py-3 pl-3 pr-2 select-none text-right font-mono text-[11px] text-slate-600 border-r border-[#1f2433] bg-[#0c0e14] leading-[22px] min-w-[36px]">
+              1
+            </div>
+            <pre class="p-3 code-font text-xs text-slate-200 select-text leading-[22px] overflow-x-auto custom-scrollbar flex-1 m-0 bg-transparent"><code contenteditable="true" spellcheck="false" class="outline-none block min-h-[44px] whitespace-pre"><br></code></pre>
+          </div>
         </div>
         <p class="my-3"><br></p>
       `;
       this.insertHtmlAtCursor(codeHtml);
+      this.lucide.refresh();
     } else {
-      this.insertMarkdown('```json\n', '\n```\n', '{\n  "status": 200\n}');
+      this.insertMarkdown('```\n', '\n```\n', '// Escribe o pega tu código aquí...');
     }
   }
 
@@ -892,20 +1451,20 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
     if (this.mdViewMode === 'rich' && this.richCanvas) {
       const sel = window.getSelection();
       const selectedText = sel?.toString()?.trim();
-      if (selectedText) {
-        let ok = false;
-        try {
-          ok = document.execCommand('formatBlock', false, '<blockquote>');
-        } catch (e) {
-          ok = false;
-        }
-        if (!ok) {
-          this.insertHtmlAtCursor(`<blockquote>${this.escapeHtml(selectedText)}</blockquote><p class="my-3"><br></p>`);
-        }
-      } else {
-        const quoteHtml = `<blockquote>Cita o nota importante</blockquote><p class="my-3"><br></p>`;
-        this.insertHtmlAtCursor(quoteHtml);
-      }
+      const content = selectedText || 'Cita o nota importante';
+      const quoteHtml = `
+        <blockquote contenteditable="false" class="group/quote relative border-l-4 border-indigo-500 bg-indigo-500/10 px-4 py-2.5 my-4 rounded-r-xl text-slate-300 italic text-xs md:text-sm leading-relaxed shadow-sm select-text">
+          <div class="flex items-start justify-between gap-2">
+            <div contenteditable="true" spellcheck="false" class="quote-content outline-none flex-1 min-w-0 pr-2">${this.escapeHtml(content)}</div>
+            <button type="button" class="del-quote-btn opacity-0 group-hover/quote:opacity-100 flex items-center justify-center w-6 h-6 rounded-md hover:bg-rose-950/60 text-slate-500 hover:text-rose-400 transition-all cursor-pointer shrink-0" title="Eliminar cita">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i>
+            </button>
+          </div>
+        </blockquote>
+        <p class="my-2.5 leading-relaxed text-slate-100"><br></p>
+      `;
+      this.insertHtmlAtCursor(quoteHtml);
+      this.lucide.refresh();
       this.onRichInput();
     } else {
       this.insertMarkdown('> ', '\n', 'Cita o nota importante');
@@ -935,6 +1494,7 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
     element.childNodes.forEach((node) => {
       md += this.nodeToMarkdown(node);
     });
+    md = md.replace(/Haz clic aqu[íi] para comenzar a escribir tu documento\.{0,3}/gi, '');
     return md.replace(/\n{3,}/g, '\n\n').trimEnd() + '\n';
   }
 
@@ -964,8 +1524,14 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
       const codeEl = el.querySelector('code');
       const langSpan = el.querySelector('.code-lang-label');
       const lang = langSpan?.textContent?.trim().toLowerCase() || '';
-      const code = codeEl?.textContent || '';
-      return `\n\`\`\`${lang}\n${code.trimEnd()}\n\`\`\`\n\n`;
+      const cleanLang = (lang === 'código' || lang === 'codigo') ? '' : lang;
+      let code = (codeEl?.innerText || codeEl?.textContent || '').replace(/\r\n/g, '\n');
+      code = code
+        .replace(/"?text-[a-z]+-\d+[^"]*"*>/g, '')
+        .replace(/class="[^"]*">/g, '')
+        .replace(/<span[^>]*>/gi, '')
+        .replace(/<\/span>/gi, '');
+      return `\n\`\`\`${cleanLang}\n${code.trimEnd()}\n\`\`\`\n\n`;
     }
 
     // 3. Encabezados
@@ -984,7 +1550,11 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
 
     // 4. Cita (Blockquote)
     if (tag === 'blockquote') {
-      return `\n> ${this.getInnerMarkdown(el).trim()}\n\n`;
+      const contentEl = (el.querySelector('.quote-content') || el) as HTMLElement;
+      const rawText = this.getInnerMarkdown(contentEl).trim();
+      if (!rawText) return '\n\n';
+      const lines = rawText.split('\n').map(l => `> ${l.replace(/^>\s*/, '')}`);
+      return `\n${lines.join('\n')}\n\n`;
     }
 
     // 5. Checklist
@@ -1074,8 +1644,9 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
   // =========================================================================
 
   renderMarkdown(raw: string): string {
-    if (!raw || !raw.trim()) {
-      return '<p class="text-slate-400 italic">Haz clic aquí para comenzar a escribir tu documento...</p>';
+    const trimmed = (raw || '').trim();
+    if (!trimmed || trimmed === 'Haz clic aquí para comenzar a escribir tu documento...') {
+      return '<p><br></p>';
     }
 
     let text = raw.replace(/\r\n/g, '\n');
@@ -1086,22 +1657,64 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
       const idx = codeBlocks.length;
       const cleanLang = (lang || '').trim().toLowerCase();
 
-      let formattedCode = this.escapeHtmlKeepQuotes(code.trimEnd());
-      if (cleanLang === 'json') {
-        formattedCode = this.highlightJsonInline(formattedCode);
-      }
+      const cleanCode = (code || '')
+        .trimEnd()
+        .replace(/"?text-[a-z]+-\d+[^"]*"*>/g, '')
+        .replace(/class="[^"]*">/g, '')
+        .replace(/<span[^>]*>/gi, '')
+        .replace(/<\/span>/gi, '');
 
-      const langLabel = `<div class="flex items-center justify-between px-3.5 py-1.5 bg-[#0f121a] border-b border-[#242938] text-[10px] uppercase font-bold text-slate-400 tracking-wider select-none">
-          <span class="flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full ${cleanLang === 'json' ? 'bg-amber-400' : 'bg-indigo-400'}"></span>
-            <span contenteditable="true" spellcheck="false" class="code-lang-label outline-none px-2 py-0.5 rounded bg-slate-800/90 hover:bg-slate-700 text-amber-300 cursor-text select-text transition-colors border border-slate-700/60" title="Haz clic para editar el lenguaje o título">${this.escapeHtml(cleanLang || 'código')}</span>
-          </span>
-          <span class="text-[9px] text-slate-500 font-mono">bloque de código</span>
-         </div>`;
+      let formattedCode = this.highlightCode(cleanCode, cleanLang);
+      let dotColor = 'bg-indigo-400';
 
-      codeBlocks.push(
-        `<div class="my-5 rounded-xl code-block-dark border border-[#242938] shadow-lg overflow-hidden select-text" contenteditable="false">${langLabel}<pre class="p-3.5 code-font text-xs text-slate-200 select-text leading-relaxed overflow-x-auto custom-scrollbar"><code contenteditable="true" spellcheck="false" class="outline-none block min-h-[40px]">${formattedCode}</code></pre></div><p class="my-3"><br></p>`
-      );
+      if (cleanLang === 'json') dotColor = 'bg-amber-400';
+      else if (cleanLang === 'sql') dotColor = 'bg-emerald-400';
+      else if (['js', 'javascript', 'ts', 'typescript'].includes(cleanLang)) dotColor = 'bg-sky-400';
+      else if (['html', 'xml'].includes(cleanLang) || /<[a-zA-Z0-9_\-]+[\s>]/.test(cleanCode)) dotColor = 'bg-orange-400';
+      else if (['css', 'scss'].includes(cleanLang)) dotColor = 'bg-pink-400';
+      else if (['py', 'python'].includes(cleanLang)) dotColor = 'bg-blue-400';
+      else if (['bash', 'sh', 'shell', 'cmd', 'ps1'].includes(cleanLang)) dotColor = 'bg-purple-400';
+
+      const lineCount = Math.max(cleanCode.split('\n').length, 1);
+      const gutterHtml = Array.from({ length: lineCount }, (_, i) => i + 1).join('<br>');
+
+      const vsCodeBlock = `
+        <div class="my-6 rounded-xl code-block-dark border border-[#242938] shadow-2xl overflow-hidden select-text group/codeblock" contenteditable="false">
+          <div class="flex items-center justify-between px-3.5 py-2 bg-[#0e1118] border-b border-[#242938] select-none">
+            <div class="flex items-center gap-2.5">
+              <div class="flex items-center gap-1.5 mr-1">
+                <span class="w-2.5 h-2.5 rounded-full bg-[#ff5f56]/80 hover:bg-[#ff5f56] transition-colors" title="Ventana IDE"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]/80 hover:bg-[#ffbd2e] transition-colors"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-[#27c93f]/80 hover:bg-[#27c93f] transition-colors"></span>
+              </div>
+              <div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-t bg-[#161922] border-t-2 border-indigo-500 border-x border-[#242938] text-xs font-mono text-slate-200">
+                <i data-lucide="file-code" class="w-3.5 h-3.5 ${dotColor}"></i>
+                <span contenteditable="true" spellcheck="false" class="code-lang-label outline-none font-bold cursor-text select-text transition-colors" title="Haz clic para editar el lenguaje">${this.escapeHtml(cleanLang || 'código')}</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button type="button" class="copy-codeblock-btn flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-bold border border-slate-700 transition-all cursor-pointer active:scale-95" title="Copiar código al portapapeles">
+                <i data-lucide="copy" class="w-3 h-3 text-slate-400 pointer-events-none"></i>
+                <span class="pointer-events-none">Copiar</span>
+              </button>
+              <button type="button" class="format-codeblock-btn flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/30 text-indigo-300 hover:text-indigo-100 text-[11px] font-bold border border-indigo-500/40 transition-all cursor-pointer active:scale-95" title="Formatear código con sangría IDE">
+                <i data-lucide="wand-2" class="w-3 h-3 text-indigo-400 pointer-events-none"></i>
+                <span class="pointer-events-none">Formatear</span>
+              </button>
+              <button type="button" class="del-codeblock-btn flex items-center justify-center w-7 h-7 rounded-lg hover:bg-rose-950/50 text-slate-500 hover:text-rose-400 border border-transparent hover:border-rose-900/40 transition-colors cursor-pointer" title="Eliminar bloque de código">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i>
+              </button>
+            </div>
+          </div>
+          <div class="flex bg-[#12151e] code-editor-body">
+            <div class="code-gutter py-3 pl-3 pr-2 select-none text-right font-mono text-[11px] text-slate-600 border-r border-[#1f2433] bg-[#0c0e14] leading-[22px] min-w-[36px]">
+              ${gutterHtml}
+            </div>
+            <pre class="p-3 code-font text-xs text-slate-200 select-text leading-[22px] overflow-x-auto custom-scrollbar flex-1 m-0 bg-transparent"><code contenteditable="true" spellcheck="false" class="outline-none block min-h-[44px] whitespace-pre">${formattedCode}</code></pre>
+          </div>
+        </div>
+      `;
+      codeBlocks.push(vsCodeBlock);
       return `TOKENCODEBLOCK${idx}ENDTOKEN`;
     });
 
@@ -1252,60 +1865,7 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
     el.focus();
   }
 
-  // =========================================================================
-  // EXPORTAR A PDF E IMAGEN
-  // =========================================================================
 
-  exportPdf(): void {
-    const tab = this.activeTab;
-    if (!tab) return;
-    const targetEl = document.getElementById('documentSheetCanvas') || this.editorTextarea?.nativeElement;
-    if (!targetEl) return;
-
-    const baseName = tab.name.replace(/\.[^/.]+$/, '') || 'documento';
-    const filename = `${baseName}.pdf`;
-
-    const html2pdf = (window as any).html2pdf;
-    if (typeof html2pdf === 'function') {
-      const opt = {
-        margin: [10, 10, 10, 10],
-        filename: filename,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#0f1424' },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
-      html2pdf().set(opt).from(targetEl).save();
-    } else {
-      window.print();
-    }
-  }
-
-  async exportImage(): Promise<void> {
-    const tab = this.activeTab;
-    if (!tab) return;
-    const targetEl = document.getElementById('documentSheetCanvas') || this.editorTextarea?.nativeElement;
-    if (!targetEl) return;
-
-    const baseName = tab.name.replace(/\.[^/.]+$/, '') || 'documento';
-    const filename = `${baseName}.png`;
-
-    const html2canvas = (window as any).html2canvas;
-    if (typeof html2canvas === 'function') {
-      try {
-        const canvas = await html2canvas(targetEl, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#0f1424'
-        });
-        const link = document.createElement('a');
-        link.download = filename;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-      } catch (e) {
-        console.error('Error al exportar imagen:', e);
-      }
-    }
-  }
 
   escapeHtml(str: string): string {
     return (str || '')

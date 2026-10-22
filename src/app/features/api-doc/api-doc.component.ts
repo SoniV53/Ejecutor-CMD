@@ -362,7 +362,9 @@ export class ApiDocComponent implements OnInit, AfterViewInit, AfterViewChecked 
       try {
         const parsed = JSON.parse(tab.content);
         tab.content = JSON.stringify(parsed, null, 2);
-        tab.fileType = 'json';
+        if (tab.name.toLowerCase().endsWith('.json')) {
+          tab.fileType = 'json';
+        }
         tab.isDirty = tab.content !== tab.savedContent;
         this.showToast('JSON Formateado con sangría', 'check', 'text-amber-400');
       } catch (e: any) {
@@ -372,7 +374,9 @@ export class ApiDocComponent implements OnInit, AfterViewInit, AfterViewChecked 
       try {
         const parsed = JSON.parse(tab.content);
         tab.content = JSON.stringify(parsed);
-        tab.fileType = 'json';
+        if (tab.name.toLowerCase().endsWith('.json')) {
+          tab.fileType = 'json';
+        }
         tab.isDirty = tab.content !== tab.savedContent;
         this.showToast('JSON Minificado en 1 línea', 'check', 'text-amber-400');
       } catch (e: any) {

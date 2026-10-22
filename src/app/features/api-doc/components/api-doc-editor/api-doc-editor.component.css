@@ -175,10 +175,89 @@
   word-break: break-word;
 }
 
+/* Párrafos en el lienzo rico */
+:host ::ng-deep .rich-canvas-editor p {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.7;
+  color: #e2e8f0;
+  min-height: 1.5rem;
+}
+
 :host ::ng-deep .code-block-dark {
   background-color: #12151e !important;
   border: 1px solid #242938 !important;
   border-radius: 12px;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6) !important;
+}
+
+:host ::ng-deep .code-block-dark pre code {
+  tab-size: 4 !important;
+  -moz-tab-size: 4 !important;
+  white-space: pre !important;
+  word-break: normal !important;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace !important;
+}
+
+/* ==========================================================================
+   PRISM.JS SYNTAX HIGHLIGHTING (VS CODE DARK+ THEME)
+   ========================================================================== */
+:host ::ng-deep .code-block-dark .token.comment,
+:host ::ng-deep .code-block-dark .token.prolog,
+:host ::ng-deep .code-block-dark .token.doctype,
+:host ::ng-deep .code-block-dark .token.cdata {
+  color: #64748b !important;
+  font-style: italic !important;
+}
+
+:host ::ng-deep .code-block-dark .token.punctuation {
+  color: #94a3b8 !important;
+}
+
+:host ::ng-deep .code-block-dark .token.tag,
+:host ::ng-deep .code-block-dark .token.tag .token.punctuation {
+  color: #fb7185 !important;
+  font-weight: 600 !important;
+}
+
+:host ::ng-deep .code-block-dark .token.attr-name {
+  color: #7dd3fc !important;
+  font-weight: 500 !important;
+}
+
+:host ::ng-deep .code-block-dark .token.attr-value,
+:host ::ng-deep .code-block-dark .token.string,
+:host ::ng-deep .code-block-dark .token.char {
+  color: #6ee7b7 !important;
+}
+
+:host ::ng-deep .code-block-dark .token.keyword {
+  color: #c084fc !important;
+  font-weight: 600 !important;
+}
+
+:host ::ng-deep .code-block-dark .token.function,
+:host ::ng-deep .code-block-dark .token.class-name {
+  color: #60a5fa !important;
+}
+
+:host ::ng-deep .code-block-dark .token.number,
+:host ::ng-deep .code-block-dark .token.boolean {
+  color: #fde047 !important;
+  font-weight: 600 !important;
+}
+
+:host ::ng-deep .code-block-dark .token.operator {
+  color: #f472b6 !important;
+}
+
+:host ::ng-deep .code-block-dark .token.property {
+  color: #38bdf8 !important;
+}
+
+:host ::ng-deep .code-gutter {
+  font-family: 'Fira Code', 'Cascadia Code', Consolas, monospace !important;
+  user-select: none !important;
 }
 
 :host ::ng-deep .code-lang-label {
@@ -190,6 +269,21 @@
   background-color: rgba(99, 102, 241, 0.3) !important;
   outline: 1px solid #6366f1 !important;
   color: #a5b4fc !important;
+}
+
+/* Botones de eliminar para bloques */
+:host ::ng-deep .del-codeblock-btn,
+:host ::ng-deep .del-quote-btn,
+:host ::ng-deep .del-task-btn {
+  cursor: pointer !important;
+  transition: all 0.15s ease;
+}
+
+:host ::ng-deep .del-codeblock-btn:hover,
+:host ::ng-deep .del-quote-btn:hover,
+:host ::ng-deep .del-task-btn:hover {
+  color: #fb7185 !important;
+  background-color: rgba(244, 63, 94, 0.15) !important;
 }
 
 /* ==========================================================================
@@ -254,15 +348,43 @@
 }
 
 :host ::ng-deep blockquote {
-  border-left: 4px solid #6366f1;
-  background-color: rgba(99, 102, 241, 0.08);
-  padding: 10px 16px;
-  margin: 14px 0;
+  border-left: 4px solid #6366f1 !important;
+  background-color: rgba(99, 102, 241, 0.08) !important;
+  padding: 10px 16px !important;
+  margin-top: 14px !important;
+  margin-bottom: 14px !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
   border-radius: 0 10px 10px 0;
   color: #cbd5e1;
   font-style: italic;
   font-size: 0.85rem;
   line-height: 1.6;
+}
+
+/* Prevenir cualquier sangría o margen tipo tab heredado del navegador */
+:host ::ng-deep .rich-canvas-editor blockquote,
+:host ::ng-deep .rich-canvas-editor blockquote * {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* Prevenir anidamiento accidental o sangría acumulada en blockquote */
+:host ::ng-deep .rich-canvas-editor blockquote blockquote {
+  border-left: none !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-style: normal !important;
+}
+
+:host ::ng-deep .format-codeblock-btn {
+  cursor: pointer !important;
+  transition: all 0.15s ease;
+}
+
+:host ::ng-deep .format-codeblock-btn:hover {
+  background-color: rgba(99, 102, 241, 0.25) !important;
 }
 
 :host ::ng-deep .checklist-item {
@@ -379,8 +501,11 @@
   box-sizing: border-box;
 }
 
-:host ::ng-deep .excel-col-header:hover .col-del-btn {
-  opacity: 1;
+:host ::ng-deep .excel-col-header:hover .col-del-btn,
+:host ::ng-deep .excel-row-num:hover .row-del-btn,
+:host ::ng-deep .col-del-btn:hover,
+:host ::ng-deep .row-del-btn:hover {
+  opacity: 1 !important;
 }
 
 :host ::ng-deep .excel-row-num {
@@ -397,13 +522,22 @@
   box-sizing: border-box;
 }
 
-:host ::ng-deep .excel-row-num:hover .row-del-btn {
-  opacity: 1;
-}
-
 :host ::ng-deep .col-del-btn,
 :host ::ng-deep .row-del-btn {
-  opacity: 0;
-  transition: opacity 0.15s ease;
+  opacity: 0.35;
+  transition: opacity 0.15s ease, color 0.15s ease;
   cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+/* Placeholder visual limpio para canvas Markdown */
+.rich-canvas-editor:empty::before,
+.rich-canvas-editor > p:only-child:empty::before,
+.rich-canvas-editor > p:only-child:has(> br:only-child)::before {
+  content: attr(data-placeholder);
+  color: #64748b;
+  pointer-events: none;
+  font-style: italic;
+  display: block;
 }

@@ -110,6 +110,7 @@
       (formatContent)="formatContent($event)"
       (copyContent)="copyContent()"
       (clearContent)="clearActiveContent()"
+      (toastRequested)="showToast($event.msg, $event.icon, $event.color)"
     ></app-api-doc-editor>
   </div>
 
