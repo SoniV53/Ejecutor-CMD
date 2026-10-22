@@ -758,7 +758,6 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
       if (widgetEl) {
         widgetEl.remove();
         this.onRichInput();
-        this.showToast('Tabla eliminada', 'trash-2', 'text-rose-400');
         return;
       }
     }
@@ -817,7 +816,6 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
         if (widgetEl) {
           widgetEl.remove();
           this.onRichInput();
-          this.showToast('Tabla eliminada', 'trash-2', 'text-rose-400');
           return;
         }
       }
@@ -835,7 +833,6 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
         if (widgetEl) {
           widgetEl.remove();
           this.onRichInput();
-          this.showToast('Tabla eliminada', 'trash-2', 'text-rose-400');
           return;
         }
       }
@@ -898,7 +895,6 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
               this.richCanvas?.nativeElement.appendChild(p);
               this.focusNode(p);
             }
-            this.showToast('Tabla eliminada', 'trash-2', 'text-rose-400');
             return;
           }
         }
@@ -951,7 +947,6 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
       if (codeBlock) {
         setTimeout(() => {
           this.formatCodeBlockElement(codeBlock, false);
-          this.showToast('Código pegado y auto-formateado', 'wand-2', 'text-indigo-400');
         }, 10);
       } else {
         this.onRichInput();
@@ -1183,7 +1178,6 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
       if (tableWidget) {
         tableWidget.remove();
         this.onRichInput();
-        this.showToast('Tabla eliminada', 'trash-2', 'text-rose-400');
       }
       return;
     }
@@ -1630,11 +1624,11 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
     if (this.mdViewMode === 'rich' && this.richCanvas) {
       const sel = window.getSelection();
       const selectedText = sel?.toString()?.trim();
-      const content = selectedText || 'Cita o nota importante';
+      const content = selectedText || '';
       const quoteHtml = `
         <blockquote contenteditable="false" class="group/quote relative border-l-4 border-indigo-500 bg-indigo-500/10 px-4 py-2.5 my-4 rounded-r-xl text-slate-300 italic text-xs md:text-sm leading-relaxed shadow-sm select-text">
           <div class="flex items-start justify-between gap-2">
-            <div contenteditable="true" spellcheck="false" class="quote-content outline-none flex-1 min-w-0 pr-2">${this.escapeHtml(content)}</div>
+            <div contenteditable="true" spellcheck="false" class="quote-content outline-none flex-1 min-w-0 pr-2">${this.escapeHtml(content) || '<br>'}</div>
             <button type="button" class="del-quote-btn opacity-0 group-hover/quote:opacity-100 flex items-center justify-center w-6 h-6 rounded-md hover:bg-rose-950/60 text-slate-500 hover:text-rose-400 transition-all cursor-pointer shrink-0" title="Eliminar cita">
               <i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i>
             </button>
@@ -1645,21 +1639,36 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
       this.insertHtmlAtCursor(quoteHtml);
       this.lucide.refresh();
       this.onRichInput();
+      if (!selectedText) {
+        setTimeout(() => {
+          const quotes = document.querySelectorAll('.quote-content');
+          const lastQuote = quotes[quotes.length - 1] as HTMLElement;
+          if (lastQuote) this.focusNode(lastQuote);
+        }, 30);
+      }
     } else {
-      this.insertMarkdown('> ', '\n', 'Cita o nota importante');
+      this.insertMarkdown('> ', '\n', '');
     }
   }
 
   insertTable(): void {
     if (this.mdViewMode === 'rich' && this.richCanvas) {
       const idx = document.querySelectorAll('.excel-table-widget').length;
-      const tableHtml = this.generateExcelTableHtml(['Parámetro', 'Tipo', 'Descripción'], [
-        ['id', 'number', 'Identificador único'],
-        ['nombre', 'string', 'Nombre del registro']
+      const tableHtml = this.generateExcelTableHtml(['', '', ''], [
+        ['', '', ''],
+        ['', '', '']
       ], idx) + '<p class="my-3"><br></p>';
       this.insertHtmlAtCursor(tableHtml);
+      setTimeout(() => {
+        const widgets = document.querySelectorAll('.excel-table-widget');
+        const lastWidget = widgets[widgets.length - 1] as HTMLElement;
+        if (lastWidget) {
+          const firstCell = lastWidget.querySelector('thead.excel-headers th.table-editable-cell') as HTMLElement;
+          if (firstCell) this.focusNode(firstCell);
+        }
+      }, 30);
     } else {
-      const table = '| Parámetro | Tipo | Descripción |\n| --- | --- | --- |\n| id | number | Identificador único |\n| nombre | string | Nombre del registro |\n';
+      const table = '| | | |\n| --- | --- | --- |\n| | | |\n| | | |\n';
       this.insertMarkdown(table, '', '');
     }
   }
@@ -1731,7 +1740,7 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
     if (tag === 'blockquote') {
       const contentEl = (el.querySelector('.quote-content') || el) as HTMLElement;
       const rawText = this.getInnerMarkdown(contentEl).trim();
-      if (!rawText) return '\n\n';
+      if (!rawText) return '\n> \n\n';
       const lines = rawText.split('\n').map(l => `> ${l.replace(/^>\s*/, '')}`);
       return `\n${lines.join('\n')}\n\n`;
     }
