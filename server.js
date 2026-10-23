@@ -2,16 +2,40 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+// --- TRUCO PARA MODO PORTABLE (.EXE) ---
+const BASE_DIR = process.env.PORTABLE_EXECUTABLE_DIR || __dirname;
+
+// Cargar variables de entorno desde .env si existe
+const envPath = path.join(BASE_DIR, '.env');
+if (fs.existsSync(envPath)) {
+    try {
+        const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) continue;
+            const eqIdx = trimmed.indexOf('=');
+            if (eqIdx > 0) {
+                const key = trimmed.substring(0, eqIdx).trim();
+                const val = trimmed.substring(eqIdx + 1).trim();
+                if (!process.env[key]) {
+                    process.env[key] = val;
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error cargando .env:', e);
+    }
+}
+
 // Importamos nuestros controladores y rutas
 const dataController = require('./controllers/dataController');
 const dataEmuladorController = require('./controllers/dataEmuladorController');
 const executeController = require('./controllers/executeController');
 const apiDocController = require('./controllers/apiDocController');
 const batController = require('./controllers/batController');
+const syncController = require('./controllers/syncController');
+const googleAuthController = require('./controllers/googleAuthController');
 const routing = require('./navegacion');
-
-// --- TRUCO PARA MODO PORTABLE (.EXE) ---
-const BASE_DIR = process.env.PORTABLE_EXECUTABLE_DIR || __dirname;
 
 // ----------------------------------------------------
 // 1. CONFIGURACIÓN DE CARPETAS Y ARCHIVOS INICIALES
@@ -135,6 +159,17 @@ const server = http.createServer((req, res) => {
     if (req.method === 'GET' && req.url.startsWith('/api/bat/export')) return batController.exportBat(req, res);
     if (req.method === 'GET' && req.url === '/api/bat/info') return batController.getBatInfo(req, res);
     if (req.method === 'POST' && req.url === '/api/bat/delete') return batController.deleteBat(req, res);
+
+    // GLOBAL GOOGLE DRIVE SYNC MANAGER (Sincronización de toda la data: json, bat, api_docs)
+    if (req.method === 'GET' && req.url === '/api/sync/bundle') return syncController.getSyncBundle(req, res);
+    if (req.method === 'POST' && req.url === '/api/sync/restore') return syncController.restoreSyncBundle(req, res);
+
+    // GOOGLE OAUTH EN NAVEGADOR
+    if (req.method === 'GET' && req.url === '/api/auth/google/login') return googleAuthController.login(req, res);
+    if (req.method === 'GET' && req.url.startsWith('/api/auth/google/callback')) return googleAuthController.callback(req, res);
+    if (req.method === 'GET' && req.url === '/api/auth/google/status') return googleAuthController.status(req, res);
+    if (req.method === 'GET' && req.url === '/api/auth/google/token') return googleAuthController.getToken(req, res);
+    if (req.method === 'POST' && req.url === '/api/auth/google/logout') return googleAuthController.logout(req, res);
 
     // DIÁLOGO DEL SISTEMA PARA SELECCIONAR CARPETA NATIVA
     if (req.method === 'POST' && req.url === '/api/system/select-directory') {

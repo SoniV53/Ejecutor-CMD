@@ -322,21 +322,17 @@ export class ApiDocComponent implements OnInit, AfterViewInit, AfterViewChecked 
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }, 100);
-
-    this.showToast('Descargado: ' + tab.name, 'download');
   }
 
-  async copyContent(): Promise<void> {
+  copyContent(): void {
     const tab = this.activeTab;
     if (!tab || !tab.content) {
-      this.showToast('Nota vacía', 'alert-circle', 'text-amber-400');
+      this.showToast('No hay contenido para copiar', 'alert-circle', 'text-amber-400');
       return;
     }
-    try {
-      await navigator.clipboard.writeText(tab.content);
-      this.showToast('Copiado al portapapeles', 'copy', 'text-emerald-400');
-    } catch {
-      this.showToast('No se pudo copiar', 'alert-circle', 'text-rose-400');
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(tab.content);
+      this.showToast('Copiado al portapapeles', 'clipboard-check');
     }
   }
 

@@ -8,6 +8,8 @@ export interface NoteTab {
   fileType: 'json' | 'txt' | 'md' | 'other';
   isDirty: boolean;
   isNew?: boolean;
+  storage?: 'local' | 'gdrive';
+  driveFileId?: string;
 }
 
 export interface RenameModalData {

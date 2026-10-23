@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, Tray, Menu, ipcMain, dialog, webContents } = require('electron');
+const { app, BrowserWindow, session, Tray, Menu, ipcMain, dialog, webContents, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -165,6 +165,18 @@ ipcMain.handle('select-directory', async (_event, defaultPath) => {
     console.error('Error en select-directory dialog:', err);
   }
   return null;
+});
+
+ipcMain.handle('open-external-url', async (_event, url) => {
+  try {
+    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+      await shell.openExternal(url);
+      return true;
+    }
+  } catch (err) {
+    console.error('Error al abrir URL externa:', err);
+  }
+  return false;
 });
 
 ipcMain.on('set-run-in-background', (_event, enabled) => {

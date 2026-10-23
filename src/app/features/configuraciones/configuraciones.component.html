@@ -114,7 +114,136 @@
       </div>
     </section>
 
-    <!-- Sección 2: Habilitar / Deshabilitar Módulos -->
+    <!-- Sección 2: Almacenamiento en la Nube (Google Drive) -->
+    <section class="space-y-4">
+      <div>
+        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <svg class="w-5 h-5" viewBox="0 0 87.3 78" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+            <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44c-.8 1.4-1.2 2.95-1.2 4.5h27.5z" fill="#00ac47"/>
+            <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
+            <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
+            <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
+            <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
+          </svg>
+          Almacenamiento en la Nube (Google Drive)
+        </h2>
+        <p class="text-xs text-slate-400 mt-0.5">
+          Respalda y sincroniza toda la data de tu aplicación (documentación <code class="text-emerald-400 font-mono">api_docs/</code>, scripts <code class="text-indigo-400 font-mono">bat/</code> y comandos <code class="text-amber-400 font-mono">json/</code>) en tu nube de Google Drive.
+        </p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 md:p-6 space-y-5 shadow-lg">
+        <!-- Carpetas cubiertas -->
+        <div class="flex items-center gap-2 flex-wrap text-xs">
+          <span class="text-slate-400">Carpetas sincronizadas:</span>
+          <span class="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-mono border border-emerald-500/30">api_docs/</span>
+          <span class="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 font-mono border border-indigo-500/30">bat/</span>
+          <span class="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 font-mono border border-amber-500/30">json/</span>
+          <span class="text-slate-500 text-[11px] ml-auto">Carpeta en Drive: <strong class="text-slate-300 font-mono">Workspace-Hub</strong></span>
+        </div>
+
+        <!-- Tarjeta cuando NO está conectado -->
+        <div *ngIf="!isLoggedIn" class="p-6 rounded-xl bg-slate-950/60 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+          <div class="space-y-1">
+            <h3 class="text-sm font-bold text-white">Conecta tu cuenta de Google</h3>
+            <p class="text-xs text-slate-400 max-w-xl">
+              Al iniciar sesión, podrás sincronizar y restaurar tus archivos entre computadoras o mantener una copia de seguridad en la nube sin costos adicionales.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            (click)="loginGoogle()"
+            class="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold shadow-lg transition-all active:scale-95 cursor-pointer flex items-center gap-2.5 shrink-0"
+          >
+            <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.28-2.1 3.665-5.2 3.665-9.12z"/>
+              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.03c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.13C3.25 21.37 7.35 24 12 24z"/>
+              <path fill="#FBBC05" d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.13z"/>
+              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.25 2.63 1.26 6.58l4.02 3.13c.95-2.83 3.6-4.96 6.72-4.96z"/>
+            </svg>
+            <span>Conectar con Google</span>
+          </button>
+        </div>
+
+        <!-- Tarjeta cuando SÍ está conectado -->
+        <div *ngIf="isLoggedIn" class="space-y-4">
+          <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3 min-w-0">
+              <img
+                *ngIf="user?.picture"
+                [src]="user?.picture"
+                alt="Avatar"
+                class="w-10 h-10 rounded-full border border-emerald-500/50 object-cover shrink-0"
+              />
+              <div *ngIf="!user?.picture" class="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center font-bold text-emerald-400 text-sm shrink-0">
+                {{ user?.name ? user.name.charAt(0).toUpperCase() : 'G' }}
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-bold text-white truncate">{{ user?.name }}</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    Conectado
+                  </span>
+                </div>
+                <span class="text-xs text-slate-400 block truncate">{{ user?.email }}</span>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                (click)="logoutGoogle()"
+                class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 border border-slate-700 hover:border-rose-500/30 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Desconectar cuenta"
+              >
+                <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                <span>Desconectar</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Estado y Acciones de Sincronización -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <div class="text-xs text-slate-400">
+              Última sincronización: <strong class="text-slate-200 font-medium">{{ formatLastSync(syncStatus.lastSync) }}</strong>
+            </div>
+
+            <div class="flex items-center gap-2.5">
+              <button
+                type="button"
+                (click)="syncUpload()"
+                [disabled]="syncStatus.isSyncing"
+                class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md transition-all active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-2"
+              >
+                <i *ngIf="!syncStatus.isSyncing" data-lucide="cloud-upload" class="w-4 h-4"></i>
+                <i *ngIf="syncStatus.isSyncing" data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
+                <span>Subir Respaldo a Drive</span>
+              </button>
+
+              <button
+                type="button"
+                (click)="syncDownload()"
+                [disabled]="syncStatus.isSyncing"
+                class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-all active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-2"
+              >
+                <i data-lucide="cloud-download" class="w-4 h-4"></i>
+                <span>Descargar de Drive</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Mensaje de estado -->
+          <div *ngIf="syncStatus.isSyncing" class="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center gap-2.5 text-xs text-indigo-300">
+            <i data-lucide="loader-2" class="w-4 h-4 animate-spin shrink-0"></i>
+            <span>{{ syncStatus.message }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sección 3: Habilitar / Deshabilitar Módulos -->
     <section class="space-y-5">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div>

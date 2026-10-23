@@ -7,6 +7,7 @@ import {
   WorkspaceModuleItem
 } from '../../core/services/workspace-settings.service';
 import { LucideIconService } from '../../core/services/lucide-icon.service';
+import { GoogleDriveService, GoogleUserProfile, SyncStatus } from '../../core/services/google-drive.service';
 
 @Component({
   selector: 'app-configuraciones',
@@ -20,11 +21,20 @@ export class ConfiguracionesComponent implements OnInit, OnDestroy, AfterViewIni
   enabledCount = 0;
   runInBackground = true;
 
+  // Google Drive
+  isLoggedIn = false;
+  user: GoogleUserProfile | null = null;
+  syncStatus: SyncStatus = { isSyncing: false, lastSync: null, message: 'Listo' };
+
+  toastMsg = '';
+  toastVisible = false;
+  private toastTimeout: any;
   private subs = new Subscription();
 
   constructor(
     private settingsService: WorkspaceSettingsService,
-    private lucide: LucideIconService
+    private lucide: LucideIconService,
+    public googleDrive: GoogleDriveService
   ) {}
 
   ngOnInit(): void {
@@ -42,6 +52,21 @@ export class ConfiguracionesComponent implements OnInit, OnDestroy, AfterViewIni
         this.lucide.refresh();
       })
     );
+
+    this.subs.add(
+      this.googleDrive.user$.subscribe(u => {
+        this.user = u;
+        this.isLoggedIn = !!u;
+        this.lucide.refresh();
+      })
+    );
+
+    this.subs.add(
+      this.googleDrive.syncStatus$.subscribe(status => {
+        this.syncStatus = status;
+        this.lucide.refresh();
+      })
+    );
   }
 
   ngAfterViewInit(): void {
@@ -50,6 +75,7 @@ export class ConfiguracionesComponent implements OnInit, OnDestroy, AfterViewIni
 
   ngOnDestroy(): void {
     this.subs.unsubscribe();
+    if (this.toastTimeout) clearTimeout(this.toastTimeout);
   }
 
   trackByModuleId(_index: number, mod: WorkspaceModuleItem): string {
@@ -66,6 +92,58 @@ export class ConfiguracionesComponent implements OnInit, OnDestroy, AfterViewIni
 
   onEnableAll(): void {
     this.settingsService.enableAllModules();
+  }
+
+  async loginGoogle(): Promise<void> {
+    try {
+      await this.googleDrive.login();
+      this.showToast('Conectado con Google Drive');
+      setTimeout(() => this.lucide.refresh(), 50);
+    } catch (err: any) {
+      this.showToast('Error al conectar: ' + (err.message || err));
+    }
+  }
+
+  logoutGoogle(): void {
+    this.googleDrive.logout();
+    this.showToast('Sesión de Google cerrada');
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  async syncUpload(): Promise<void> {
+    try {
+      const res = await this.googleDrive.uploadFullWorkspaceToDrive();
+      this.showToast(res.message);
+    } catch (err: any) {
+      this.showToast('Error al subir: ' + (err.message || err));
+    }
+  }
+
+  async syncDownload(): Promise<void> {
+    try {
+      const res = await this.googleDrive.downloadFullWorkspaceFromDrive();
+      this.showToast(res.message);
+    } catch (err: any) {
+      this.showToast('Error al descargar: ' + (err.message || err));
+    }
+  }
+
+  formatLastSync(timestamp: number | null): string {
+    if (!timestamp) return 'Nunca';
+    const diff = Date.now() - timestamp;
+    if (diff < 60000) return 'Hace un momento';
+    if (diff < 3600000) return `Hace ${Math.floor(diff / 60000)} minutos`;
+    const date = new Date(timestamp);
+    return `${date.toLocaleDateString()} a las ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }
+
+  showToast(msg: string): void {
+    this.toastMsg = msg;
+    this.toastVisible = true;
+    if (this.toastTimeout) clearTimeout(this.toastTimeout);
+    this.toastTimeout = setTimeout(() => {
+      this.toastVisible = false;
+    }, 3500);
   }
 
   getIconBgClass(color: string, enabled: boolean): string {

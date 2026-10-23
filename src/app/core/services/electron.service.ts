@@ -68,5 +68,28 @@ export class ElectronService {
     }
     return null;
   }
+
+  async openExternal(url: string): Promise<boolean> {
+    try {
+      if (this.ipcRenderer) {
+        return await this.ipcRenderer.invoke('open-external-url', url);
+      }
+      const win = window as any;
+      if (win.require) {
+        const electron = win.require('electron');
+        if (electron?.shell) {
+          await electron.shell.openExternal(url);
+          return true;
+        }
+      }
+    } catch (e) {
+      console.warn('Error en Electron openExternal:', e);
+    }
+    if (typeof window !== 'undefined') {
+      window.open(url, '_blank');
+      return true;
+    }
+    return false;
+  }
 }
 

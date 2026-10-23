@@ -107,75 +107,62 @@ export class ApiExplorerSidebarComponent implements OnChanges, AfterViewInit, Af
     } else {
       this.expandedFolders.add(folderPath);
     }
-    setTimeout(() => this.lucide.refresh(), 10);
+    this.lucide.refresh();
   }
 
   expandAll(): void {
-    const walk = (list: DocExplorerItem[]) => {
-      for (const item of list) {
-        if (item.isFolder) {
-          this.expandedFolders.add(item.path);
-          if (item.children) walk(item.children);
+    const collectAll = (nodes: DocExplorerItem[]) => {
+      for (const node of nodes) {
+        if (node.isFolder) {
+          this.expandedFolders.add(node.path);
+          if (node.children) collectAll(node.children);
         }
       }
     };
-    walk(this.items || []);
-    setTimeout(() => this.lucide.refresh(), 10);
+    collectAll(this.items || []);
+    this.lucide.refresh();
   }
 
   collapseAll(): void {
     this.expandedFolders.clear();
-    setTimeout(() => this.lucide.refresh(), 10);
+    this.lucide.refresh();
   }
 
-  autoExpandParents(filePath: string): void {
-    if (!filePath) return;
+  // Auto expandir las carpetas padre del archivo activo
+  private autoExpandParents(filePath: string): void {
     const parts = filePath.replace(/\\/g, '/').split('/');
-    parts.pop(); // quitar nombre de archivo
     let current = '';
-    for (const p of parts) {
-      current = current ? `${current}/${p}` : p;
+    for (let i = 0; i < parts.length - 1; i++) {
+      current = current ? `${current}/${parts[i]}` : parts[i];
       this.expandedFolders.add(current);
     }
   }
 
-  getFileIcon(item: DocExplorerItem): string {
-    if (item.isFolder) return this.isExpanded(item.path) ? 'folder-open' : 'folder';
-    const ext = (item.extension || '').toLowerCase();
-    if (ext === '.json') return 'file-json';
-    if (ext === '.md') return 'file-code';
-    if (ext === '.sql') return 'database';
-    return 'file-text';
+  isActiveFile(itemPath: string): boolean {
+    const norm = (p: string) => (p || '').replace(/\\/g, '/').trim();
+    return norm(this.activeFile) === norm(itemPath);
   }
 
-  getFileIconColor(item: DocExplorerItem): string {
-    if (item.isFolder) return 'text-amber-400';
-    const ext = (item.extension || '').toLowerCase();
-    if (ext === '.json') return 'text-amber-400';
-    if (ext === '.md') return 'text-emerald-400';
-    if (ext === '.sql') return 'text-purple-400';
-    return 'text-sky-400';
-  }
-
-  onCreateFileIn(event: Event, folderPath: string): void {
+  // Acciones en carpetas
+  onCreateFileIn(folderPath: string, event: Event): void {
     event.stopPropagation();
     this.expandedFolders.add(folderPath);
     this.createFile.emit(folderPath);
   }
 
-  onCreateFolderIn(event: Event, folderPath: string): void {
+  onCreateFolderIn(folderPath: string, event: Event): void {
     event.stopPropagation();
     this.expandedFolders.add(folderPath);
     this.createFolder.emit(folderPath);
   }
 
-  onRename(event: Event, item: DocExplorerItem): void {
+  onRename(item: DocExplorerItem, event: Event): void {
     event.stopPropagation();
     this.renameItem.emit(item);
   }
 
-  onDeleteItem(event: Event, path: string): void {
+  onDelete(itemPath: string, event: Event): void {
     event.stopPropagation();
-    this.deleteItem.emit(path);
+    this.deleteItem.emit(itemPath);
   }
 }
