@@ -25,9 +25,12 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
 
   @Input() allCategories: string[] = [];
   @Input() allAvailableTags: string[] = [];
+  @Input() allProfiles: string[] = [];
+  @Input() activeProfile = 'ALL';
+  @Input() showProfilesModal = false;
 
   @Output() closeProjModal = new EventEmitter<void>();
-  @Output() saveProject = new EventEmitter<{ name: string; path: string; tags: string[] }>();
+  @Output() saveProject = new EventEmitter<{ name: string; path: string; tags: string[]; profiles: string[] }>();
 
   @Output() closeCatModal = new EventEmitter<void>();
   @Output() saveCategory = new EventEmitter<string>();
@@ -41,13 +44,19 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
     color: string;
     background: boolean;
     tags: string[];
+    profiles: string[];
   }>();
+
+  @Output() closeProfilesModal = new EventEmitter<void>();
+  @Output() saveProfilesList = new EventEmitter<{ profiles: string[]; renames?: Record<string, string> } | string[]>();
 
   // Project form
   inProjName = '';
   inProjPath = '';
   inProjTags: string[] = [];
   inProjTagInput = '';
+  inProjProfiles: string[] = [];
+  inProjProfileInput = '';
 
   // Category form
   inCatName = '';
@@ -60,7 +69,16 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
   inCmdBg = false;
   inCmdTags: string[] = [];
   inCmdTagInput = '';
+  inCmdProfiles: string[] = [];
+  inCmdProfileInput = '';
   activeColor = 'indigo';
+
+  // Profiles Manager modal form
+  profilesList: string[] = [];
+  newProfileName = '';
+  editingProfileIndex: number | null = null;
+  editingProfileName = '';
+  renamedProfilesMap: Record<string, string> = {};
 
   showCatSuggestions = false;
   lastFocusedIndex = 0;
@@ -84,12 +102,15 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
         this.inProjName = this.editingProject.name;
         this.inProjPath = this.editingProject.path;
         this.inProjTags = this.editingProject.tags ? [...this.editingProject.tags] : [];
+        this.inProjProfiles = this.editingProject.profiles ? [...this.editingProject.profiles] : [];
       } else {
         this.inProjName = '';
         this.inProjPath = '';
         this.inProjTags = [];
+        this.inProjProfiles = this.activeProfile !== 'ALL' ? [this.activeProfile] : [];
       }
       this.inProjTagInput = '';
+      this.inProjProfileInput = '';
     }
 
     if (changes['showCatModal'] && this.showCatModal) {
@@ -104,6 +125,7 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
         this.inCmdBg = !!this.editingCommand.background;
         this.activeColor = this.editingCommand.color || 'indigo';
         this.inCmdTags = this.editingCommand.tags ? [...this.editingCommand.tags] : [];
+        this.inCmdProfiles = this.editingCommand.profiles ? [...this.editingCommand.profiles] : [];
 
         const rawScripts =
           this.editingCommand.scripts && this.editingCommand.scripts.length > 0
@@ -118,11 +140,22 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
         this.inCmdBg = false;
         this.activeColor = 'indigo';
         this.inCmdTags = [];
+        this.inCmdProfiles = [];
       }
       this.inCmdTagInput = '';
+      this.inCmdProfileInput = '';
       this.lastFocusedIndex = 0;
       this.lastFocusedTextarea = null;
       this.showCatSuggestions = false;
+    }
+
+    if (changes['showProfilesModal'] && this.showProfilesModal) {
+      this.profilesList = [...(this.allProfiles || [])];
+      this.newProfileName = '';
+      this.editingProfileIndex = null;
+      this.editingProfileName = '';
+      this.renamedProfilesMap = {};
+      setTimeout(() => this.lucide.refresh(), 50);
     }
 
     this.lucide.refresh();
@@ -207,6 +240,34 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
     this.lucide.refresh();
   }
 
+  toggleProjProfile(profile: string): void {
+    const idx = this.inProjProfiles.indexOf(profile);
+    if (idx !== -1) {
+      this.inProjProfiles.splice(idx, 1);
+    } else {
+      this.inProjProfiles.push(profile);
+    }
+    this.lucide.refresh();
+  }
+
+  addProjProfile(profileToAdd?: string): void {
+    const raw = (profileToAdd !== undefined ? profileToAdd : this.inProjProfileInput).trim();
+    if (!raw) return;
+    if (!this.inProjProfiles.includes(raw)) {
+      this.inProjProfiles.push(raw);
+    }
+    if (!this.allProfiles.includes(raw)) {
+      this.allProfiles.push(raw);
+    }
+    this.inProjProfileInput = '';
+    this.lucide.refresh();
+  }
+
+  removeProjProfile(idx: number): void {
+    this.inProjProfiles.splice(idx, 1);
+    this.lucide.refresh();
+  }
+
   addCmdTag(tagToAdd?: string): void {
     const raw = tagToAdd !== undefined ? tagToAdd : this.inCmdTagInput;
     if (!raw) return;
@@ -225,14 +286,122 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
     this.lucide.refresh();
   }
 
+  toggleCmdProfile(profile: string): void {
+    const idx = this.inCmdProfiles.indexOf(profile);
+    if (idx !== -1) {
+      this.inCmdProfiles.splice(idx, 1);
+    } else {
+      this.inCmdProfiles.push(profile);
+    }
+    this.lucide.refresh();
+  }
+
+  addCmdProfile(profileToAdd?: string): void {
+    const raw = (profileToAdd !== undefined ? profileToAdd : this.inCmdProfileInput).trim();
+    if (!raw) return;
+    if (!this.inCmdProfiles.includes(raw)) {
+      this.inCmdProfiles.push(raw);
+    }
+    if (!this.allProfiles.includes(raw)) {
+      this.allProfiles.push(raw);
+    }
+    this.inCmdProfileInput = '';
+    this.lucide.refresh();
+  }
+
+  removeCmdProfile(idx: number): void {
+    this.inCmdProfiles.splice(idx, 1);
+    this.lucide.refresh();
+  }
+
+  // Profiles Manager Modal Methods
+  addProfileToManager(): void {
+    const trimmed = this.newProfileName.trim();
+    if (!trimmed) return;
+    if (!this.profilesList.includes(trimmed)) {
+      this.profilesList.push(trimmed);
+    }
+    this.newProfileName = '';
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  startEditProfile(idx: number): void {
+    this.editingProfileIndex = idx;
+    this.editingProfileName = this.profilesList[idx] || '';
+    setTimeout(() => {
+      this.lucide.refresh();
+      const input = document.getElementById('edit-profile-input-' + idx) as HTMLInputElement;
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    }, 50);
+  }
+
+  saveEditProfile(idx: number): void {
+    const trimmed = this.editingProfileName.trim();
+    if (trimmed && idx >= 0 && idx < this.profilesList.length) {
+      const oldName = this.profilesList[idx];
+      if (oldName !== trimmed) {
+        this.profilesList[idx] = trimmed;
+        this.renamedProfilesMap[oldName] = trimmed;
+      }
+    }
+    this.cancelEditProfile();
+  }
+
+  cancelEditProfile(): void {
+    this.editingProfileIndex = null;
+    this.editingProfileName = '';
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  removeProfileFromManager(idx: number): void {
+    const profName = this.profilesList[idx];
+    if (confirm(`¿Eliminar el perfil "${profName}"?`)) {
+      this.profilesList.splice(idx, 1);
+      if (this.editingProfileIndex === idx) {
+        this.cancelEditProfile();
+      }
+      setTimeout(() => this.lucide.refresh(), 50);
+    }
+  }
+
+  onSaveProfilesList(): void {
+    // Si el usuario estaba escribiendo en la edición de un perfil, confirmamos el cambio antes de guardar
+    if (this.editingProfileIndex !== null) {
+      const trimmed = this.editingProfileName.trim();
+      if (trimmed && this.editingProfileIndex >= 0 && this.editingProfileIndex < this.profilesList.length) {
+        const oldName = this.profilesList[this.editingProfileIndex];
+        if (oldName !== trimmed) {
+          this.profilesList[this.editingProfileIndex] = trimmed;
+          this.renamedProfilesMap[oldName] = trimmed;
+        }
+      }
+      this.editingProfileIndex = null;
+    }
+
+    if (this.newProfileName.trim()) {
+      this.addProfileToManager();
+    }
+
+    this.saveProfilesList.emit({
+      profiles: [...this.profilesList],
+      renames: { ...this.renamedProfilesMap }
+    });
+  }
+
   onSaveProject(): void {
     if (this.inProjTagInput.trim()) {
       this.addProjTag();
     }
+    if (this.inProjProfileInput.trim()) {
+      this.addProjProfile();
+    }
     const name = this.inProjName.trim();
     const path = this.inProjPath.trim();
     if (name && path) {
-      this.saveProject.emit({ name, path, tags: [...this.inProjTags] });
+      this.saveProject.emit({ name, path, tags: [...this.inProjTags], profiles: [...this.inProjProfiles] });
     }
   }
 
@@ -309,6 +478,9 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
     if (this.inCmdTagInput.trim()) {
       this.addCmdTag();
     }
+    if (this.inCmdProfileInput.trim()) {
+      this.addCmdProfile();
+    }
     const label = this.inCmdLabel.trim();
     const scriptsArray = this.inCmdScripts.map(s => s.value.trim()).filter(v => v.length > 0);
     const category = this.inCmdCategory.trim() || 'General';
@@ -321,7 +493,8 @@ export class CmdModalsComponent implements OnChanges, AfterViewInit {
         multiSelect: this.inCmdMulti,
         color: this.activeColor,
         background: this.inCmdBg,
-        tags: [...this.inCmdTags]
+        tags: [...this.inCmdTags],
+        profiles: [...this.inCmdProfiles]
       });
     }
   }

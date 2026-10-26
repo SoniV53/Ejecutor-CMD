@@ -26,6 +26,7 @@ const DEFAULT_MODULES: Omit<WorkspaceModuleItem, 'enabled'>[] = [
     icon: 'terminal',
     color: 'indigo'
   },
+  /* Temporalmente comentados por solicitud
   {
     id: 'doc-generator',
     route: '/doc-generator',
@@ -44,6 +45,7 @@ const DEFAULT_MODULES: Omit<WorkspaceModuleItem, 'enabled'>[] = [
     icon: 'network',
     color: 'orange'
   },
+  */
   {
     id: 'api-doc',
     route: '/api-doc',

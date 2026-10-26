@@ -19,6 +19,57 @@
   </div>
 
   <div class="flex flex-wrap items-center gap-2 md:gap-3 shrink-0 ml-auto">
+    <!-- Selector de Perfiles -->
+    <div class="flex items-center gap-1 bg-purple-950/40 border border-purple-500/30 p-1 rounded-2xl shrink-0">
+      <div class="flex items-center gap-1.5 px-2 text-purple-300">
+        <i data-lucide="layers" class="w-4 h-4 shrink-0 text-purple-400"></i>
+        <span class="text-xs font-bold hidden xl:inline">Perfil:</span>
+      </div>
+      <select
+        [ngModel]="activeProfile"
+        (ngModelChange)="onProfileSelect($event)"
+        class="bg-purple-900/60 border border-purple-500/30 text-purple-200 text-xs font-semibold rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400 cursor-pointer max-w-[140px] truncate"
+        title="Filtrar comandos por perfil de trabajo"
+      >
+        <option value="ALL">🌐 Todos</option>
+        <option *ngFor="let p of profiles" [value]="p">{{ p }}</option>
+      </select>
+
+      <!-- Botón Gestionar Perfiles -->
+      <button
+        (click)="manageProfiles.emit()"
+        class="p-1.5 rounded-xl hover:bg-purple-800/60 text-purple-300 hover:text-white transition-colors"
+        title="Administrar Perfiles (Crear, Renombrar, Eliminar)"
+      >
+        <i data-lucide="settings-2" class="w-3.5 h-3.5"></i>
+      </button>
+
+      <!-- Botón Exportar Comandos de este Perfil -->
+      <button
+        (click)="exportProfileCommands.emit()"
+        class="p-1.5 rounded-xl hover:bg-purple-800/60 text-purple-300 hover:text-white transition-colors"
+        title="Exportar comandos del perfil actual a archivo JSON"
+      >
+        <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
+      </button>
+
+      <!-- Botón Importar Comandos a Perfil -->
+      <input
+        #headerProfileImportInput
+        type="file"
+        accept=".json"
+        class="hidden"
+        (change)="onImportProfileChange($event)"
+      />
+      <button
+        (click)="headerProfileImportInput.click()"
+        class="p-1.5 rounded-xl hover:bg-purple-800/60 text-purple-300 hover:text-white transition-colors"
+        title="Importar comandos desde archivo JSON de perfil"
+      >
+        <i data-lucide="file-up" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>
+
     <!-- Selector de Vistas -->
     <div class="flex items-center bg-slate-900/80 rounded-xl p-1 border border-slate-800 shrink-0">
       <button

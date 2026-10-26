@@ -28,6 +28,7 @@ export interface SaveBatPayload {
   dirPath: string;
   content: string;
   tags?: string[];
+  profiles?: string[];
   runImmediately?: boolean;
 }
 
@@ -45,6 +46,7 @@ export class CmdBatModalComponent implements OnInit, OnChanges, AfterViewInit {
   @Input() activeProject: CmdProject | null = null;
   @Input() allCategories: string[] = [];
   @Input() allAvailableTags: string[] = [];
+  @Input() allProfiles: string[] = [];
 
   @Output() closeBatModal = new EventEmitter<void>();
   @Output() saveBat = new EventEmitter<SaveBatPayload>();
@@ -61,6 +63,8 @@ export class CmdBatModalComponent implements OnInit, OnChanges, AfterViewInit {
   inBatBg = false;
   inBatTags: string[] = [];
   inBatTagInput = '';
+  inBatProfiles: string[] = [];
+  inBatProfileInput = '';
   activeColor = 'emerald';
   appBatDir = '';
 
@@ -119,6 +123,7 @@ mvnw spring-boot:run
         this.inBatBg = !!this.editingCommand.background;
         this.activeColor = this.editingCommand.color || 'emerald';
         this.inBatTags = this.editingCommand.tags ? [...this.editingCommand.tags] : [];
+        this.inBatProfiles = this.editingCommand.profiles ? [...this.editingCommand.profiles] : [];
       } else {
         // Modo Nuevo Archivo .bat:
         // Guarda en la carpeta "bat" de la app (igual que json) y se ejecuta con el proyecto del menú lateral
@@ -131,8 +136,10 @@ mvnw spring-boot:run
         this.inBatBg = false;
         this.activeColor = 'emerald';
         this.inBatTags = selectedSidebarProj?.tags ? [...selectedSidebarProj.tags] : [];
+        this.inBatProfiles = [];
       }
       this.inBatTagInput = '';
+      this.inBatProfileInput = '';
       this.lucide.refresh();
     }
   }
@@ -267,9 +274,40 @@ mvnw spring-boot:run
     this.lucide.refresh();
   }
 
+  toggleBatProfile(profile: string): void {
+    const idx = this.inBatProfiles.indexOf(profile);
+    if (idx !== -1) {
+      this.inBatProfiles.splice(idx, 1);
+    } else {
+      this.inBatProfiles.push(profile);
+    }
+    this.lucide.refresh();
+  }
+
+  addBatProfile(profileToAdd?: string): void {
+    const raw = (profileToAdd !== undefined ? profileToAdd : this.inBatProfileInput).trim();
+    if (!raw) return;
+    if (!this.inBatProfiles.includes(raw)) {
+      this.inBatProfiles.push(raw);
+    }
+    if (!this.allProfiles.includes(raw)) {
+      this.allProfiles.push(raw);
+    }
+    this.inBatProfileInput = '';
+    this.lucide.refresh();
+  }
+
+  removeBatProfile(idx: number): void {
+    this.inBatProfiles.splice(idx, 1);
+    this.lucide.refresh();
+  }
+
   onSave(runImmediately = false): void {
     if (this.inBatTagInput.trim()) {
       this.addBatTag();
+    }
+    if (this.inBatProfileInput.trim()) {
+      this.addBatProfile();
     }
     let cleanFileName = (this.inBatFileName || '').trim();
     if (!cleanFileName) {
@@ -294,6 +332,7 @@ mvnw spring-boot:run
       dirPath: cleanDir,
       content: this.inBatContent,
       tags: [...this.inBatTags],
+      profiles: [...this.inBatProfiles],
       runImmediately
     });
   }

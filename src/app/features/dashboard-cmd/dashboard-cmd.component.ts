@@ -35,6 +35,9 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
   selectedProjId: string | null = null;
   serverOnline = false;
 
+  profiles: string[] = ['Perfil 1', 'Perfil 2'];
+  activeProfile = 'ALL';
+
   viewMode: 'list' | 'card' = 'card';
   searchTerm = '';
 
@@ -57,6 +60,8 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
   showCmdModal = false;
   editingCmdId: string | null = null;
 
+  showProfilesModal = false;
+
   // Bat Modal state
   showBatModal = false;
   editingBatCmd: CmdCommandItem | null = null;
@@ -71,6 +76,13 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
   ) {}
 
   ngOnInit(): void {
+    try {
+      const savedProfile = localStorage.getItem('cmd_active_profile');
+      if (savedProfile) {
+        this.activeProfile = savedProfile;
+      }
+    } catch {}
+
     this.fetchLocalData();
     this.ngZone.runOutsideAngular(() => {
       this.pollInterval = setInterval(() => this.fetchLocalData(), 3000);
@@ -100,6 +112,13 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.projects.find(p => p.id === this.selectedProjId) || null;
   }
 
+  get displayedProjects(): CmdProject[] {
+    if (this.activeProfile === 'ALL') {
+      return this.projects;
+    }
+    return this.projects.filter(p => p.profiles && p.profiles.includes(this.activeProfile));
+  }
+
   get editingProject(): CmdProject | null {
     if (!this.editingProjId) return null;
     return this.projects.find(p => p.id === this.editingProjId) || null;
@@ -118,9 +137,15 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   get displayedCommands(): CmdCommandItem[] {
+    // 1. Filtrar primero por el Perfil Activo (si no es 'ALL')
+    let pool = this.commands;
+    if (this.activeProfile !== 'ALL') {
+      pool = pool.filter(cmd => cmd.profiles && cmd.profiles.includes(this.activeProfile));
+    }
+
     const project = this.activeProject;
     if (!project) {
-      return this.commands;
+      return pool;
     }
 
     const folderTags = (project.tags || [])
@@ -128,7 +153,7 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
       .filter(Boolean);
 
     if (folderTags.length > 0) {
-      return this.commands.filter(cmd => {
+      return pool.filter(cmd => {
         if (cmd.projectId && cmd.projectId === project.id) {
           return true;
         }
@@ -149,7 +174,7 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Si la carpeta activa no tiene tags configurados:
     // Aparecen los comandos sin tags y los asignados a esta carpeta
-    return this.commands.filter(cmd => {
+    return pool.filter(cmd => {
       if (cmd.projectId && cmd.projectId === project.id) {
         return true;
       }
@@ -176,10 +201,13 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
       const newCategories = (data.categories || []).map(c =>
         typeof c === 'string' ? c : (c as CmdCategoryItem).name
       );
+      const newProfiles = data.profiles && Array.isArray(data.profiles) && data.profiles.length > 0
+        ? data.profiles
+        : ['Perfil 1', 'Perfil 2'];
 
       const dataChanged =
-        JSON.stringify({ p: newProjects, c: newCommands, cat: newCategories }) !==
-        JSON.stringify({ p: this.projects, c: this.commands, cat: this.explicitCategories });
+        JSON.stringify({ p: newProjects, c: newCommands, cat: newCategories, prof: newProfiles }) !==
+        JSON.stringify({ p: this.projects, c: this.commands, cat: this.explicitCategories, prof: this.profiles });
 
       if (dataChanged || !this.serverOnline) {
         this.ngZone.run(() => {
@@ -187,6 +215,7 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
             this.projects = newProjects;
             this.commands = newCommands;
             this.explicitCategories = newCategories;
+            this.profiles = newProfiles;
             this.updateAllCategories();
             this.lucide.refresh();
           }
@@ -212,7 +241,8 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
       await this.api.saveData({
         projects: this.projects,
         commands: this.commands,
-        categories: this.explicitCategories
+        categories: this.explicitCategories,
+        profiles: this.profiles
       });
       this.lucide.refresh();
       return true;
@@ -340,15 +370,25 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
     this.showProjModal = true;
   }
 
-  async onSaveProject(data: { name: string; path: string; tags: string[] }): Promise<void> {
+  async onSaveProject(data: { name: string; path: string; tags: string[]; profiles: string[] }): Promise<void> {
     if (this.editingProjId) {
       this.projects = this.projects.map(p =>
-        p.id === this.editingProjId ? { ...p, name: data.name, path: data.path, tags: data.tags || [] } : p
+        p.id === this.editingProjId
+          ? { ...p, name: data.name, path: data.path, tags: data.tags || [], profiles: data.profiles || [] }
+          : p
       );
     } else {
       this.projects = [
         ...this.projects,
-        { id: Date.now().toString(), name: data.name, path: data.path, tags: data.tags || [] }
+        {
+          id: Date.now().toString(),
+          name: data.name,
+          path: data.path,
+          tags: data.tags || [],
+          profiles: data.profiles && data.profiles.length > 0
+            ? data.profiles
+            : (this.activeProfile !== 'ALL' ? [this.activeProfile] : [])
+        }
       ];
     }
     const ok = await this.syncData();
@@ -440,6 +480,7 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
     color: string;
     background: boolean;
     tags: string[];
+    profiles: string[];
   }): Promise<void> {
     if (!this.explicitCategories.includes(payload.category)) {
       this.explicitCategories = [...this.explicitCategories, payload.category];
@@ -459,7 +500,8 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
               category: payload.category,
               color: payload.color,
               background: payload.background,
-              tags: payload.tags || []
+              tags: payload.tags || [],
+              profiles: payload.profiles || []
             }
           : c
       );
@@ -476,7 +518,8 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
           color: payload.color,
           background: payload.background,
           projectId: null,
-          tags: payload.tags || []
+          tags: payload.tags || [],
+          profiles: payload.profiles || []
         }
       ];
     }
@@ -539,7 +582,8 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
                 batContent: payload.content,
                 script: scriptCommand,
                 scripts: [scriptCommand],
-                tags: payload.tags || []
+                tags: payload.tags || [],
+                profiles: payload.profiles || []
               }
             : c
         );
@@ -558,7 +602,8 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
           script: scriptCommand,
           scripts: [scriptCommand],
           multiSelect: false,
-          tags: payload.tags || []
+          tags: payload.tags || [],
+          profiles: payload.profiles || []
         };
         this.commands = [...this.commands, newCmd];
       }
@@ -657,6 +702,206 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
     bats.forEach(b => {
       this.exportSingleBat(b);
     });
+  }
+
+  // Profile Management Actions
+  onActiveProfileChange(profile: string): void {
+    this.activeProfile = profile;
+    try {
+      localStorage.setItem('cmd_active_profile', profile);
+    } catch {}
+
+    // Si el proyecto/carpeta seleccionado no pertenece al nuevo perfil, deseleccionar
+    if (this.selectedProjId && this.activeProfile !== 'ALL') {
+      const p = this.projects.find(proj => proj.id === this.selectedProjId);
+      if (p && (!p.profiles || !p.profiles.includes(this.activeProfile))) {
+        this.selectedProjId = null;
+      }
+    }
+
+    this.lucide.refresh();
+  }
+
+  openManageProfiles(): void {
+    this.showProfilesModal = true;
+  }
+
+  async onSaveProfiles(event: { profiles: string[]; renames?: Record<string, string> } | string[]): Promise<void> {
+    const newProfiles = Array.isArray(event) ? event : event.profiles;
+    const renames = !Array.isArray(event) && event.renames ? event.renames : {};
+
+    // 1. Si hubo perfiles renombrados, actualizar comandos y proyectos existentes
+    const renameEntries = Object.entries(renames);
+    if (renameEntries.length > 0) {
+      for (const [oldName, newName] of renameEntries) {
+        if (!oldName || !newName || oldName === newName) continue;
+
+        // Renombrar en comandos
+        this.commands = this.commands.map(c => {
+          if (c.profiles && c.profiles.includes(oldName)) {
+            const updated = c.profiles.map(p => (p === oldName ? newName : p));
+            return { ...c, profiles: Array.from(new Set(updated)) };
+          }
+          return c;
+        });
+
+        // Renombrar en proyectos / carpetas
+        this.projects = this.projects.map(p => {
+          if (p.profiles && p.profiles.includes(oldName)) {
+            const updated = p.profiles.map(prof => (prof === oldName ? newName : prof));
+            return { ...p, profiles: Array.from(new Set(updated)) };
+          }
+          return p;
+        });
+
+        // Si el perfil activo es el renombrado, actualizarlo
+        if (this.activeProfile === oldName) {
+          this.activeProfile = newName;
+          try {
+            localStorage.setItem('cmd_active_profile', newName);
+          } catch {}
+        }
+      }
+    }
+
+    // 2. Limpiar referencias a perfiles que hayan sido eliminados completamente
+    const validProfilesSet = new Set(newProfiles);
+    this.commands = this.commands.map(c => {
+      if (c.profiles && c.profiles.length > 0) {
+        const filtered = c.profiles.filter(p => validProfilesSet.has(p));
+        return { ...c, profiles: filtered };
+      }
+      return c;
+    });
+
+    this.projects = this.projects.map(p => {
+      if (p.profiles && p.profiles.length > 0) {
+        const filtered = p.profiles.filter(prof => validProfilesSet.has(prof));
+        return { ...p, profiles: filtered };
+      }
+      return p;
+    });
+
+    this.profiles = newProfiles;
+    if (this.activeProfile !== 'ALL' && !this.profiles.includes(this.activeProfile)) {
+      this.onActiveProfileChange('ALL');
+    }
+
+    await this.syncData();
+    this.showProfilesModal = false;
+  }
+
+  exportProfileCommands(): void {
+    const targetProfile = this.activeProfile;
+    const cmdsToExport = targetProfile === 'ALL'
+      ? this.commands
+      : this.commands.filter(c => c.profiles && c.profiles.includes(targetProfile));
+
+    if (cmdsToExport.length === 0) {
+      alert(
+        targetProfile === 'ALL'
+          ? 'No hay comandos registrados para exportar.'
+          : `No hay comandos asignados al perfil "${targetProfile}" para exportar.`
+      );
+      return;
+    }
+
+    const exportData = {
+      source: 'ConsoleFlow',
+      exportedAt: new Date().toISOString(),
+      profile: targetProfile,
+      commandsCount: cmdsToExport.length,
+      commands: cmdsToExport.map(c => ({
+        id: c.id,
+        label: c.label,
+        script: c.script,
+        scripts: c.scripts,
+        multiSelect: c.multiSelect,
+        category: c.category,
+        color: c.color,
+        background: c.background,
+        tags: c.tags || [],
+        profiles: c.profiles || (targetProfile !== 'ALL' ? [targetProfile] : [])
+      }))
+    };
+
+    const jsonStr = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const cleanProfName = targetProfile === 'ALL'
+      ? 'todos'
+      : targetProfile.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    a.download = `comandos_perfil_${cleanProfName}_${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  async importProfileCommands(files: FileList): Promise<void> {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const cmds = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.commands) ? parsed.commands : null);
+
+      if (!cmds || cmds.length === 0) {
+        alert('El archivo JSON no contiene comandos válidos para importar.');
+        return;
+      }
+
+      let addedCount = 0;
+      const currentIds = new Set(this.commands.map(c => c.id));
+      const targetProfile = this.activeProfile !== 'ALL'
+        ? this.activeProfile
+        : (parsed.profile && parsed.profile !== 'ALL' ? parsed.profile : null);
+
+      for (const item of cmds) {
+        if (!item.label) continue;
+        let newId = item.id;
+        if (!newId || currentIds.has(newId)) {
+          newId = `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        }
+        currentIds.add(newId);
+
+        const itemProfiles: string[] = Array.isArray(item.profiles) ? [...item.profiles] : [];
+        if (targetProfile && !itemProfiles.includes(targetProfile)) {
+          itemProfiles.push(targetProfile);
+        }
+
+        const newCmd: CmdCommandItem = {
+          id: newId,
+          label: item.label,
+          category: item.category || 'General',
+          color: item.color || 'indigo',
+          background: !!item.background,
+          multiSelect: !!item.multiSelect,
+          script: item.script || (item.scripts && item.scripts[0]) || '',
+          scripts: item.scripts || [item.script || ''],
+          tags: Array.isArray(item.tags) ? item.tags : [],
+          profiles: itemProfiles
+        };
+
+        this.commands = [...this.commands, newCmd];
+        addedCount++;
+
+        if (item.category && !this.explicitCategories.includes(item.category)) {
+          this.explicitCategories = [...this.explicitCategories, item.category];
+        }
+      }
+
+      if (targetProfile && !this.profiles.includes(targetProfile)) {
+        this.profiles = [...this.profiles, targetProfile];
+      }
+
+      await this.syncData();
+      alert(`Se importaron ${addedCount} comando(s) con éxito${targetProfile ? ` bajo el perfil "${targetProfile}"` : ''}.`);
+    } catch (err: any) {
+      alert('Error al importar comandos desde JSON: ' + (err.message || err));
+    }
   }
 
   async deleteCommand(id: string): Promise<void> {

@@ -238,6 +238,56 @@
         </div>
       </div>
 
+      <!-- Perfiles del Script .bat -->
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="text-[10px] font-bold text-purple-400 uppercase flex items-center gap-1.5">
+            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+            Perfiles asignados
+          </label>
+          <span class="text-[10px] text-slate-500 font-normal">Si no seleccionas ninguno, se mostrará en todos</span>
+        </div>
+
+        <!-- Chips de selección rápida de todos los perfiles disponibles -->
+        <div *ngIf="allProfiles.length > 0" class="flex flex-wrap gap-1.5 mb-2">
+          <button
+            *ngFor="let p of allProfiles"
+            type="button"
+            (click)="toggleBatProfile(p)"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border cursor-pointer select-none"
+            [ngClass]="
+              inBatProfiles.includes(p)
+                ? 'bg-purple-600 text-white border-purple-400 shadow-sm shadow-purple-600/30'
+                : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:border-purple-500/50 hover:text-purple-300'
+            "
+          >
+            <svg *ngIf="inBatProfiles.includes(p)" class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+            </svg>
+            <span *ngIf="!inBatProfiles.includes(p)" class="w-2 h-2 rounded-full border border-slate-500"></span>
+            {{ p }}
+          </button>
+        </div>
+
+        <!-- Input para agregar nuevo perfil si no existe -->
+        <div class="flex gap-2">
+          <input
+            type="text"
+            [(ngModel)]="inBatProfileInput"
+            (keydown.enter)="$event.preventDefault(); addBatProfile()"
+            placeholder="Crear y asignar nuevo perfil..."
+            class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:ring-2 focus:ring-purple-600 outline-none placeholder-slate-600"
+          />
+          <button
+            type="button"
+            (click)="addBatProfile()"
+            class="px-3 py-1.5 bg-purple-900/60 hover:bg-purple-800 text-purple-200 rounded-xl text-xs font-semibold border border-purple-500/30 transition-colors"
+          >
+            + Perfil
+          </button>
+        </div>
+      </div>
+
       <!-- Editor de Contenido Batch -->
       <div>
         <div class="flex flex-wrap items-center justify-between gap-2 mb-2">

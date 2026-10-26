@@ -1,4 +1,4 @@
-<div class="bg-slate-50 h-full w-full flex overflow-hidden text-slate-800 font-sans">
+<div class="bg-slate-50 h-full w-full flex overflow-hidden text-slate-800 font-sans relative">
   <app-repo-sidebar-tree
     [state]="state"
     [currentBranchId]="currentBranchId"
@@ -7,6 +7,8 @@
     [expandedFolders]="expandedFolders"
     [fileStatusText]="fileStatusText"
     [fileSynced]="fileSynced"
+    [sidebarOpenMobile]="sidebarOpenMobile"
+    (closeSidebarMobile)="sidebarOpenMobile = false"
     (openAnalysisView)="openAnalysisPanel()"
     (openNewFolderModal)="openNewFolderModal($event)"
     (openNewBranchModal)="openNewBranchModal($event)"
@@ -20,43 +22,76 @@
     (saveFileAs)="guardarArchivoComo()"
   ></app-repo-sidebar-tree>
 
-  <app-repo-branch-detail
-    [state]="state"
-    [currentFolder]="currentFolder"
-    [currentBranch]="currentBranch"
-    [parentBranchName]="parentBranchName"
-    [commits]="state.commits"
-    [showAnalysisView]="showAnalysisView"
-    [cmdProjects]="cmdProjects"
-    [isAnalyzingGit]="isAnalyzingGit"
-    [analysisError]="analysisError"
-    [scannedBranches]="scannedBranches"
-    [gitCurrentBranch]="gitCurrentBranch"
-    (closeAnalysisView)="showAnalysisView = false"
-    (runGitAnalysis)="onRunGitAnalysis($event)"
-    (importMissingBranches)="onImportMissingBranches($event)"
-    (editFolder)="editCurrentFolder()"
-    (deleteFolder)="deleteCurrentFolder()"
-    (selectFolder)="showFolderDetails($event)"
-    (openNewSubfolder)="openNewFolderModal($event)"
-    (openNewBranchInFolder)="openNewBranchModal({ folderId: $event, parentId: null, isMain: false })"
-    (moveFolderParent)="onMoveFolderParent($event)"
-    (editBranch)="editCurrentBranch()"
-    (deleteBranch)="deleteCurrentBranch()"
-    (selectBranch)="showBranchDetails($event)"
-    (toggleMainBranch)="onToggleMainBranch($event)"
-    (moveBranchFolder)="onMoveBranchFolder($event)"
-    (changeBranchParent)="onChangeBranchParent($event)"
-    (openNewChildBranch)="openNewChildBranchModal($event)"
-    (openCommitModal)="showCommitModal = true"
-    (deleteCommit)="deleteCommit($event)"
-    (importBranchCommits)="onImportBranchCommits($event)"
-    (updateRepoPath)="onUpdateRepoPath($event)"
-    (openNewNoteModal)="openNewNoteModal($event)"
-    (editNote)="openEditNoteModal($event)"
-    (togglePinNote)="onTogglePinNote($event)"
-    (deleteNote)="onDeleteNote($event)"
-  ></app-repo-branch-detail>
+  <!-- CONTENEDOR PRINCIPAL -->
+  <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+    <!-- Barra superior para móviles -->
+    <div class="md:hidden flex items-center justify-between px-3.5 py-2.5 bg-white border-b border-slate-200 shrink-0 shadow-xs z-30">
+      <button
+        type="button"
+        (click)="toggleSidebarMobile()"
+        class="flex items-center gap-2 px-2.5 py-1.5 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition active:scale-95 cursor-pointer text-xs font-semibold"
+        title="Abrir menú de ramas y carpetas"
+      >
+        <i data-lucide="menu" class="w-4 h-4"></i>
+        <span>Menú / Ramas</span>
+      </button>
+
+      <div class="flex items-center gap-1.5 truncate max-w-[170px]">
+        <i data-lucide="file-code" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+        <span class="text-xs font-bold text-slate-800 truncate">{{ activeFileName }}</span>
+      </div>
+
+      <a
+        routerLink="/hub"
+        class="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+        title="Volver al Hub"
+      >
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+      </a>
+    </div>
+
+    <app-repo-branch-detail
+      class="flex-1 flex flex-col min-h-0 overflow-hidden"
+      [state]="state"
+      [currentFolder]="currentFolder"
+      [currentBranch]="currentBranch"
+      [parentBranchName]="parentBranchName"
+      [commits]="state.commits"
+      [showAnalysisView]="showAnalysisView"
+      [cmdProjects]="cmdProjects"
+      [isAnalyzingGit]="isAnalyzingGit"
+      [analysisError]="analysisError"
+      [scannedBranches]="scannedBranches"
+      [gitCurrentBranch]="gitCurrentBranch"
+      (closeAnalysisView)="showAnalysisView = false"
+      (runGitAnalysis)="onRunGitAnalysis($event)"
+      (importMissingBranches)="onImportMissingBranches($event)"
+      (editFolder)="editCurrentFolder()"
+      (deleteFolder)="deleteCurrentFolder()"
+      (selectFolder)="showFolderDetails($event)"
+      (openNewSubfolder)="openNewFolderModal($event)"
+      (openNewBranchInFolder)="openNewBranchModal({ folderId: $event, parentId: null, isMain: false })"
+      (moveFolderParent)="onMoveFolderParent($event)"
+      (editBranch)="editCurrentBranch()"
+      (deleteBranch)="deleteCurrentBranch()"
+      (selectBranch)="showBranchDetails($event)"
+      (toggleMainBranch)="onToggleMainBranch($event)"
+      (moveBranchFolder)="onMoveBranchFolder($event)"
+      (changeBranchParent)="onChangeBranchParent($event)"
+      (openNewChildBranch)="openNewChildBranchModal($event)"
+      (openCommitModal)="showCommitModal = true"
+      (deleteCommit)="deleteCommit($event)"
+      (importBranchCommits)="onImportBranchCommits($event)"
+      (updateRepoPath)="onUpdateRepoPath($event)"
+      (openNewNoteModal)="openNewNoteModal($event)"
+      (editNote)="openEditNoteModal($event)"
+      (togglePinNote)="onTogglePinNote($event)"
+      (deleteNote)="onDeleteNote($event)"
+      (toggleBranchTag)="onToggleBranchTag($event)"
+      (createNewTag)="onCreateTag($event)"
+      (deleteTag)="onDeleteTag($event)"
+    ></app-repo-branch-detail>
+  </div>
 
   <app-repo-modals
     [showBranchModal]="showBranchModal"
@@ -71,6 +106,8 @@
     [showNoteModal]="showNoteModal"
     [editingNote]="editingNote"
     [noteTargetLabel]="noteTargetLabel"
+    [showNewDocModal]="showNewDocModal"
+    [cmdProjects]="cmdProjects"
     [showFilenameModal]="showFilenameModal"
     [filenameModalTitle]="filenameModalTitle"
     [filenamePlaceholder]="filenamePlaceholder"
@@ -79,18 +116,24 @@
     [activeFileName]="activeFileName"
     [folders]="state.folders"
     [branches]="state.branches"
+    [availableTags]="state.availableTags || []"
     (closeBranchModal)="showBranchModal = false; editingBranch = null"
     (saveBranch)="onSaveBranch($event)"
+    (createNewTag)="onCreateTag($event)"
     (closeFolderModal)="showFolderModal = false; editingFolder = null"
     (saveFolder)="onSaveFolder($event)"
     (closeCommitModal)="showCommitModal = false"
     (saveCommit)="onSaveCommit($event)"
     (closeNoteModal)="showNoteModal = false; editingNote = null"
     (saveNote)="onSaveNote($event)"
+    (closeNewDocModal)="showNewDocModal = false"
+    (createNewDoc)="handleCreateNewDoc($event)"
     (closeFilenameModal)="showFilenameModal = false"
     (confirmFilename)="onConfirmFilename($event)"
     (closeOpenModal)="showOpenModal = false"
     (selectFileToOpen)="selectFileToOpen($event)"
+    (openNewDocFromOpenModal)="openNewDocModalFromOpen()"
+    (deleteDocFile)="handleDeleteDocFile($event)"
   ></app-repo-modals>
 </div>
 

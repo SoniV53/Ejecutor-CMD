@@ -2,7 +2,13 @@ import { Component, Input, Output, EventEmitter, OnChanges, AfterViewInit } from
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
-import { RepoFolder, RepoBranch, RepoDocState } from '../../models/repo-doc.models';
+import {
+  RepoFolder,
+  RepoBranch,
+  RepoDocState,
+  RepoTag,
+  getTagColorClasses
+} from '../../models/repo-doc.models';
 import { LucideIconService } from '../../../../core/services/lucide-icon.service';
 
 @Component({
@@ -20,8 +26,10 @@ export class RepoSidebarTreeComponent implements OnChanges, AfterViewInit {
   @Input() expandedFolders: Set<string> = new Set();
   @Input() fileStatusText = 'Cargando...';
   @Input() fileSynced = false;
+  @Input() sidebarOpenMobile = false;
 
   @Output() openAnalysisView = new EventEmitter<void>();
+  @Output() closeSidebarMobile = new EventEmitter<void>();
   @Output() openNewFolderModal = new EventEmitter<string | null>();
   @Output() openNewBranchModal = new EventEmitter<{
     folderId?: string | null;
@@ -39,6 +47,7 @@ export class RepoSidebarTreeComponent implements OnChanges, AfterViewInit {
   @Output() saveFileAs = new EventEmitter<void>();
 
   searchQuery = '';
+  searchFilterTab: 'all' | 'folders' | 'branches' = 'all';
   draggingBranchId: string | null = null;
   dragOverFolderId: string | 'ROOT' | null = null;
 
@@ -56,12 +65,91 @@ export class RepoSidebarTreeComponent implements OnChanges, AfterViewInit {
     return (this.state.branches || []).filter(b => b.isMain).length;
   }
 
+  get filteredFolders(): RepoFolder[] {
+    const q = this.searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return (this.state.folders || []).filter(
+      f => f.name.toLowerCase().includes(q) || (f.desc || '').toLowerCase().includes(q)
+    );
+  }
+
   get filteredBranches(): RepoBranch[] {
     const q = this.searchQuery.trim().toLowerCase();
     if (!q) return [];
-    return (this.state.branches || []).filter(
-      b => b.name.toLowerCase().includes(q) || (b.desc || '').toLowerCase().includes(q)
-    );
+    return (this.state.branches || []).filter(b => {
+      const nameMatch = b.name.toLowerCase().includes(q) || (b.desc || '').toLowerCase().includes(q);
+      const folderName = this.getBranchFolderName(b)?.toLowerCase() || '';
+      const folderMatch = folderName.includes(q);
+      const tagMatch = (b.tags || []).some(t => t.toLowerCase().includes(q));
+      return nameMatch || folderMatch || tagMatch;
+    });
+  }
+
+  getBranchTags(branch: RepoBranch): RepoTag[] {
+    if (!branch.tags || branch.tags.length === 0) return [];
+    const available = this.state.availableTags || [];
+    return branch.tags.map(tagNameOrId => {
+      const found = available.find(
+        t => t.id === tagNameOrId || t.name.toLowerCase() === tagNameOrId.toLowerCase()
+      );
+      return found || { id: tagNameOrId, name: tagNameOrId, color: 'indigo' };
+    });
+  }
+
+  getTagBadgeClasses(color: string): string {
+    return getTagColorClasses(color).badge;
+  }
+
+  getFolderBranchCount(folderId: string): number {
+    return (this.state.branches || []).filter(b => b.folderId === folderId).length;
+  }
+
+  getBranchFolderName(branch: RepoBranch): string | null {
+    if (!branch.folderId) return null;
+    const f = (this.state.folders || []).find(folder => folder.id === branch.folderId);
+    return f ? f.name : null;
+  }
+
+  onOpenAnalysis(): void {
+    this.openAnalysisView.emit();
+    if (window.innerWidth < 768) {
+      this.closeSidebarMobile.emit();
+    }
+  }
+
+  onSelectFolderItem(folderId: string): void {
+    this.selectFolder.emit(folderId);
+    if (window.innerWidth < 768) {
+      this.closeSidebarMobile.emit();
+    }
+  }
+
+  onSelectBranchItem(branchId: string): void {
+    this.selectBranch.emit(branchId);
+    if (window.innerWidth < 768) {
+      this.closeSidebarMobile.emit();
+    }
+  }
+
+  onSelectFoundFolder(folderId: string): void {
+    this.expandedFolders.add(folderId);
+    this.selectFolder.emit(folderId);
+    if (window.innerWidth < 768) {
+      this.closeSidebarMobile.emit();
+    }
+    this.lucide.refresh();
+  }
+
+  onSelectFoundBranch(branchId: string): void {
+    const branch = (this.state.branches || []).find(b => b.id === branchId);
+    if (branch && branch.folderId) {
+      this.expandedFolders.add(branch.folderId);
+    }
+    this.selectBranch.emit(branchId);
+    if (window.innerWidth < 768) {
+      this.closeSidebarMobile.emit();
+    }
+    this.lucide.refresh();
   }
 
   get rootFolders(): RepoFolder[] {

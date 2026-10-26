@@ -6,7 +6,9 @@ import {
   RepoBranch,
   RepoCommit,
   RepoNote,
-  RepoNoteColor
+  RepoNoteColor,
+  RepoTag,
+  DEFAULT_REPO_TAGS
 } from './models/repo-doc.models';
 import {
   DocApiService,
@@ -66,6 +68,8 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
 
   showCommitModal = false;
 
+  showNewDocModal = false;
+
   showNoteModal = false;
   editingNote: RepoNote | null = null;
   noteTargetType: 'branch' | 'folder' = 'branch';
@@ -78,6 +82,7 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
 
   showOpenModal = false;
   jsonFiles: DocExplorerItem[] = [];
+  sidebarOpenMobile = false;
 
   constructor(
     private docApi: DocApiService,
@@ -178,7 +183,8 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
       folders: [defaultFolder],
       branches: [],
       commits: [],
-      notes: []
+      notes: [],
+      availableTags: []
     };
     try {
       await this.docApi.saveJsonDoc(
@@ -210,9 +216,22 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
         repoPath: rawState.repoPath || '',
         linkedProjectId: rawState.linkedProjectId || null,
         folders,
-        branches: rawState.branches || [],
+        branches: (rawState.branches || []).map((b: RepoBranch) => ({
+          ...b,
+          tags: Array.isArray(b.tags)
+            ? b.tags.filter(
+                (t: string) =>
+                  !['tag-dev', 'tag-qa', 'tag-prod', 'tag-staging', 'desarrollo', 'qa', 'producción', 'staging'].includes(
+                    t.toLowerCase()
+                  )
+              )
+            : []
+        })),
         commits: rawState.commits || [],
-        notes: rawState.notes || []
+        notes: rawState.notes || [],
+        availableTags: Array.isArray(rawState.availableTags)
+          ? rawState.availableTags.filter((t: any) => !['tag-dev', 'tag-qa', 'tag-prod', 'tag-staging'].includes(t.id))
+          : []
       };
       // Expandir por defecto las carpetas raíz para facilitar navegación
       this.expandedFolders = new Set(folders.filter(f => !f.parentId).map(f => f.id));
@@ -292,35 +311,115 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
   }
 
   crearNuevoArchivo(): void {
-    this.openFilenameModal('Nuevo Proyecto', 'ej. mi_proyecto', rawName => {
-      const cleanName = (rawName || '').replace(/[^a-zA-Z0-9_\-\s]/g, '').trim();
-      if (!cleanName) return;
+    this.showNewDocModal = true;
+    this.lucide.refresh();
+  }
 
-      const defaultFolder: RepoFolder = {
-        id: this.generateId(),
-        name: 'Por Defecto',
-        parentId: null,
-        desc: 'Carpeta por defecto donde se agrupan las ramas recolectadas del análisis Git.',
-        isDefault: true
-      };
+  openNewDocModalFromOpen(): void {
+    this.showOpenModal = false;
+    this.showNewDocModal = true;
+    this.lucide.refresh();
+  }
 
-      this.state = {
-        folders: [defaultFolder],
-        branches: [],
-        commits: [],
-        notes: []
-      };
-      this.currentBranchId = null;
-      this.currentFolderId = null;
-      this.showAnalysisView = false;
-      this.scannedBranches = null;
-      this.expandedFolders = new Set([defaultFolder.id]);
+  async handleCreateNewDoc(payload: {
+    name: string;
+    repoPath?: string;
+    linkedProjectId?: string | null;
+    autoScanGit?: boolean;
+  }): Promise<void> {
+    const rawClean = (payload.name || '').replace(/[^a-zA-Z0-9_\-\s]/g, '').trim();
+    if (!rawClean) {
+      alert('Debes ingresar un nombre válido para el proyecto.');
+      return;
+    }
 
-      this.activeFileName = cleanName + '.json';
-      localStorage.setItem('gitDocsActiveFile', this.activeFileName);
-      this.saveStateLocally();
+    const defaultFolder: RepoFolder = {
+      id: this.generateId(),
+      name: 'Por Defecto',
+      parentId: null,
+      desc: 'Carpeta por defecto donde se agrupan las ramas recolectadas del análisis Git.',
+      isDefault: true
+    };
+
+    let branches: RepoBranch[] = [];
+
+    // Si se seleccionó vincular con Git y auto-escanear:
+    if (payload.autoScanGit && payload.repoPath) {
+      try {
+        const analysis = await this.docApi.analyzeGitRepository(payload.repoPath, false);
+        if (analysis && analysis.branches && analysis.branches.length > 0) {
+          branches = analysis.branches.map(b => ({
+            id: this.generateId(),
+            name: b.name,
+            desc: b.lastCommitMsg ? `Último commit: ${b.lastCommitMsg}` : 'Rama recolectada de Git.',
+            parentId: null,
+            folderId: defaultFolder.id,
+            isMain: b.isCurrent || ['main', 'master'].includes(b.name.toLowerCase()),
+            isRemote: b.isRemote,
+            lastCommitHash: b.lastCommitHash,
+            lastCommitMsg: b.lastCommitMsg
+          }));
+        }
+      } catch (err: any) {
+        console.warn('No se pudieron escanear ramas automáticamente:', err);
+      }
+    }
+
+    const newState: RepoDocState = {
+      repoPath: payload.repoPath || '',
+      linkedProjectId: payload.linkedProjectId || null,
+      folders: [defaultFolder],
+      branches,
+      commits: [],
+      notes: []
+    };
+
+    this.state = newState;
+    this.currentBranchId = branches.length > 0 ? branches[0].id : null;
+    this.currentFolderId = defaultFolder.id;
+    this.showAnalysisView = false;
+    this.scannedBranches = null;
+    this.expandedFolders = new Set([defaultFolder.id]);
+
+    this.activeFileName = rawClean.endsWith('.json') ? rawClean : rawClean + '.json';
+    localStorage.setItem('gitDocsActiveFile', this.activeFileName);
+
+    try {
+      await this.docApi.saveJsonDoc(
+        this.activeFileName,
+        this.BASE_FOLDER,
+        JSON.stringify(this.state, null, 2)
+      );
+      this.updateFileStatusUI(this.activeFileName, true);
+    } catch {
+      this.updateFileStatusUI(this.activeFileName + ' (Error guardado)', false);
+    }
+
+    this.showNewDocModal = false;
+    this.showOpenModal = false;
+    this.lucide.refresh();
+  }
+
+  async handleDeleteDocFile(fileName: string): Promise<void> {
+    if (!confirm(`¿Eliminar permanentemente el archivo "${fileName}"?`)) return;
+
+    try {
+      await this.docApi.deleteItem(`${this.BASE_FOLDER}/${fileName}`);
+      const items = await this.docApi.listDocs(this.BASE_FOLDER);
+      this.jsonFiles = items.filter(i => !i.isFolder && i.name.endsWith('.json'));
+
+      // Si se eliminó el archivo que estaba abierto actualmente:
+      if (this.activeFileName === fileName) {
+        if (this.jsonFiles.length > 0) {
+          await this.selectFileToOpen(this.jsonFiles[0].name);
+        } else {
+          await this.ensureDefaultFile();
+        }
+      }
       this.lucide.refresh();
-    });
+    } catch (err: any) {
+      alert('Error eliminando archivo: ' + (err.message || err));
+    }
   }
 
   guardarArchivoComo(): void {
@@ -353,11 +452,17 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
     await this.loadActiveFile();
   }
 
+  toggleSidebarMobile(): void {
+    this.sidebarOpenMobile = !this.sidebarOpenMobile;
+    this.lucide.refresh();
+  }
+
   // =========================================================
   // APARTADO DE ANÁLISIS GIT
   // =========================================================
   openAnalysisPanel(): void {
     this.showAnalysisView = true;
+    this.sidebarOpenMobile = false;
     this.lucide.refresh();
   }
 
@@ -498,6 +603,7 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
     this.currentFolderId = id;
     this.currentBranchId = null;
     this.showAnalysisView = false;
+    this.sidebarOpenMobile = false;
     this.expandFolderAncestors(id);
     this.lucide.refresh();
   }
@@ -506,6 +612,7 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
     this.currentBranchId = id;
     this.currentFolderId = null;
     this.showAnalysisView = false;
+    this.sidebarOpenMobile = false;
     const branch = this.state.branches.find(b => b.id === id);
     if (branch && branch.folderId) {
       this.expandFolderAncestors(branch.folderId);
@@ -643,6 +750,7 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
     folderId: string | null;
     parentId: string | null;
     isMain: boolean;
+    tags?: string[];
   }): void {
     if (payload.id) {
       this.state = {
@@ -655,7 +763,8 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
                 desc: payload.desc,
                 folderId: payload.folderId,
                 parentId: payload.parentId,
-                isMain: payload.isMain
+                isMain: payload.isMain,
+                tags: payload.tags || []
               }
             : b
         )
@@ -671,6 +780,7 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
         folderId: payload.folderId,
         parentId: payload.parentId,
         isMain: payload.isMain,
+        tags: payload.tags || [],
         createdAt: new Date().toISOString()
       };
       this.state = {
@@ -687,6 +797,60 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
     this.saveStateLocally();
     this.showBranchModal = false;
     this.editingBranch = null;
+    this.lucide.refresh();
+  }
+
+  onToggleBranchTag(payload: { branchId: string; tagIdOrName: string }): void {
+    this.state = {
+      ...this.state,
+      branches: this.state.branches.map(b => {
+        if (b.id !== payload.branchId) return b;
+        const currentTags = Array.isArray(b.tags) ? [...b.tags] : [];
+        const lower = payload.tagIdOrName.toLowerCase();
+        const index = currentTags.findIndex(t => t.toLowerCase() === lower);
+        if (index > -1) {
+          currentTags.splice(index, 1);
+        } else {
+          currentTags.push(payload.tagIdOrName);
+        }
+        return { ...b, tags: currentTags };
+      })
+    };
+    this.saveStateLocally();
+    this.lucide.refresh();
+  }
+
+  onCreateTag(payload: { name: string; color: string }): void {
+    const trimmed = payload.name.trim();
+    if (!trimmed) return;
+    const available = this.state.availableTags || [];
+    if (available.some(t => t.name.toLowerCase() === trimmed.toLowerCase())) return;
+    const newTag: RepoTag = {
+      id: 'tag-' + this.generateId(),
+      name: trimmed,
+      color: payload.color || 'indigo'
+    };
+    this.state = {
+      ...this.state,
+      availableTags: [...available, newTag]
+    };
+    this.saveStateLocally();
+    this.lucide.refresh();
+  }
+
+  onDeleteTag(tagNameOrId: string): void {
+    const lower = tagNameOrId.toLowerCase();
+    this.state = {
+      ...this.state,
+      availableTags: (this.state.availableTags || []).filter(
+        t => t.id !== tagNameOrId && t.name.toLowerCase() !== lower
+      ),
+      branches: this.state.branches.map(b => ({
+        ...b,
+        tags: (b.tags || []).filter(t => t.toLowerCase() !== lower && t !== tagNameOrId)
+      }))
+    };
+    this.saveStateLocally();
     this.lucide.refresh();
   }
 

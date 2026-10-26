@@ -1,9 +1,21 @@
 import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RepoFolder, RepoBranch, RepoNote, RepoNoteColor } from '../../models/repo-doc.models';
+import {
+  RepoFolder,
+  RepoBranch,
+  RepoNote,
+  RepoNoteColor,
+  RepoTag,
+  DEFAULT_REPO_TAGS,
+  getTagColorClasses,
+  TAG_COLOR_OPTIONS,
+  getTagDotClass,
+  getTagLabel
+} from '../../models/repo-doc.models';
 import { DocExplorerItem } from '../../../../core/services/doc-api.service';
 import { LucideIconService } from '../../../../core/services/lucide-icon.service';
+import { CmdProject } from '../../../dashboard-cmd/models/cmd.models';
 
 @Component({
   selector: 'app-repo-modals',
@@ -29,6 +41,9 @@ export class RepoModalsComponent implements OnChanges, AfterViewInit {
   @Input() editingNote: RepoNote | null = null;
   @Input() noteTargetLabel = '';
 
+  @Input() showNewDocModal = false;
+  @Input() cmdProjects: CmdProject[] = [];
+
   @Input() showFilenameModal = false;
   @Input() filenameModalTitle = 'Nombre del Proyecto';
   @Input() filenamePlaceholder = 'ej. modulo_login';
@@ -39,6 +54,7 @@ export class RepoModalsComponent implements OnChanges, AfterViewInit {
 
   @Input() folders: RepoFolder[] = [];
   @Input() branches: RepoBranch[] = [];
+  @Input() availableTags: RepoTag[] = [];
 
   @Output() closeBranchModal = new EventEmitter<void>();
   @Output() saveBranch = new EventEmitter<{
@@ -48,7 +64,9 @@ export class RepoModalsComponent implements OnChanges, AfterViewInit {
     folderId: string | null;
     parentId: string | null;
     isMain: boolean;
+    tags?: string[];
   }>();
+  @Output() createNewTag = new EventEmitter<{ name: string; color: string }>();
 
   @Output() closeFolderModal = new EventEmitter<void>();
   @Output() saveFolder = new EventEmitter<{
@@ -70,11 +88,28 @@ export class RepoModalsComponent implements OnChanges, AfterViewInit {
     pinned: boolean;
   }>();
 
+  @Output() closeNewDocModal = new EventEmitter<void>();
+  @Output() createNewDoc = new EventEmitter<{
+    name: string;
+    repoPath?: string;
+    linkedProjectId?: string | null;
+    autoScanGit?: boolean;
+  }>();
+
   @Output() closeFilenameModal = new EventEmitter<void>();
   @Output() confirmFilename = new EventEmitter<string>();
 
   @Output() closeOpenModal = new EventEmitter<void>();
   @Output() selectFileToOpen = new EventEmitter<string>();
+  @Output() openNewDocFromOpenModal = new EventEmitter<void>();
+  @Output() deleteDocFile = new EventEmitter<string>();
+
+  // New Doc Form
+  newDocName = '';
+  newDocType: 'blank' | 'git' = 'blank';
+  newDocLinkedProjectId = '';
+  newDocRepoPath = '';
+  newDocAutoScan = true;
 
   // Branch form
   branchName = '';
@@ -82,6 +117,51 @@ export class RepoModalsComponent implements OnChanges, AfterViewInit {
   branchFolderId = '';
   branchParentId = '';
   branchIsMain = false;
+  branchTags: string[] = [];
+  newTagInput = '';
+  newTagColor = 'indigo';
+
+  readonly modalTagColorOptions = TAG_COLOR_OPTIONS;
+
+  getSelectedTagDotClass(color: string): string {
+    return getTagDotClass(color);
+  }
+
+  getSelectedTagLabel(color: string): string {
+    return getTagLabel(color);
+  }
+
+  get allAvailableTags(): RepoTag[] {
+    return this.availableTags || [];
+  }
+
+  isModalTagSelected(tagName: string): boolean {
+    return this.branchTags.some(t => t.toLowerCase() === tagName.toLowerCase());
+  }
+
+  onToggleModalTag(tagName: string): void {
+    const lower = tagName.toLowerCase();
+    const idx = this.branchTags.findIndex(t => t.toLowerCase() === lower);
+    if (idx > -1) {
+      this.branchTags.splice(idx, 1);
+    } else {
+      this.branchTags.push(tagName);
+    }
+  }
+
+  onCreateModalTag(): void {
+    const trimmed = this.newTagInput.trim();
+    if (!trimmed) return;
+    this.createNewTag.emit({ name: trimmed, color: this.newTagColor });
+    if (!this.isModalTagSelected(trimmed)) {
+      this.branchTags.push(trimmed);
+    }
+    this.newTagInput = '';
+  }
+
+  getTagBadgeClasses(color: string): string {
+    return getTagColorClasses(color).badge;
+  }
 
   // Folder form
   folderName = '';
@@ -123,13 +203,16 @@ export class RepoModalsComponent implements OnChanges, AfterViewInit {
         this.branchFolderId = this.editingBranch.folderId || '';
         this.branchParentId = this.editingBranch.parentId || '';
         this.branchIsMain = !!this.editingBranch.isMain;
+        this.branchTags = Array.isArray(this.editingBranch.tags) ? [...this.editingBranch.tags] : [];
       } else {
         this.branchName = '';
         this.branchDesc = '';
         this.branchFolderId = this.defaultBranchFolderId || '';
         this.branchParentId = this.defaultBranchParentId || '';
         this.branchIsMain = this.defaultBranchIsMain;
+        this.branchTags = [];
       }
+      this.newTagInput = '';
     }
 
     if (changes['showFolderModal'] && this.showFolderModal) {
@@ -165,6 +248,14 @@ export class RepoModalsComponent implements OnChanges, AfterViewInit {
 
     if (changes['showFilenameModal'] && this.showFilenameModal) {
       this.inputFilename = '';
+    }
+
+    if (changes['showNewDocModal'] && this.showNewDocModal) {
+      this.newDocName = '';
+      this.newDocType = 'blank';
+      this.newDocLinkedProjectId = '';
+      this.newDocRepoPath = '';
+      this.newDocAutoScan = true;
     }
 
     this.lucide.refresh();
@@ -219,7 +310,8 @@ export class RepoModalsComponent implements OnChanges, AfterViewInit {
       desc: this.branchDesc,
       folderId: this.branchFolderId || null,
       parentId: this.branchParentId || null,
-      isMain: this.branchIsMain
+      isMain: this.branchIsMain,
+      tags: [...this.branchTags]
     });
   }
 
@@ -257,6 +349,30 @@ export class RepoModalsComponent implements OnChanges, AfterViewInit {
 
   onConfirmFilename(): void {
     this.confirmFilename.emit(this.inputFilename);
+  }
+
+  onSelectNewDocProject(projectId: string): void {
+    this.newDocLinkedProjectId = projectId;
+    const found = this.cmdProjects.find(p => p.id === projectId);
+    if (found) {
+      this.newDocRepoPath = found.path;
+      if (!this.newDocName.trim()) {
+        this.newDocName = found.name;
+      }
+    }
+  }
+
+  onSubmitNewDoc(event?: Event): void {
+    if (event) event.preventDefault();
+    const trimmedName = this.newDocName.trim();
+    if (!trimmedName) return;
+
+    this.createNewDoc.emit({
+      name: trimmedName,
+      repoPath: this.newDocType === 'git' ? this.newDocRepoPath.trim() : '',
+      linkedProjectId: this.newDocType === 'git' && this.newDocLinkedProjectId ? this.newDocLinkedProjectId : null,
+      autoScanGit: this.newDocType === 'git' && this.newDocAutoScan
+    });
   }
 }
 

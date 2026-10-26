@@ -15,6 +15,8 @@ export class CmdHeaderComponent implements OnChanges, AfterViewInit {
   @Input() searchTerm = '';
   @Input() viewMode: 'list' | 'card' = 'card';
   @Input() activeProject: CmdProject | null = null;
+  @Input() profiles: string[] = [];
+  @Input() activeProfile = 'ALL';
 
   @Output() searchTermChange = new EventEmitter<string>();
   @Output() viewModeChange = new EventEmitter<'list' | 'card'>();
@@ -25,6 +27,10 @@ export class CmdHeaderComponent implements OnChanges, AfterViewInit {
   @Output() importBatFiles = new EventEmitter<FileList>();
   @Output() exportAllBats = new EventEmitter<void>();
   @Output() deselectProject = new EventEmitter<void>();
+  @Output() activeProfileChange = new EventEmitter<string>();
+  @Output() manageProfiles = new EventEmitter<void>();
+  @Output() exportProfileCommands = new EventEmitter<void>();
+  @Output() importProfileCommands = new EventEmitter<FileList>();
 
   constructor(private lucide: LucideIconService) {}
 
@@ -43,6 +49,17 @@ export class CmdHeaderComponent implements OnChanges, AfterViewInit {
   onImportChange(event: any): void {
     if (event.target.files && event.target.files.length > 0) {
       this.importBatFiles.emit(event.target.files);
+      event.target.value = '';
+    }
+  }
+
+  onProfileSelect(profile: string): void {
+    this.activeProfileChange.emit(profile);
+  }
+
+  onImportProfileChange(event: any): void {
+    if (event.target.files && event.target.files.length > 0) {
+      this.importProfileCommands.emit(event.target.files);
       event.target.value = '';
     }
   }

@@ -16,7 +16,13 @@ import {
   RepoBranch,
   RepoCommit,
   RepoNote,
-  RepoDocState
+  RepoDocState,
+  RepoTag,
+  DEFAULT_REPO_TAGS,
+  getTagColorClasses,
+  TAG_COLOR_OPTIONS,
+  getTagDotClass,
+  getTagLabel
 } from '../../models/repo-doc.models';
 import {
   DocApiService,
@@ -97,6 +103,24 @@ export class RepoBranchDetailComponent implements OnChanges, AfterViewInit {
   @Output() togglePinNote = new EventEmitter<string>();
   @Output() deleteNote = new EventEmitter<string>();
 
+  // Tag outputs
+  @Output() toggleBranchTag = new EventEmitter<{ branchId: string; tagIdOrName: string }>();
+  @Output() createNewTag = new EventEmitter<{ name: string; color: string }>();
+  @Output() deleteTag = new EventEmitter<string>();
+
+  showTagDropdown = false;
+  newTagName = '';
+  newTagColor = 'indigo';
+  readonly tagColorOptions = TAG_COLOR_OPTIONS;
+
+  getSelectedTagDotClass(color: string): string {
+    return getTagDotClass(color);
+  }
+
+  getSelectedTagLabel(color: string): string {
+    return getTagLabel(color);
+  }
+
   @ViewChild('branchContentRef') branchContentRef!: ElementRef<HTMLElement>;
 
   sortedCommits: RepoCommit[] = [];
@@ -126,6 +150,58 @@ export class RepoBranchDetailComponent implements OnChanges, AfterViewInit {
   scannedBranchCommits: GitScannedCommit[] = [];
   selectedCommitHashes = new Set<string>();
   commitSearchQuery = '';
+
+  get availableTags(): RepoTag[] {
+    return this.state.availableTags || [];
+  }
+
+  onDeleteExistingTag(tagNameOrId: string, event: Event): void {
+    event.stopPropagation();
+    this.deleteTag.emit(tagNameOrId);
+  }
+
+  get currentBranchTags(): RepoTag[] {
+    return this.getBranchTags(this.currentBranch);
+  }
+
+  getBranchTags(branch: RepoBranch | null): RepoTag[] {
+    if (!branch || !branch.tags || branch.tags.length === 0) {
+      return [];
+    }
+    const available = this.availableTags;
+    return branch.tags.map(tagNameOrId => {
+      const found = available.find(
+        t => t.id === tagNameOrId || t.name.toLowerCase() === tagNameOrId.toLowerCase()
+      );
+      return found || { id: tagNameOrId, name: tagNameOrId, color: 'indigo' };
+    });
+  }
+
+  isTagActive(tagNameOrId: string): boolean {
+    if (!this.currentBranch || !this.currentBranch.tags) return false;
+    const lower = tagNameOrId.toLowerCase();
+    return this.currentBranch.tags.some(t => t.toLowerCase() === lower);
+  }
+
+  onToggleTag(tagNameOrId: string): void {
+    if (!this.currentBranch) return;
+    this.toggleBranchTag.emit({ branchId: this.currentBranch.id, tagIdOrName: tagNameOrId });
+  }
+
+  onCreateAndAssignTag(): void {
+    const trimmed = this.newTagName.trim();
+    if (!trimmed || !this.currentBranch) return;
+    this.createNewTag.emit({ name: trimmed, color: this.newTagColor });
+    if (!this.isTagActive(trimmed)) {
+      this.toggleBranchTag.emit({ branchId: this.currentBranch.id, tagIdOrName: trimmed });
+    }
+    this.newTagName = '';
+    this.showTagDropdown = false;
+  }
+
+  getTagBadgeClasses(color: string): string {
+    return getTagColorClasses(color).badge;
+  }
 
   constructor(
     private docApi: DocApiService,

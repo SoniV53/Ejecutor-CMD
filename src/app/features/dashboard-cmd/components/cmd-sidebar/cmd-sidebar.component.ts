@@ -17,6 +17,7 @@ export class CmdSidebarComponent implements OnChanges, AfterViewInit {
   @Input() serverOnline = false;
   @Input() sidebarOpenMobile = false;
   @Input() sidebarOpenDesktop = true;
+  @Input() activeProfile = 'ALL';
 
   @Output() selectProject = new EventEmitter<string>();
   @Output() editProject = new EventEmitter<string>();

@@ -94,6 +94,7 @@ app.on('ready', () => {
         mainWindow.webContents.send('navigate', 'cmd-view');
       }
     },
+    /*
     {
       label: 'Doc Generator', click: () => {
         mainWindow.show(); mainWindow.focus();
@@ -106,6 +107,7 @@ app.on('ready', () => {
         mainWindow.webContents.send('navigate', 'redes-view');
       }
     },
+    */
     {
       label: 'API Docs', click: () => {
         mainWindow.show(); mainWindow.focus();

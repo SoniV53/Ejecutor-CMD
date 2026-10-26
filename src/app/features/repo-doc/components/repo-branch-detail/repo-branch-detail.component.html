@@ -642,10 +642,10 @@
         <div *ngIf="currentFolderBranches.length > 0" class="space-y-2.5">
           <div
             *ngFor="let b of currentFolderBranches"
-            class="p-4 rounded-xl border transition flex flex-wrap items-center justify-between gap-3"
+            class="p-3.5 rounded-xl border transition flex flex-wrap items-center justify-between gap-3"
             [ngClass]="
               b.isMain
-                ? 'border-2 border-amber-400 bg-gradient-to-r from-amber-50/80 to-white shadow-xs'
+                ? 'border border-amber-300/80 bg-amber-50/30 hover:bg-amber-50/60 shadow-2xs'
                 : 'bg-white border-slate-200 hover:border-indigo-200'
             "
           >
@@ -653,11 +653,20 @@
               <div class="flex flex-wrap items-center gap-2">
                 <span
                   *ngIf="b.isMain"
-                  class="px-2 py-0.5 rounded bg-amber-300/80 text-amber-950 text-[10px] font-extrabold uppercase tracking-wider"
+                  class="px-2 py-0.5 rounded bg-amber-100 text-amber-900 text-[10px] font-bold uppercase tracking-wider border border-amber-200/60"
                 >
-                  ★ Rama Principal
+                  ★ Principal
                 </span>
                 <span class="font-mono text-sm font-bold text-slate-900">{{ b.name }}</span>
+
+                <!-- Tags de la rama en carpeta -->
+                <span
+                  *ngFor="let t of getBranchTags(b)"
+                  class="text-[10px] font-semibold px-2 py-0.5 rounded-full border shadow-2xs"
+                  [ngClass]="getTagBadgeClasses(t.color)"
+                >
+                  {{ t.name }}
+                </span>
               </div>
               <p *ngIf="b.desc" class="text-xs text-slate-500 mt-1 line-clamp-1">{{ b.desc }}</p>
             </div>
@@ -698,12 +707,12 @@
     *ngIf="!showAnalysisView && currentBranch"
     class="flex-1 flex flex-col overflow-hidden bg-white min-w-0"
   >
-    <!-- Header de la Rama (Con Marco Especial si es Rama Principal) -->
+    <!-- Header de la Rama -->
     <div
       class="p-6 md:p-8 border-b transition-all"
       [ngClass]="
         currentBranch.isMain
-          ? 'bg-gradient-to-r from-amber-50/90 via-amber-50/30 to-white border-b-2 border-amber-300'
+          ? 'bg-amber-50/30 border-b border-amber-200/80'
           : 'bg-slate-50 border-slate-200'
       "
     >
@@ -713,9 +722,9 @@
             <!-- Insignia de Rama o Rama Principal -->
             <span
               *ngIf="currentBranch.isMain; else standardBranchBadge"
-              class="px-3 py-1 rounded-full bg-amber-400/90 text-amber-950 text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 shadow-2xs"
+              class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border border-amber-200/60"
             >
-              <i data-lucide="crown" class="w-3.5 h-3.5"></i> ★ Rama Principal del Proyecto / Módulo
+              <span class="text-amber-500">★</span> Rama Principal
             </span>
             <ng-template #standardBranchBadge>
               <span
@@ -750,6 +759,165 @@
           <p *ngIf="currentBranch.desc" class="text-slate-600 mt-1 max-w-3xl leading-relaxed whitespace-pre-wrap text-sm">
             {{ currentBranch.desc }}
           </p>
+
+          <!-- SECCIÓN DE TAGS / ETIQUETAS (Minimalista y Funcional) -->
+          <div class="flex flex-wrap items-center gap-1.5 mt-3.5 pt-2.5 border-t border-slate-200/60">
+            <span class="text-xs font-semibold text-slate-500 mr-1 flex items-center gap-1">
+              <i data-lucide="tags" class="w-3.5 h-3.5 text-slate-400"></i>
+              Tags:
+            </span>
+
+            <!-- Tags asignados actualmente a la rama -->
+            <div
+              *ngFor="let t of currentBranchTags"
+              class="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full border shadow-2xs group transition"
+              [ngClass]="getTagBadgeClasses(t.color)"
+            >
+              <span>{{ t.name }}</span>
+              <button
+                type="button"
+                (click)="onToggleTag(t.name)"
+                class="hover:opacity-100 opacity-60 hover:text-red-700 ml-0.5 text-[11px] font-bold cursor-pointer"
+                title="Quitar etiqueta"
+              >
+                ✕
+              </button>
+            </div>
+
+            <span *ngIf="currentBranchTags.length === 0" class="text-xs text-slate-400 italic">
+              Sin tags asignados
+            </span>
+
+            <!-- Botón para desplegar selector rápido de tags -->
+            <div class="relative inline-block ml-1">
+              <button
+                type="button"
+                (click)="showTagDropdown = !showTagDropdown"
+                class="px-2.5 py-0.5 rounded-full border border-dashed border-slate-300 hover:border-indigo-400 bg-white hover:bg-indigo-50/60 text-slate-600 hover:text-indigo-600 text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                title="Gestionar etiquetas de esta rama"
+              >
+                <i data-lucide="plus" class="w-3 h-3"></i>
+                <span>Etiqueta</span>
+              </button>
+
+              <!-- Backdrop transparente para cerrar al hacer clic afuera -->
+              <div
+                *ngIf="showTagDropdown"
+                (click)="showTagDropdown = false"
+                class="fixed inset-0 z-20"
+              ></div>
+
+              <!-- Dropdown / Popover de Tags (Completamente Responsivo) -->
+              <div
+                *ngIf="showTagDropdown"
+                class="absolute left-0 sm:left-auto sm:right-0 md:left-0 top-full mt-1.5 w-72 sm:w-80 max-w-[calc(100vw-2.5rem)] bg-white border border-slate-200 rounded-xl shadow-xl p-3.5 z-30 space-y-3"
+              >
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div class="flex items-center gap-1.5">
+                    <i data-lucide="tags" class="w-3.5 h-3.5 text-indigo-600"></i>
+                    <span class="text-xs font-bold text-slate-800">Asignar Etiquetas</span>
+                  </div>
+                  <button
+                    type="button"
+                    (click)="showTagDropdown = false"
+                    class="text-slate-400 hover:text-slate-600 text-xs p-1 rounded-md hover:bg-slate-100 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <!-- Chips de tags disponibles -->
+                <div>
+                  <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center justify-between">
+                    <span>Etiquetas Creadas ({{ availableTags.length }})</span>
+                  </div>
+
+                  <div
+                    *ngIf="availableTags.length === 0"
+                    class="text-xs text-slate-400 italic py-2 px-2 bg-slate-50 rounded-lg text-center border border-dashed border-slate-200"
+                  >
+                    No hay etiquetas creadas todavía. Crea tu primera etiqueta abajo.
+                  </div>
+
+                  <div *ngIf="availableTags.length > 0" class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto custom-scrollbar p-0.5">
+                    <div
+                      *ngFor="let t of availableTags"
+                      (click)="onToggleTag(t.name)"
+                      class="px-2.5 py-1 rounded-full text-xs font-semibold transition border flex items-center gap-1.5 cursor-pointer active:scale-95 group"
+                      [ngClass]="
+                        isTagActive(t.name)
+                          ? getTagBadgeClasses(t.color) + ' ring-1 ring-offset-1 font-bold shadow-2xs'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+                      "
+                    >
+                      <span class="text-[10px] font-bold">{{ isTagActive(t.name) ? '✓' : '+' }}</span>
+                      <span>{{ t.name }}</span>
+                      <button
+                        type="button"
+                        (click)="onDeleteExistingTag(t.id, $event)"
+                        class="opacity-0 group-hover:opacity-100 hover:text-red-600 ml-0.5 text-[10px] font-bold cursor-pointer"
+                        title="Eliminar esta etiqueta"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Creador de nuevo tag inline (con puntos de color visibles) -->
+                <div class="pt-2.5 border-t border-slate-100 space-y-2">
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Nueva etiqueta
+                  </span>
+                  <input
+                    type="text"
+                    [(ngModel)]="newTagName"
+                    placeholder="Nombre (ej. QA, Hotfix)..."
+                    class="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
+                  />
+
+                  <!-- Puntos de color seleccionables -->
+                  <div class="flex items-center justify-between gap-1 py-1 px-1.5 bg-slate-50 rounded-lg border border-slate-200/80">
+                    <div class="flex items-center gap-1.5">
+                      <button
+                        *ngFor="let opt of tagColorOptions"
+                        type="button"
+                        (click)="newTagColor = opt.value"
+                        class="w-5 h-5 rounded-full transition-all flex items-center justify-center cursor-pointer shadow-2xs"
+                        [ngClass]="[
+                          opt.dotClass,
+                          newTagColor === opt.value
+                            ? 'ring-2 ring-offset-1 ring-slate-800 scale-115'
+                            : 'hover:scale-110 opacity-75 hover:opacity-100'
+                        ]"
+                        [title]="opt.label"
+                      >
+                        <span *ngIf="newTagColor === opt.value" class="text-white text-[9px] font-extrabold leading-none">✓</span>
+                      </button>
+                    </div>
+
+                    <!-- Indicador con punto y texto del color activo -->
+                    <span
+                      class="text-[10px] font-semibold px-2 py-0.5 rounded-full border shadow-2xs flex items-center gap-1 shrink-0"
+                      [ngClass]="getTagBadgeClasses(newTagColor)"
+                    >
+                      <span class="w-1.5 h-1.5 rounded-full shrink-0" [ngClass]="getSelectedTagDotClass(newTagColor)"></span>
+                      <span>{{ getSelectedTagLabel(newTagColor) }}</span>
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    (click)="onCreateAndAssignTag()"
+                    [disabled]="!newTagName.trim()"
+                    class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg text-xs font-bold transition shrink-0 cursor-pointer whitespace-nowrap active:scale-95 shadow-xs"
+                  >
+                    + Crear y Asignar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Botones de Acción de la Rama -->
@@ -845,38 +1013,40 @@
 
     <!-- Contenido Principal de la Rama -->
     <div class="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 relative">
-      <!-- MARCO DE RAMAS DE DESARROLLO DERIVADAS (Si es Rama Principal o tiene sub-ramas) -->
+      <!-- MARCO DE RAMAS DE DESARROLLO DERIVADAS (Minimalista) -->
       <section
         *ngIf="currentBranch.isMain || currentBranchChildren.length > 0"
-        class="p-5 rounded-2xl border-2 border-amber-300/90 bg-gradient-to-br from-amber-50/60 via-white to-slate-50 shadow-2xs"
+        class="p-4 rounded-xl border border-slate-200 bg-white shadow-2xs"
       >
         <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div>
-            <h2 class="text-base font-extrabold text-amber-950 flex items-center gap-2">
-              <span>★ Ramas de Desarrollo Derivadas ({{ currentBranchChildren.length }})</span>
+            <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+              <span class="text-amber-500 font-bold">★</span>
+              <span>Ramas Derivadas ({{ currentBranchChildren.length }})</span>
             </h2>
-            <p class="text-xs text-slate-600">
-              Ramas de trabajo que nacen a partir de <code class="font-mono font-bold">{{ currentBranch.name }}</code>.
+            <p class="text-xs text-slate-500">
+              Ramas creadas a partir de <code class="font-mono font-semibold">{{ currentBranch.name }}</code>.
             </p>
           </div>
           <button
             type="button"
             (click)="openNewChildBranch.emit(currentBranch)"
-            class="no-print bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-2xs"
+            class="no-print bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition shadow-2xs flex items-center gap-1 cursor-pointer"
           >
-            + Nueva Rama de Desarrollo
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>Nueva Rama Derivada</span>
           </button>
         </div>
 
-        <div *ngIf="currentBranchChildren.length === 0" class="text-xs text-slate-500 italic py-2">
-          Aún no se han registrado ramas de desarrollo derivadas de esta rama principal.
+        <div *ngIf="currentBranchChildren.length === 0" class="text-xs text-slate-400 italic py-2">
+          No hay ramas derivadas creadas aún.
         </div>
 
         <div *ngIf="currentBranchChildren.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
           <div
             *ngFor="let child of currentBranchChildren"
             (click)="selectBranch.emit(child.id)"
-            class="p-3 rounded-xl bg-white border border-amber-200 hover:border-indigo-400 cursor-pointer transition shadow-2xs flex items-center justify-between gap-2"
+            class="p-2.5 rounded-lg bg-slate-50 hover:bg-indigo-50/60 border border-slate-200 hover:border-indigo-300 cursor-pointer transition flex items-center justify-between gap-2"
           >
             <div class="min-w-0">
               <div class="font-mono text-xs font-bold text-slate-800 truncate">{{ child.name }}</div>

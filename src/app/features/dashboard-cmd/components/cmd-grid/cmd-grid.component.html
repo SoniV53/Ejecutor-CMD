@@ -126,8 +126,16 @@
               </div>
             </div>
 
-            <!-- Tags del Comando si existen -->
-            <div *ngIf="c.tags && c.tags.length > 0" class="flex flex-wrap items-center gap-1 mb-2">
+            <!-- Tags y Perfiles del Comando si existen -->
+            <div *ngIf="(c.profiles && c.profiles.length > 0) || (c.tags && c.tags.length > 0)" class="flex flex-wrap items-center gap-1 mb-2">
+              <span
+                *ngFor="let p of c.profiles"
+                class="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-purple-950/70 text-purple-300 border border-purple-500/30 flex items-center gap-1"
+                title="Perfil asignado"
+              >
+                <i data-lucide="layers" class="w-2.5 h-2.5"></i>
+                {{ p }}
+              </span>
               <span
                 *ngFor="let t of c.tags"
                 class="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-slate-800/90 text-indigo-300/85 border border-indigo-500/20"
@@ -231,8 +239,16 @@
               class="w-3.5 h-3.5 text-slate-400 shrink-0"
               title="Segundo Plano"
             ></i>
-            <!-- Tags en vista lista -->
-            <div *ngIf="c.tags && c.tags.length > 0" class="hidden md:flex items-center gap-1">
+            <!-- Tags y Perfiles en vista lista -->
+            <div *ngIf="(c.profiles && c.profiles.length > 0) || (c.tags && c.tags.length > 0)" class="hidden md:flex items-center gap-1">
+              <span
+                *ngFor="let p of c.profiles"
+                class="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-purple-950/70 text-purple-300 border border-purple-500/30 flex items-center gap-1"
+                title="Perfil asignado"
+              >
+                <i data-lucide="layers" class="w-2.5 h-2.5"></i>
+                {{ p }}
+              </span>
               <span
                 *ngFor="let t of c.tags"
                 class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-800/90 text-indigo-300/80 border border-indigo-500/20"

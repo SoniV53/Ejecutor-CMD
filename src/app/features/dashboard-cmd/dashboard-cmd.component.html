@@ -1,10 +1,11 @@
 <div class="flex flex-row overflow-hidden relative h-full w-full bg-[#020617] text-[#f1f5f9]">
   <app-cmd-sidebar
-    [projects]="projects"
+    [projects]="displayedProjects"
     [selectedProjId]="selectedProjId"
     [serverOnline]="serverOnline"
     [sidebarOpenMobile]="sidebarOpenMobile"
     [sidebarOpenDesktop]="sidebarOpenDesktop"
+    [activeProfile]="activeProfile"
     (selectProject)="selectProj($event)"
     (editProject)="editProject($event)"
     (deleteProject)="deleteProject($event)"
@@ -17,6 +18,8 @@
       [searchTerm]="searchTerm"
       [viewMode]="viewMode"
       [activeProject]="activeProject"
+      [profiles]="profiles"
+      [activeProfile]="activeProfile"
       (searchTermChange)="searchTerm = $event"
       (viewModeChange)="viewMode = $event"
       (toggleSidebar)="toggleSidebar()"
@@ -26,6 +29,10 @@
       (importBatFiles)="handleImportBatFiles($event)"
       (exportAllBats)="exportAllBats()"
       (deselectProject)="deselectProject()"
+      (activeProfileChange)="onActiveProfileChange($event)"
+      (manageProfiles)="openManageProfiles()"
+      (exportProfileCommands)="exportProfileCommands()"
+      (importProfileCommands)="importProfileCommands($event)"
     ></app-cmd-header>
 
     <div class="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar">
@@ -67,7 +74,7 @@
     ></app-cmd-console-drawer>
   </main>
 
-  <!-- Modales clásicos (Proyecto, Categoría, Comando Estándar) -->
+  <!-- Modales clásicos (Proyecto, Categoría, Comando Estándar, Perfiles) -->
   <app-cmd-modals
     [showProjModal]="showProjModal"
     [editingProject]="editingProject"
@@ -77,22 +84,28 @@
     [editingCommand]="editingCommand"
     [allCategories]="allCategories"
     [allAvailableTags]="allAvailableTags"
+    [allProfiles]="profiles"
+    [activeProfile]="activeProfile"
+    [showProfilesModal]="showProfilesModal"
     (closeProjModal)="showProjModal = false; editingProjId = null"
     (saveProject)="onSaveProject($event)"
     (closeCatModal)="showCatModal = false; editingCatName = null"
     (saveCategory)="onSaveCategory($event)"
     (closeCmdModal)="showCmdModal = false; editingCmdId = null"
     (saveCommand)="onSaveCommand($event)"
+    (closeProfilesModal)="showProfilesModal = false"
+    (saveProfilesList)="onSaveProfiles($event)"
   ></app-cmd-modals>
 
   <!-- Modal dedicado para Archivos .BAT Ejecutables -->
   <app-cmd-bat-modal
     [showBatModal]="showBatModal"
     [editingCommand]="editingBatCmd"
-    [projects]="projects"
+    [projects]="displayedProjects"
     [activeProject]="activeProject"
     [allCategories]="allCategories"
     [allAvailableTags]="allAvailableTags"
+    [allProfiles]="profiles"
     (closeBatModal)="showBatModal = false; editingBatCmd = null"
     (saveBat)="onSaveBat($event)"
   ></app-cmd-bat-modal>

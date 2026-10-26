@@ -82,10 +82,93 @@
         <textarea
           [(ngModel)]="branchDesc"
           name="branchDesc"
-          rows="3"
+          rows="2"
           placeholder="Describe el objetivo de esta rama..."
           class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none text-sm resize-none focus:ring-2 focus:ring-indigo-500"
         ></textarea>
+      </div>
+
+      <!-- SELECCIÓN Y GESTIÓN DE TAGS / ETIQUETAS -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5 flex items-center justify-between">
+          <span class="flex items-center gap-1.5">
+            <i data-lucide="tags" class="w-3.5 h-3.5 text-indigo-600"></i>
+            <span>Etiquetas / Tags</span>
+          </span>
+          <span class="text-xs text-slate-400 font-normal">Puedes asignar múltiples tags</span>
+        </label>
+
+        <!-- Chips disponibles para seleccionar/deseleccionar -->
+        <div class="flex flex-wrap items-center gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl min-h-[42px]">
+          <span *ngIf="allAvailableTags.length === 0" class="text-xs text-slate-400 italic px-1">
+            No hay etiquetas creadas todavía. Crea una abajo.
+          </span>
+          <button
+            *ngFor="let t of allAvailableTags"
+            type="button"
+            (click)="onToggleModalTag(t.name)"
+            class="px-2.5 py-1 rounded-full text-xs font-semibold transition border flex items-center gap-1 cursor-pointer active:scale-95"
+            [ngClass]="
+              isModalTagSelected(t.name)
+                ? getTagBadgeClasses(t.color) + ' ring-1 ring-offset-1 font-bold'
+                : 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'
+            "
+          >
+            <span>{{ isModalTagSelected(t.name) ? '✓' : '+' }}</span>
+            <span>{{ t.name }}</span>
+          </button>
+        </div>
+
+        <!-- Creador rápido de nuevo tag si no existe (con puntos de color visibles) -->
+        <div class="mt-2.5 p-2 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+          <div class="flex items-center gap-2">
+            <input
+              type="text"
+              [(ngModel)]="newTagInput"
+              [ngModelOptions]="{standalone: true}"
+              placeholder="Nombre del nuevo tag (ej. Hotfix, QA)..."
+              class="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
+            />
+            <button
+              type="button"
+              (click)="onCreateModalTag()"
+              [disabled]="!newTagInput.trim()"
+              class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 disabled:opacity-40 text-white rounded-lg text-xs font-semibold transition cursor-pointer whitespace-nowrap active:scale-95"
+            >
+              + Tag
+            </button>
+          </div>
+
+          <!-- Selector con puntos de color -->
+          <div class="flex items-center justify-between gap-1 pt-0.5">
+            <div class="flex items-center gap-1.5">
+              <button
+                *ngFor="let opt of modalTagColorOptions"
+                type="button"
+                (click)="newTagColor = opt.value"
+                class="w-5 h-5 rounded-full transition-all flex items-center justify-center cursor-pointer shadow-2xs"
+                [ngClass]="[
+                  opt.dotClass,
+                  newTagColor === opt.value
+                    ? 'ring-2 ring-offset-1 ring-slate-800 scale-115'
+                    : 'hover:scale-110 opacity-75 hover:opacity-100'
+                ]"
+                [title]="opt.label"
+              >
+                <span *ngIf="newTagColor === opt.value" class="text-white text-[9px] font-extrabold leading-none">✓</span>
+              </button>
+            </div>
+
+            <!-- Previsualización con punto y nombre -->
+            <span
+              class="text-[10px] font-semibold px-2 py-0.5 rounded-full border shadow-2xs flex items-center gap-1 shrink-0"
+              [ngClass]="getTagBadgeClasses(newTagColor)"
+            >
+              <span class="w-1.5 h-1.5 rounded-full shrink-0" [ngClass]="getSelectedTagDotClass(newTagColor)"></span>
+              <span>{{ getSelectedTagLabel(newTagColor) }}</span>
+            </span>
+          </div>
+        </div>
       </div>
       <div class="pt-2 flex justify-end gap-2">
         <button
@@ -356,46 +439,248 @@
 <!-- OPEN MODAL -->
 <div
   *ngIf="showOpenModal"
-  class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[60]"
+  class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
 >
-  <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all border border-slate-100">
     <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-      <h3 class="text-lg font-bold text-slate-800">Archivos en json/rama</h3>
-      <button type="button" (click)="closeOpenModal.emit()" class="text-slate-400 hover:text-slate-600">
+      <div class="flex items-center gap-2">
+        <i data-lucide="folder-open" class="w-5 h-5 text-indigo-600"></i>
+        <h3 class="text-base font-bold text-slate-800">Documentos de Repo Docs</h3>
+      </div>
+      <button type="button" (click)="closeOpenModal.emit()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
         <i data-lucide="x" class="w-5 h-5"></i>
       </button>
     </div>
+
+    <!-- Barra para Crear Nuevo directamente -->
+    <div class="px-5 py-3 bg-indigo-50/60 border-b border-indigo-100/70 flex items-center justify-between">
+      <span class="text-xs text-indigo-900 font-semibold">¿Crear un nuevo proyecto?</span>
+      <button
+        type="button"
+        (click)="openNewDocFromOpenModal.emit()"
+        class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
+      >
+        <i data-lucide="file-plus" class="w-3.5 h-3.5"></i>
+        <span>+ Crear Nuevo</span>
+      </button>
+    </div>
+
     <div class="p-4 bg-slate-50">
-      <div class="space-y-2 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
-        <p *ngIf="jsonFiles.length === 0" class="text-sm text-slate-500 text-center py-4">No hay archivos.</p>
-        <button
+      <div class="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+        <p *ngIf="jsonFiles.length === 0" class="text-sm text-slate-500 text-center py-4">No hay archivos guardados.</p>
+        <div
           *ngFor="let f of jsonFiles"
-          type="button"
-          (click)="selectFileToOpen.emit(f.name)"
-          class="w-full flex items-center justify-between px-4 py-3 rounded-xl border shadow-sm transition-all mb-2"
+          class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border shadow-sm transition-all mb-2 bg-white"
           [ngClass]="
             f.name === activeFileName
-              ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-              : 'border-slate-200 hover:bg-white text-slate-700'
+              ? 'border-indigo-500 bg-indigo-50/50 text-indigo-900 ring-1 ring-indigo-400'
+              : 'border-slate-200 hover:border-indigo-300 text-slate-700'
           "
         >
-          <div class="flex items-center gap-3">
+          <div
+            (click)="selectFileToOpen.emit(f.name)"
+            class="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer"
+          >
             <i
-              data-lucide="file-json"
-              class="w-4 h-4"
+              data-lucide="file-code"
+              class="w-4 h-4 shrink-0"
               [ngClass]="f.name === activeFileName ? 'text-indigo-600' : 'text-slate-400'"
             ></i>
-            <span class="text-sm font-medium">{{ f.name }}</span>
+            <span class="text-xs font-semibold truncate">{{ f.name }}</span>
+            <span
+              *ngIf="f.name === activeFileName"
+              class="text-[9px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full shrink-0"
+            >
+              Abierto
+            </span>
           </div>
-          <span
-            *ngIf="f.name === activeFileName"
-            class="text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-600 px-2 py-1 rounded-full"
+
+          <!-- Botón Eliminar Documento -->
+          <button
+            *ngIf="jsonFiles.length > 1"
+            type="button"
+            (click)="deleteDocFile.emit(f.name)"
+            class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition shrink-0 ml-2 cursor-pointer"
+            title="Eliminar este archivo"
           >
-            Abierto
-          </span>
-        </button>
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- NEW REPO DOC MODAL -->
+<div
+  *ngIf="showNewDocModal"
+  class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fade"
+>
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all border border-slate-100">
+    <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+      <div class="flex items-center gap-2.5">
+        <div class="p-2 rounded-xl bg-emerald-100 text-emerald-700">
+          <i data-lucide="file-plus" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-slate-800">Nuevo Documento de Repo Docs</h3>
+          <p class="text-xs text-slate-500">Crea un proyecto para documentar ramas, commits y notas</p>
+        </div>
+      </div>
+      <button type="button" (click)="closeNewDocModal.emit()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <form (submit)="onSubmitNewDoc($event)" class="p-6 space-y-5">
+      <!-- Nombre del Documento -->
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+          Nombre del Documento / Proyecto <span class="text-rose-500">*</span>
+        </label>
+        <div class="relative">
+          <input
+            type="text"
+            [(ngModel)]="newDocName"
+            name="newDocName"
+            required
+            placeholder="ej. Proyecto Backend, Mi App Movil, Auth..."
+            class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+          />
+        </div>
+        <p class="text-[11px] text-slate-400 mt-1">Se guardará como archivo <code>.json</code> en la carpeta <code>json/rama/</code></p>
+      </div>
+
+      <!-- Tipo de Inicio / Origen -->
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+          ¿Cómo deseas iniciar?
+        </label>
+        <div class="grid grid-cols-2 gap-3">
+          <!-- Opción 1: En Blanco -->
+          <label
+            class="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition select-none"
+            [ngClass]="
+              newDocType === 'blank'
+                ? 'border-emerald-500 bg-emerald-50/50 text-emerald-900 ring-1 ring-emerald-500'
+                : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+            "
+          >
+            <input
+              type="radio"
+              [(ngModel)]="newDocType"
+              name="newDocType"
+              value="blank"
+              class="mt-1 text-emerald-600 focus:ring-emerald-500"
+            />
+            <div>
+              <div class="text-xs font-bold flex items-center gap-1.5">
+                <i data-lucide="file" class="w-3.5 h-3.5 text-emerald-600"></i>
+                En Blanco
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                Empieza de cero con una estructura limpia.
+              </p>
+            </div>
+          </label>
+
+          <!-- Opción 2: Vincular Git -->
+          <label
+            class="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition select-none"
+            [ngClass]="
+              newDocType === 'git'
+                ? 'border-indigo-500 bg-indigo-50/50 text-indigo-900 ring-1 ring-indigo-500'
+                : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+            "
+          >
+            <input
+              type="radio"
+              [(ngModel)]="newDocType"
+              name="newDocType"
+              value="git"
+              class="mt-1 text-indigo-600 focus:ring-indigo-500"
+            />
+            <div>
+              <div class="text-xs font-bold flex items-center gap-1.5">
+                <i data-lucide="git-branch" class="w-3.5 h-3.5 text-indigo-600"></i>
+                Vincular Git
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                Conecta a una carpeta local o proyecto ConsoleFlow.
+              </p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Configuración Git (Si se seleccionó Git) -->
+      <div *ngIf="newDocType === 'git'" class="space-y-4 p-4 rounded-xl bg-slate-50 border border-slate-200 animate-fade">
+        <!-- Selector de Proyectos de ConsoleFlow -->
+        <div *ngIf="cmdProjects.length > 0">
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">
+            Seleccionar desde tus proyectos configurados:
+          </label>
+          <select
+            [ngModel]="newDocLinkedProjectId"
+            (ngModelChange)="onSelectNewDocProject($event)"
+            name="newDocLinkedProjectId"
+            class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">-- Seleccionar Proyecto o Personalizado --</option>
+            <option *ngFor="let p of cmdProjects" [value]="p.id">
+              📁 {{ p.name }} ({{ p.path }})
+            </option>
+          </select>
+        </div>
+
+        <!-- Ruta local del repositorio -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">
+            Ruta local del repositorio (.git)
+          </label>
+          <input
+            type="text"
+            [(ngModel)]="newDocRepoPath"
+            name="newDocRepoPath"
+            placeholder="C:\Users\...\proyecto o D:\proyectos\app"
+            class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 code-font"
+          />
+        </div>
+
+        <!-- Checkbox Auto-Scan -->
+        <label class="flex items-center gap-2.5 cursor-pointer select-none pt-1">
+          <input
+            type="checkbox"
+            [(ngModel)]="newDocAutoScan"
+            name="newDocAutoScan"
+            class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+          />
+          <div>
+            <span class="text-xs font-bold text-slate-800">Escanear ramas de Git automáticamente al crear</span>
+            <p class="text-[11px] text-slate-500">Detecta las ramas locales e importa sus nombres y commits recientes.</p>
+          </div>
+        </label>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="pt-3 flex justify-end gap-2.5 border-t border-slate-100">
+        <button
+          type="button"
+          (click)="closeNewDocModal.emit()"
+          class="px-4 py-2.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          [disabled]="!newDocName.trim()"
+          class="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition shadow-sm flex items-center gap-1.5 active:scale-95 cursor-pointer"
+        >
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span>Crear Documento</span>
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 

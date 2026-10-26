@@ -35,8 +35,17 @@
 
   <div class="flex-1 overflow-y-auto px-4 custom-scrollbar">
     <div class="flex items-center justify-between mb-4 px-2">
-      <h2 class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mis Proyectos</h2>
-      <button (click)="openNewProject.emit()" class="p-1.5 hover:bg-slate-800 rounded-lg text-indigo-400 transition-colors">
+      <div class="flex items-center gap-1.5 overflow-hidden">
+        <h2 class="text-[10px] font-black text-slate-500 uppercase tracking-widest truncate">Mis Proyectos</h2>
+        <span
+          *ngIf="activeProfile !== 'ALL'"
+          class="text-[9px] font-bold text-purple-300 bg-purple-950/70 border border-purple-500/30 px-1.5 py-0.2 rounded truncate max-w-[100px]"
+          [title]="'Filtrado por: ' + activeProfile"
+        >
+          {{ activeProfile }}
+        </span>
+      </div>
+      <button (click)="openNewProject.emit()" class="p-1.5 hover:bg-slate-800 rounded-lg text-indigo-400 transition-colors shrink-0">
         <i data-lucide="folder-plus" class="w-4 h-4"></i>
       </button>
     </div>
@@ -63,7 +72,16 @@
           ></i>
           <div class="min-w-0 flex-1">
             <span class="text-sm font-bold truncate block">{{ p.name }}</span>
-            <div *ngIf="p.tags && p.tags.length > 0" class="flex flex-wrap gap-1 mt-1">
+            <div *ngIf="(p.profiles && p.profiles.length > 0) || (p.tags && p.tags.length > 0)" class="flex flex-wrap gap-1 mt-1">
+              <span
+                *ngFor="let prof of p.profiles"
+                class="text-[9px] px-1.5 py-0.2 rounded font-semibold flex items-center gap-1"
+                [ngClass]="selectedProjId === p.id ? 'bg-purple-500/30 text-purple-200 border border-purple-400/40' : 'bg-purple-950/70 text-purple-300 border border-purple-500/30'"
+                title="Perfil asignado"
+              >
+                <i data-lucide="layers" class="w-2.5 h-2.5"></i>
+                {{ prof }}
+              </span>
               <span
                 *ngFor="let t of p.tags"
                 class="text-[9px] px-1.5 py-0.2 rounded font-mono"

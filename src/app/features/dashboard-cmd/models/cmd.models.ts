@@ -3,6 +3,7 @@ export interface CmdProject {
   name: string;
   path: string;
   tags?: string[];
+  profiles?: string[];
 }
 
 export interface CmdScriptVariant {
@@ -25,6 +26,7 @@ export interface CmdCommandItem {
   batPath?: string;
   batContent?: string;
   tags?: string[];
+  profiles?: string[];
 }
 
 export interface CmdCategoryItem {
@@ -36,6 +38,7 @@ export interface CmdWorkspaceData {
   projects: CmdProject[];
   commands: CmdCommandItem[];
   categories: (string | CmdCategoryItem)[];
+  profiles?: string[];
 }
 
 export interface CmdStreamEvent {
