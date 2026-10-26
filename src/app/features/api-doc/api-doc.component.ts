@@ -548,8 +548,15 @@ export class ApiDocComponent implements OnInit, AfterViewInit, AfterViewChecked 
           this.showToast('Eliminado de Windows', 'trash-2');
 
           // Cerrar pestañas asociadas (el archivo o archivos dentro de la carpeta eliminada)
-          this.tabs = this.tabs.filter(t => t.path !== path && !t.path.startsWith(path + '/'));
-          if (!this.tabs.some(t => t.id === this.activeTabId) && this.tabs.length > 0) {
+          const normTarget = (path || '').replace(/\\/g, '/');
+          this.tabs = this.tabs.filter(t => {
+            if (!t.path) return true;
+            const normTab = t.path.replace(/\\/g, '/');
+            return normTab !== normTarget && !normTab.startsWith(normTarget + '/');
+          });
+          if (this.tabs.length === 0) {
+            this.createNewTab();
+          } else if (!this.tabs.some(t => t.id === this.activeTabId)) {
             this.activeTabId = this.tabs[0].id;
           }
 

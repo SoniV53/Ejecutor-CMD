@@ -35,6 +35,7 @@ export class ApiExplorerSidebarComponent implements OnChanges, AfterViewInit, Af
 
   // Filtro de búsqueda rápida
   searchQuery = '';
+  filteredItems: DocExplorerItem[] = [];
 
   constructor(private lucide: LucideIconService) {}
 
@@ -43,13 +44,27 @@ export class ApiExplorerSidebarComponent implements OnChanges, AfterViewInit, Af
   }
 
   ngAfterViewChecked(): void {
-    this.lucide.refresh();
+    // Evitar refrescar en cada ciclo de detección para no recrear SVGs durante clics
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['items']) {
+      this.updateFilteredItems();
+    }
     if (changes['activeFile'] && this.activeFile) {
       this.autoExpandParents(this.activeFile);
     }
+    this.lucide.refresh();
+  }
+
+  onSearchChange(): void {
+    this.updateFilteredItems();
+    this.lucide.refresh();
+  }
+
+  clearSearch(): void {
+    this.searchQuery = '';
+    this.updateFilteredItems();
     this.lucide.refresh();
   }
 
@@ -63,19 +78,21 @@ export class ApiExplorerSidebarComponent implements OnChanges, AfterViewInit, Af
   }
 
   // Filtrado recursivo según búsqueda o listado completo
-  get filteredItems(): DocExplorerItem[] {
+  updateFilteredItems(): void {
+    const q = this.searchQuery.trim().toLowerCase();
     const filterRec = (list: DocExplorerItem[]): DocExplorerItem[] => {
-      const q = this.searchQuery.trim().toLowerCase();
-      if (!q) {
-        return (list || []).filter(
-          item => item.name !== '.keep.txt' && item.name !== '.keep' && item.name !== '_init.txt'
-        );
-      }
       const result: DocExplorerItem[] = [];
       for (const item of list || []) {
         if (item.name === '.keep.txt' || item.name === '.keep' || item.name === '_init.txt') continue;
-        const matchesSelf = item.name.toLowerCase().includes(q);
         const filteredChildren = item.isFolder && item.children ? filterRec(item.children) : [];
+        if (!q) {
+          result.push({
+            ...item,
+            children: filteredChildren
+          });
+          continue;
+        }
+        const matchesSelf = item.name.toLowerCase().includes(q);
         if (matchesSelf || filteredChildren.length > 0) {
           if (item.isFolder) {
             this.expandedFolders.add(item.path);
@@ -89,7 +106,7 @@ export class ApiExplorerSidebarComponent implements OnChanges, AfterViewInit, Af
       return result;
     };
 
-    return filterRec(this.items || []);
+    this.filteredItems = filterRec(this.items || []);
   }
 
   trackByPath(_index: number, item: DocExplorerItem): string {

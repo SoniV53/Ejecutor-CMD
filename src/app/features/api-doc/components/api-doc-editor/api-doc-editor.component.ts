@@ -46,6 +46,7 @@ export class ApiDocEditorComponent implements OnChanges, AfterViewInit, AfterVie
   @Output() closeTab = new EventEmitter<string>();
   @Output() saveActive = new EventEmitter<void>();
   @Output() downloadActive = new EventEmitter<void>();
+  @Output() deleteActive = new EventEmitter<string>();
   @Output() formatContent = new EventEmitter<'json' | 'minify' | 'txt'>();
   @Output() copyContent = new EventEmitter<void>();
   @Output() clearContent = new EventEmitter<void>();

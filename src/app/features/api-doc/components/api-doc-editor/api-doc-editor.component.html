@@ -153,10 +153,21 @@
         type="button"
         (mousedown)="$event.preventDefault()"
         (click)="clearContent.emit()"
-        class="p-2 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-rose-400 border border-slate-800 rounded-xl transition-all active:scale-95"
+        class="p-2 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-amber-400 border border-slate-800 rounded-xl transition-all active:scale-95"
         title="Limpiar contenido de la nota activa"
       >
         <i data-lucide="eraser" class="w-4 h-4"></i>
+      </button>
+
+      <!-- Eliminar Archivo en Disco -->
+      <button
+        *ngIf="activeTab.path && !activeTab.isNew"
+        type="button"
+        (click)="deleteActive.emit(activeTab.path)"
+        class="p-2 bg-slate-900 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-800 hover:border-rose-500/30 rounded-xl transition-all active:scale-95"
+        title="Eliminar este documento permanentemente de Windows"
+      >
+        <i data-lucide="trash-2" class="w-4 h-4"></i>
       </button>
 
       <!-- Descargar Archivo -->

@@ -218,20 +218,11 @@ export class RepoDocComponent implements OnInit, AfterViewInit {
         folders,
         branches: (rawState.branches || []).map((b: RepoBranch) => ({
           ...b,
-          tags: Array.isArray(b.tags)
-            ? b.tags.filter(
-                (t: string) =>
-                  !['tag-dev', 'tag-qa', 'tag-prod', 'tag-staging', 'desarrollo', 'qa', 'producción', 'staging'].includes(
-                    t.toLowerCase()
-                  )
-              )
-            : []
+          tags: Array.isArray(b.tags) ? b.tags : []
         })),
         commits: rawState.commits || [],
         notes: rawState.notes || [],
-        availableTags: Array.isArray(rawState.availableTags)
-          ? rawState.availableTags.filter((t: any) => !['tag-dev', 'tag-qa', 'tag-prod', 'tag-staging'].includes(t.id))
-          : []
+        availableTags: Array.isArray(rawState.availableTags) ? rawState.availableTags : []
       };
       // Expandir por defecto las carpetas raíz para facilitar navegación
       this.expandedFolders = new Set(folders.filter(f => !f.parentId).map(f => f.id));
