@@ -57,6 +57,20 @@
         </button>
       </div>
 
+      <!-- Botón de Perfiles y Carpeta (json/gravity/) -->
+      <button
+        type="button"
+        (click)="openProfileModal()"
+        class="px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 text-amber-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+        title="Gestionar perfiles en json/gravity/ y elegir qué archivos de la carpeta subir o importar"
+      >
+        <i data-lucide="folder-cog" class="w-3.5 h-3.5"></i>
+        <span class="hidden md:inline font-mono text-[11px]">{{ activeProfileDisplayName }}</span>
+        <span class="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-200 hidden lg:inline">
+          json/gravity
+        </span>
+      </button>
+
       <button
         type="button"
         (click)="exportAllBranchesExcel()"
@@ -1693,6 +1707,270 @@
       >
         ×
       </button>
+    </div>
+  </div>
+
+  <!-- MODAL DE PERFILES Y SUBIDA SELECTIVA DE ARCHIVOS EN CARPETA (json/gravity/) -->
+  <div
+    *ngIf="showProfileModal"
+    class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4"
+    (click)="closeProfileModal()"
+  >
+    <div
+      class="w-full max-w-xl max-h-[88vh] bg-[#0a0f1d] border border-slate-800 rounded-2xl p-5 flex flex-col gap-4 shadow-2xl"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- Cabecera -->
+      <div class="flex items-center justify-between gap-3 border-b border-slate-800/80 pb-3 shrink-0">
+        <div>
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <span>Perfiles y Archivos en Carpeta</span>
+            <span class="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono text-[11px]">
+              {{ BASE_FOLDER }}/
+            </span>
+          </h3>
+          <p class="text-[11px] text-slate-400 mt-0.5">
+            Cada perfil de Gravity se guarda en <code class="text-amber-300">json/gravity/</code> (separado de <code class="text-emerald-400">api_docs/</code> que es exclusivo para Notas).
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            (click)="openGravityFolderInExplorer()"
+            class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-amber-300 flex items-center gap-1.5 cursor-pointer"
+            title="Abrir la carpeta física json/gravity/ en el Explorador de Windows"
+          >
+            <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
+            <span>Abrir Carpeta</span>
+          </button>
+          <button
+            type="button"
+            (click)="closeProfileModal()"
+            class="text-slate-400 hover:text-white cursor-pointer text-base leading-none px-1.5"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+
+      <!-- Cuerpo scrollable -->
+      <div class="flex-1 overflow-y-auto space-y-4 pr-1">
+        <!-- 1. Selección y creación de Perfiles en json/gravity/ -->
+        <div class="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+              1. Perfiles en {{ BASE_FOLDER }}/ (clic para cambiar de perfil)
+            </span>
+            <span class="text-[10px] font-mono text-amber-300">
+              Activo: {{ activeProfileFile }}
+            </span>
+          </div>
+
+          <!-- Lista de perfiles -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div
+              *ngFor="let pf of profileFiles"
+              (click)="selectProfile(pf.name)"
+              class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-all cursor-pointer"
+              [ngClass]="
+                pf.name.toLowerCase() === activeProfileFile.toLowerCase()
+                  ? 'bg-amber-500/15 border-amber-500/60 text-amber-200'
+                  : 'bg-slate-950/70 border-slate-800 text-slate-300 hover:border-slate-700'
+              "
+            >
+              <div class="flex items-center gap-2 min-w-0">
+                <span
+                  class="w-2 h-2 rounded-full shrink-0"
+                  [ngClass]="pf.name.toLowerCase() === activeProfileFile.toLowerCase() ? 'bg-amber-400' : 'bg-slate-600'"
+                ></span>
+                <span class="font-mono text-xs truncate" [title]="pf.name">
+                  {{ pf.name.replace('.json', '') }}
+                </span>
+              </div>
+
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span
+                  *ngIf="pf.name.toLowerCase() === activeProfileFile.toLowerCase()"
+                  class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/25 text-amber-300"
+                >
+                  Activo
+                </span>
+                <button
+                  *ngIf="profileFiles.length > 1"
+                  type="button"
+                  (click)="deleteProfileFile(pf.name, $event)"
+                  class="p-1 rounded hover:bg-rose-500/20 text-slate-500 hover:text-rose-300 cursor-pointer"
+                  title="Eliminar este archivo de perfil"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Crear nuevo perfil -->
+          <div class="flex gap-2 pt-1">
+            <input
+              type="text"
+              [(ngModel)]="newProfileInput"
+              (keydown.enter)="createNewProfile()"
+              placeholder="Nombre del nuevo perfil (ej. sprint_octubre, banca_empresa)..."
+              class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-amber-500/60"
+            />
+            <button
+              type="button"
+              (click)="createNewProfile()"
+              class="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-bold text-white cursor-pointer shrink-0"
+            >
+              + Nuevo Perfil
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Subir todos los archivos de una carpeta eligiendo cuál subir y cuál no -->
+        <div class="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-300 block">
+                2. Archivos en carpeta — Elige cuál subir / importar y cuál no
+              </span>
+              <span class="text-[10px] text-slate-400">
+                Puedes revisar los archivos actuales de <code class="text-amber-300">json/gravity/</code> o cargar una carpeta de tu PC y marcar solo los que quieras subir.
+              </span>
+            </div>
+
+            <!-- Inputs ocultos para elegir carpeta completa o varios archivos -->
+            <input
+              #folderPickerInput
+              type="file"
+              webkitdirectory
+              multiple
+              class="hidden"
+              (change)="onExternalFolderFilesSelected($event)"
+            />
+            <input
+              #filesPickerInput
+              type="file"
+              multiple
+              accept=".json"
+              class="hidden"
+              (change)="onExternalFolderFilesSelected($event)"
+            />
+
+            <div class="flex items-center gap-1.5">
+              <button
+                type="button"
+                (click)="folderPickerInput.click()"
+                class="px-2.5 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 text-[11px] font-bold cursor-pointer"
+                title="Seleccionar una carpeta completa para listar todos sus archivos .json y elegir cuáles subir"
+              >
+                + Elegir Carpeta
+              </button>
+              <button
+                type="button"
+                (click)="filesPickerInput.click()"
+                class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold cursor-pointer"
+                title="Seleccionar uno o varios archivos .json"
+              >
+                + Elegir Archivos
+              </button>
+            </div>
+          </div>
+
+          <!-- Controles de selección masiva -->
+          <div class="flex items-center justify-between text-[11px] pt-1">
+            <span class="text-slate-400 font-semibold">
+              Seleccionados: <strong class="text-emerald-400">{{ selectedCandidatesCount }}</strong> de {{ folderCandidates.length }}
+            </span>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                (click)="selectAllCandidates(true)"
+                class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-emerald-400 font-semibold cursor-pointer"
+              >
+                Marcar todos
+              </button>
+              <button
+                type="button"
+                (click)="selectAllCandidates(false)"
+                class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 font-semibold cursor-pointer"
+              >
+                Desmarcar todos
+              </button>
+            </div>
+          </div>
+
+          <!-- Lista con checkboxes de cada archivo en la carpeta -->
+          <div class="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+            <div *ngIf="folderCandidates.length === 0" class="text-center py-4 text-xs text-slate-500">
+              No hay archivos detectados en la carpeta.
+            </div>
+
+            <label
+              *ngFor="let item of folderCandidates"
+              class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs cursor-pointer select-none transition-colors"
+              [ngClass]="
+                item.selected
+                  ? 'bg-slate-950/90 border-emerald-500/40 text-slate-100'
+                  : 'bg-slate-950/30 border-slate-800/60 text-slate-500'
+              "
+            >
+              <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                <input
+                  type="checkbox"
+                  [checked]="item.selected"
+                  (change)="toggleCandidateSelection(item)"
+                  class="rounded border-slate-600 text-emerald-500 focus:ring-0 cursor-pointer shrink-0"
+                />
+                <span
+                  class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
+                  [ngClass]="
+                    item.source === 'disk'
+                      ? 'bg-amber-500/15 text-amber-300'
+                      : 'bg-indigo-500/20 text-indigo-300'
+                  "
+                >
+                  {{ item.source === 'disk' ? 'En json/gravity' : 'Carpeta externa' }}
+                </span>
+                <span class="font-mono text-[11px] truncate" [title]="item.relativePath">
+                  {{ item.relativePath }}
+                </span>
+              </div>
+
+              <span
+                class="text-[10px] font-bold shrink-0"
+                [ngClass]="item.selected ? 'text-emerald-400' : 'text-slate-600'"
+              >
+                {{ item.selected ? 'Subir / Incluir' : 'No subir' }}
+              </span>
+            </label>
+          </div>
+
+          <!-- Botones de acción para los archivos seleccionados -->
+          <div class="flex flex-wrap justify-end gap-2 pt-2 border-t border-slate-800/70">
+            <button
+              *ngIf="selectedExternalCandidatesCount > 0"
+              type="button"
+              [disabled]="isUploadingFolderFiles"
+              (click)="importSelectedCandidatesToGravityFolder()"
+              class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-xs font-bold text-white cursor-pointer"
+            >
+              Guardar seleccionados en json/gravity/ ({{ selectedExternalCandidatesCount }})
+            </button>
+
+            <button
+              type="button"
+              [disabled]="isUploadingFolderFiles || selectedCandidatesCount === 0"
+              (click)="uploadSelectedCandidatesToDrive()"
+              class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-xs font-bold text-white cursor-pointer flex items-center gap-1.5"
+            >
+              <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i>
+              <span>Subir seleccionados a Google Drive ({{ selectedCandidatesCount }})</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 

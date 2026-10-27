@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { LucideIconService } from '../../core/services/lucide-icon.service';
+import { DocApiService, DocExplorerItem } from '../../core/services/doc-api.service';
+import { GoogleDriveService } from '../../core/services/google-drive.service';
 import {
   BranchLifecycleState,
   GravityLeadWorkspace,
@@ -15,6 +17,7 @@ declare const jspdf: any;
 declare const XLSX: any;
 
 const STORAGE_KEY = 'consoleflow_gravity_lead_v1';
+const ACTIVE_PROFILE_KEY = 'gravityActiveProfileFile';
 
 @Component({
   selector: 'app-gravity-lead',
@@ -119,15 +122,354 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
   pdfSelectableSubBranches: { sub: SubBranchContext; selected: boolean }[] = [];
 
   readonly lifecycleStates: BranchLifecycleState[] = ['En desarrollo', 'QA', 'Certificada'];
+  readonly BASE_FOLDER = 'json/gravity';
+  appBaseDir = '';
 
-  constructor(private lucide: LucideIconService) {}
+  // Gestión de Perfiles en disco (json/gravity/*.json)
+  activeProfileFile = localStorage.getItem(ACTIVE_PROFILE_KEY) || 'gravity_default.json';
+  profileFiles: DocExplorerItem[] = [];
+  showProfileModal = false;
+  newProfileInput = '';
+
+  // Subida / Importación selectiva de archivos desde una carpeta (elegir cuál subir y cuál no)
+  folderCandidates: Array<{
+    name: string;
+    relativePath: string;
+    content: string;
+    selected: boolean;
+    source: 'disk' | 'external';
+  }> = [];
+  isUploadingFolderFiles = false;
+
+  constructor(
+    private lucide: LucideIconService,
+    private docApi: DocApiService,
+    public googleDrive: GoogleDriveService
+  ) {}
 
   ngOnInit(): void {
-    this.loadWorkspace();
+    this.initProfilesAndWorkspace();
   }
 
   ngAfterViewInit(): void {
     this.lucide.refresh();
+  }
+
+  // --- GESTIÓN DE PERFILES Y CARPETA FÍSICA (json/gravity/) ---
+
+  get activeProfileDisplayName(): string {
+    return (this.activeProfileFile || 'gravity_default.json').replace(/\.json$/i, '');
+  }
+
+  private async ensureAppBaseDir(): Promise<string> {
+    if (this.appBaseDir) return this.appBaseDir;
+    try {
+      const info = await this.docApi.getDocInfo();
+      this.appBaseDir = info.baseDir || '';
+    } catch {}
+    return this.appBaseDir;
+  }
+
+  async initProfilesAndWorkspace(): Promise<void> {
+    // 1. Primero consultar SIEMPRE los archivos reales en disco (json/gravity/) sin sobrescribirlos con localStorage
+    try {
+      const rootDir = await this.ensureAppBaseDir();
+      const items = await this.docApi.listDocs(this.BASE_FOLDER, rootDir);
+      this.profileFiles = items.filter(i => !i.isFolder && i.name.toLowerCase().endsWith('.json'));
+
+      const matchedActive = this.profileFiles.find(
+        f => f.name.toLowerCase() === this.activeProfileFile.toLowerCase()
+      );
+
+      if (matchedActive) {
+        this.activeProfileFile = matchedActive.name;
+        await this.loadProfileFromDisk(this.activeProfileFile, false);
+      } else if (this.profileFiles.length > 0) {
+        // Si existe otro archivo .json en la carpeta json/gravity/, cargarlo desde disco sin borrarlo
+        this.activeProfileFile = this.profileFiles[0].name;
+        localStorage.setItem(ACTIVE_PROFILE_KEY, this.activeProfileFile);
+        await this.loadProfileFromDisk(this.activeProfileFile, false);
+      } else {
+        // Solo si la carpeta json/gravity/ está completamente vacía, migrar desde localStorage
+        this.loadWorkspaceFromRaw(localStorage.getItem(STORAGE_KEY));
+        await this.persistActiveProfileToDisk();
+        const refreshed = await this.docApi.listDocs(this.BASE_FOLDER, rootDir);
+        this.profileFiles = refreshed.filter(i => !i.isFolder && i.name.toLowerCase().endsWith('.json'));
+      }
+      this.syncDiskFolderCandidates();
+    } catch {
+      // Si el backend no responde en modo estático, operar con localStorage sin escribir en disco
+      this.loadWorkspaceFromRaw(localStorage.getItem(STORAGE_KEY));
+    }
+  }
+
+  async refreshProfileList(): Promise<void> {
+    try {
+      const rootDir = await this.ensureAppBaseDir();
+      const items = await this.docApi.listDocs(this.BASE_FOLDER, rootDir);
+      this.profileFiles = items.filter(i => !i.isFolder && i.name.toLowerCase().endsWith('.json'));
+      await this.syncDiskFolderCandidates();
+      setTimeout(() => this.lucide.refresh(), 40);
+    } catch {
+      // Ignorar error de red
+    }
+  }
+
+  async openProfileModal(): Promise<void> {
+    this.showProfileModal = true;
+    this.newProfileInput = '';
+    await this.refreshProfileList();
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  closeProfileModal(): void {
+    this.showProfileModal = false;
+  }
+
+  async selectProfile(fileName: string): Promise<void> {
+    if (!fileName) return;
+    await this.loadProfileFromDisk(fileName, true);
+  }
+
+  async loadProfileFromDisk(fileName: string, notify = true): Promise<void> {
+    try {
+      const rootDir = await this.ensureAppBaseDir();
+      const res = await this.docApi.readFile(`${this.BASE_FOLDER}/${fileName}`, rootDir);
+      if (res && typeof res.content === 'string') {
+        const trimmed = res.content.replace(/^\uFEFF/, '').trim();
+        this.activeProfileFile = fileName;
+        localStorage.setItem(ACTIVE_PROFILE_KEY, fileName);
+        this.selectedBranchId = null;
+
+        if (!trimmed) {
+          // El archivo fue creado vacío en el editor: inicializar memoria en limpio sin sobrescribir hasta que el usuario guarde algo
+          this.branches = [];
+          this.releaseBlocks = [];
+          this.availableDevs = [];
+          this.availableFlows = [];
+        } else {
+          const ok = this.loadWorkspaceFromRaw(trimmed);
+          if (!ok && notify) {
+            this.showToast(`El archivo ${fileName} tiene formato JSON inválido. No fue modificado.`);
+            return;
+          }
+        }
+
+        if (notify) {
+          this.showToast(`Perfil cargado desde disco: ${fileName.replace(/\.json$/i, '')}`);
+        }
+        setTimeout(() => this.lucide.refresh(), 50);
+      }
+    } catch {
+      if (notify) {
+        this.showToast('No se pudo leer el perfil seleccionado');
+      }
+    }
+  }
+
+  async createNewProfile(): Promise<void> {
+    const clean = this.newProfileInput.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+    if (!clean) {
+      this.showToast('Escribe un nombre para el nuevo perfil');
+      return;
+    }
+    const fileName = clean.toLowerCase().endsWith('.json') ? clean : `${clean}.json`;
+
+    // Refrescar lista real desde disco antes de crear para no sobrescribir un archivo creado manualmente en Explorer/VS Code
+    await this.refreshProfileList();
+    const existing = this.profileFiles.find(f => f.name.toLowerCase() === fileName.toLowerCase());
+    if (existing) {
+      this.newProfileInput = '';
+      await this.loadProfileFromDisk(existing.name, true);
+      return;
+    }
+
+    this.activeProfileFile = fileName;
+    localStorage.setItem(ACTIVE_PROFILE_KEY, fileName);
+    this.branches = [];
+    this.releaseBlocks = [];
+    this.selectedBranchId = null;
+    this.newProfileInput = '';
+
+    this.saveWorkspace();
+    await this.refreshProfileList();
+    this.showToast(`Nuevo perfil creado en ${this.BASE_FOLDER}/${fileName}`);
+  }
+
+  async deleteProfileFile(fileName: string, event: Event): Promise<void> {
+    event.stopPropagation();
+    if (this.profileFiles.length <= 1) {
+      this.showToast('Debe existir al menos un perfil activo en json/gravity/');
+      return;
+    }
+    try {
+      const rootDir = await this.ensureAppBaseDir();
+      await this.docApi.deleteItem(`${this.BASE_FOLDER}/${fileName}`, rootDir);
+      await this.refreshProfileList();
+      if (this.activeProfileFile.toLowerCase() === fileName.toLowerCase() && this.profileFiles.length > 0) {
+        await this.loadProfileFromDisk(this.profileFiles[0].name, true);
+      }
+      this.showToast(`Perfil eliminado: ${fileName}`);
+    } catch {
+      this.showToast('No se pudo eliminar el perfil');
+    }
+  }
+
+  async openGravityFolderInExplorer(): Promise<void> {
+    try {
+      const rootDir = await this.ensureAppBaseDir();
+      await this.docApi.openInExplorer(this.BASE_FOLDER, rootDir);
+      this.showToast(`Carpeta abierta: ${this.BASE_FOLDER}/`);
+    } catch {
+      this.showToast('No se pudo abrir la carpeta en el explorador');
+    }
+  }
+
+  // --- SUBIDA / IMPORTACIÓN DE ARCHIVOS EN CARPETA ELIGIENDO CUÁL SUBIR Y CUÁL NO ---
+
+  async syncDiskFolderCandidates(): Promise<void> {
+    const externalOnly = this.folderCandidates.filter(c => c.source === 'external');
+    const diskList: Array<{
+      name: string;
+      relativePath: string;
+      content: string;
+      selected: boolean;
+      source: 'disk' | 'external';
+    }> = [];
+
+    for (const item of this.profileFiles) {
+      const existing = this.folderCandidates.find(
+        c => c.source === 'disk' && c.name.toLowerCase() === item.name.toLowerCase()
+      );
+      diskList.push({
+        name: item.name,
+        relativePath: `${this.BASE_FOLDER}/${item.name}`,
+        content: existing?.content || '',
+        selected: existing ? existing.selected : true,
+        source: 'disk'
+      });
+    }
+    this.folderCandidates = [...diskList, ...externalOnly];
+  }
+
+  async onExternalFolderFilesSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const files = Array.from(input.files);
+    let added = 0;
+
+    for (const file of files) {
+      if (!file.name.toLowerCase().endsWith('.json')) continue;
+      try {
+        const text = await file.text();
+        const relPath = (file as any).webkitRelativePath || file.name;
+        const existingIdx = this.folderCandidates.findIndex(
+          c => c.name.toLowerCase() === file.name.toLowerCase() && c.source === 'external'
+        );
+        const entry = {
+          name: file.name,
+          relativePath: relPath,
+          content: text,
+          selected: true,
+          source: 'external' as const
+        };
+        if (existingIdx >= 0) {
+          this.folderCandidates[existingIdx] = entry;
+        } else {
+          this.folderCandidates.push(entry);
+        }
+        added++;
+      } catch {
+        // Ignorar archivo ilegible
+      }
+    }
+
+    input.value = '';
+    if (added > 0) {
+      this.showToast(`${added} archivo(s) detectados. Elige cuáles importar o subir.`);
+    } else {
+      this.showToast('No se encontraron archivos .json en la selección');
+    }
+    setTimeout(() => this.lucide.refresh(), 40);
+  }
+
+  toggleCandidateSelection(item: { selected: boolean }): void {
+    item.selected = !item.selected;
+  }
+
+  selectAllCandidates(selected: boolean): void {
+    for (const c of this.folderCandidates) {
+      c.selected = selected;
+    }
+  }
+
+  get selectedCandidatesCount(): number {
+    return this.folderCandidates.filter(c => c.selected).length;
+  }
+
+  get selectedExternalCandidatesCount(): number {
+    return this.folderCandidates.filter(c => c.selected && c.source === 'external').length;
+  }
+
+  async importSelectedCandidatesToGravityFolder(): Promise<void> {
+    const selectedExt = this.folderCandidates.filter(c => c.selected && c.source === 'external');
+    if (selectedExt.length === 0) {
+      this.showToast('Selecciona al menos un archivo externo para importar a json/gravity/');
+      return;
+    }
+    this.isUploadingFolderFiles = true;
+    let imported = 0;
+    try {
+      const rootDir = await this.ensureAppBaseDir();
+      for (const item of selectedExt) {
+        await this.docApi.saveJsonDoc(item.name, this.BASE_FOLDER, item.content, rootDir);
+        imported++;
+      }
+      // Quitar los externos ya importados y refrescar la carpeta física
+      this.folderCandidates = this.folderCandidates.filter(c => c.source !== 'external' || !c.selected);
+      await this.refreshProfileList();
+      this.showToast(`${imported} archivo(s) guardados en ${this.BASE_FOLDER}/`);
+    } catch {
+      this.showToast('Error al importar archivos a la carpeta');
+    } finally {
+      this.isUploadingFolderFiles = false;
+    }
+  }
+
+  async uploadSelectedCandidatesToDrive(): Promise<void> {
+    const selected = this.folderCandidates.filter(c => c.selected);
+    if (selected.length === 0) {
+      this.showToast('Selecciona al menos un archivo para subir');
+      return;
+    }
+    if (!this.googleDrive.isLoggedIn()) {
+      this.showToast('Conecta primero tu cuenta de Google Drive en el botón de la barra izquierda');
+      return;
+    }
+
+    this.isUploadingFolderFiles = true;
+    try {
+      const rootDir = await this.ensureAppBaseDir();
+      // Si hay externos seleccionados, guardarlos primero en json/gravity/
+      for (const ext of selected.filter(c => c.source === 'external')) {
+        await this.docApi.saveJsonDoc(ext.name, this.BASE_FOLDER, ext.content, rootDir);
+      }
+      await this.persistActiveProfileToDisk();
+
+      const selectedKeys = new Set<string>();
+      for (const item of selected) {
+        selectedKeys.add(`json:gravity/${item.name}`);
+      }
+      const res = await this.googleDrive.uploadFullWorkspaceToDrive(selectedKeys);
+      this.folderCandidates = this.folderCandidates.filter(c => c.source !== 'external' || !c.selected);
+      await this.refreshProfileList();
+      this.showToast(res.message);
+    } catch (err: any) {
+      this.showToast('Error al subir a Drive: ' + (err.message || err));
+    } finally {
+      this.isUploadingFolderFiles = false;
+    }
   }
 
   // --- PERSISTENCIA LIMPIA ---
@@ -142,106 +484,221 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
     return clean;
   }
 
-  private loadWorkspace(): void {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed: GravityLeadWorkspace = JSON.parse(raw);
-        const rawBranches = Array.isArray(parsed.branches) ? parsed.branches : [];
-        this.releaseBlocks = Array.isArray(parsed.releaseBlocks) ? parsed.releaseBlocks : [];
-        const rawDevs = Array.isArray(parsed.availableDevs) ? parsed.availableDevs : [];
-        const rawFlows = Array.isArray(parsed.availableFlows) ? parsed.availableFlows : [];
-
-        // 1. Limpiar categorías accidentales (números de fecha/ticket o prefijos truncados al escribir) y deduplicar sin importar mayúsculas/minúsculas
-        const filteredFlows = rawFlows.filter(f => {
-          const clean = (f || '').trim();
-          if (!clean || clean.toLowerCase() === 'general' || /^\d+$/.test(clean)) return false;
-          // Descartar si es un sub-prefijo exacto de otra categoría existente (ej. P, PE, PEn, PEnd -> Pendo)
-          const isPrefixOfLonger = rawFlows.some(
-            other =>
-              other &&
-              other.trim().length > clean.length &&
-              other.trim().toLowerCase().startsWith(clean.toLowerCase())
-          );
-          return !isPrefixOfLonger;
-        });
-
-        const flowMap = new Map<string, string>();
-        for (const fl of filteredFlows) {
-          const normalized = this.formatCanonicalFlowName(fl);
-          const key = normalized.toLowerCase();
-          if (!flowMap.has(key)) {
-            flowMap.set(key, normalized);
-          }
-        }
-        this.availableFlows = Array.from(flowMap.values());
-
-        // 2. Deduplicar catálogo de desarrolladores sin importar mayúsculas/minúsculas
-        this.availableDevs = [];
-        for (const d of rawDevs) {
-          this.ensureGlobalDev(d);
-        }
-
-        // 3. Deduplicar ramas con el mismo nombre exacto y normalizar su categoría y devs
-        const branchByName = new Map<string, TrackedBranch>();
-        for (const b of rawBranches) {
-          if (!b || !b.name) continue;
-          const cleanName = b.name.trim();
-          if (!cleanName) continue;
-          const nameKey = cleanName.toLowerCase();
-
-          let rawMod = (b.moduleFlow || 'General').trim();
-          if (!rawMod || /^\d+$/.test(rawMod) || rawMod.toLowerCase() === 'general') {
-            b.moduleFlow = 'General';
-          } else {
-            b.moduleFlow = this.ensureGlobalFlow(this.formatCanonicalFlowName(rawMod));
-          }
-
-          // Deduplicar devs y versiones dentro de la rama
-          const uniqueDevs: string[] = [];
-          for (const d of b.devs || []) {
-            const canonicalDev = this.ensureGlobalDev(d);
-            if (canonicalDev && !uniqueDevs.some(ud => ud.toLowerCase() === canonicalDev.toLowerCase())) {
-              uniqueDevs.push(canonicalDev);
-            }
-          }
-          b.devs = uniqueDevs;
-          b.qaVersions = Array.from(new Set((b.qaVersions || []).map(v => v.trim()).filter(Boolean)));
-
-          if (!branchByName.has(nameKey)) {
-            b.name = cleanName;
-            branchByName.set(nameKey, b);
-          } else {
-            // Si había una rama duplicada con el mismo nombre, fusionar su información sin perder nada
-            const existing = branchByName.get(nameKey)!;
-            for (const v of b.qaVersions) {
-              if (!existing.qaVersions.includes(v)) existing.qaVersions.push(v);
-            }
-            for (const d of b.devs) {
-              if (!existing.devs.some(ed => ed.toLowerCase() === d.toLowerCase())) {
-                existing.devs.push(d);
-              }
-            }
-            if (!existing.objectivesSummary && b.objectivesSummary) {
-              existing.objectivesSummary = b.objectivesSummary;
-            }
-            if (!existing.rawCommitsOrDiff && b.rawCommitsOrDiff) {
-              existing.rawCommitsOrDiff = b.rawCommitsOrDiff;
-            }
-            if (existing.moduleFlow === 'General' && b.moduleFlow !== 'General') {
-              existing.moduleFlow = b.moduleFlow;
-            }
-          }
-        }
-
-        this.branches = Array.from(branchByName.values());
-        this.saveWorkspace();
-      }
-    } catch {
+  private loadWorkspaceFromRaw(raw: string | null): boolean {
+    if (!raw || !raw.trim()) {
       this.branches = [];
       this.releaseBlocks = [];
       this.availableDevs = [];
       this.availableFlows = [];
+      return true;
+    }
+
+    try {
+      // Limpiar BOM UTF-8 y comas finales accidentales al copiar/pegar JSON manualmente
+      const sanitized = raw
+        .replace(/^\uFEFF/, '')
+        .trim()
+        .replace(/,\s*([}\]])/g, '$1');
+
+      const parsed: any = JSON.parse(sanitized);
+      if (!parsed || typeof parsed !== 'object') {
+        return false;
+      }
+
+      const rawBranches: any[] = Array.isArray(parsed.branches)
+        ? parsed.branches
+        : Array.isArray(parsed)
+        ? parsed
+        : [];
+      this.releaseBlocks = Array.isArray(parsed.releaseBlocks) ? parsed.releaseBlocks : [];
+      const rawDevs: string[] = Array.isArray(parsed.availableDevs) ? parsed.availableDevs : [];
+      const rawFlows: string[] = Array.isArray(parsed.availableFlows) ? [...parsed.availableFlows] : [];
+
+      // Soporte cruzado: si el usuario copió y pegó un JSON del módulo Repo Docs (json/rama/*.json)
+      const folderNameById = new Map<string, string>();
+      if (Array.isArray(parsed.folders)) {
+        for (const folder of parsed.folders) {
+          if (folder && folder.id !== undefined && folder.name) {
+            const folderName = String(folder.name).trim();
+            folderNameById.set(String(folder.id), folderName);
+            if (folderName) rawFlows.push(folderName);
+          }
+        }
+      }
+
+      // 1. Limpiar categorías accidentales (números de fecha/ticket o prefijos truncados al escribir) y deduplicar sin importar mayúsculas/minúsculas
+      const filteredFlows = rawFlows.filter(f => {
+        const clean = (f || '').trim();
+        if (!clean || clean.toLowerCase() === 'general' || /^\d+$/.test(clean)) return false;
+        // Descartar si es un sub-prefijo exacto de otra categoría existente (ej. P, PE, PEn, PEnd -> Pendo)
+        const isPrefixOfLonger = rawFlows.some(
+          other =>
+            other &&
+            other.trim().length > clean.length &&
+            other.trim().toLowerCase().startsWith(clean.toLowerCase())
+        );
+        return !isPrefixOfLonger;
+      });
+
+      const flowMap = new Map<string, string>();
+      for (const fl of filteredFlows) {
+        const normalized = this.formatCanonicalFlowName(fl);
+        const key = normalized.toLowerCase();
+        if (!flowMap.has(key)) {
+          flowMap.set(key, normalized);
+        }
+      }
+      this.availableFlows = Array.from(flowMap.values());
+
+      // 2. Deduplicar catálogo de desarrolladores sin importar mayúsculas/minúsculas
+      this.availableDevs = [];
+      for (const d of rawDevs) {
+        this.ensureGlobalDev(d);
+      }
+
+      // Mapa de sub-ramas por parentId (en caso de pegar un JSON de Repo Docs)
+      const childrenByParentId = new Map<string, any[]>();
+      for (const item of rawBranches) {
+        if (item && item.parentId) {
+          const pid = String(item.parentId);
+          if (!childrenByParentId.has(pid)) childrenByParentId.set(pid, []);
+          childrenByParentId.get(pid)!.push(item);
+        }
+      }
+
+      // 3. Deduplicar ramas con el mismo nombre exacto y normalizar su categoría, campos y devs
+      const branchByName = new Map<string, TrackedBranch>();
+      for (const item of rawBranches) {
+        if (!item || !item.name) continue;
+        // Si proviene de Repo Docs y tiene parentId, se agregará como subBranch de su rama padre
+        if (item.parentId && !item.moduleFlow && !item.featureTitle) continue;
+
+        const cleanName = String(item.name).trim();
+        if (!cleanName) continue;
+        const nameKey = cleanName.toLowerCase();
+
+        // Determinar categoría desde moduleFlow o folderId (si se pegó de Repo Docs)
+        let candidateFlow = item.moduleFlow || '';
+        if (!candidateFlow && item.folderId !== undefined) {
+          candidateFlow = folderNameById.get(String(item.folderId)) || '';
+        }
+        let rawMod = String(candidateFlow || 'General').trim();
+        let resolvedFlow = 'General';
+        if (rawMod && !/^\d+$/.test(rawMod) && rawMod.toLowerCase() !== 'general') {
+          resolvedFlow = this.ensureGlobalFlow(this.formatCanonicalFlowName(rawMod));
+        }
+
+        // Determinar estado válido
+        let state: BranchLifecycleState = 'En desarrollo';
+        if (item.state === 'QA' || item.state === 'Certificada' || item.state === 'En desarrollo') {
+          state = item.state;
+        } else if (Array.isArray(item.tags)) {
+          const tagsUpper = item.tags.map((t: any) => String(t).toUpperCase());
+          if (tagsUpper.some((t: string) => t.includes('PROD') || t.includes('CERT'))) {
+            state = 'Certificada';
+          } else if (tagsUpper.some((t: string) => t.includes('QA'))) {
+            state = 'QA';
+          }
+        }
+
+        // Deduplicar devs y versiones dentro de la rama
+        const uniqueDevs: string[] = [];
+        const sourceDevs = Array.isArray(item.devs) ? item.devs : [];
+        for (const d of sourceDevs) {
+          const canonicalDev = this.ensureGlobalDev(String(d));
+          if (canonicalDev && !uniqueDevs.some(ud => ud.toLowerCase() === canonicalDev.toLowerCase())) {
+            uniqueDevs.push(canonicalDev);
+          }
+        }
+
+        const qaVersions: string[] = Array.isArray(item.qaVersions)
+          ? Array.from(new Set(item.qaVersions.map((v: any) => String(v).trim()).filter(Boolean)))
+          : [];
+
+        // Construir subBranches (nativas o convertidas desde parentId de Repo Docs)
+        const subBranches: SubBranchContext[] = Array.isArray(item.subBranches)
+          ? item.subBranches.map((sb: any, idx: number) => ({
+              id: sb.id || 'sub-' + Date.now() + '-' + idx,
+              branchName: String(sb.branchName || sb.name || '').trim(),
+              devName: String(sb.devName || sb.dev || 'Por asignar').trim(),
+              notesOrCommits: String(sb.notesOrCommits || sb.summary || sb.desc || '').trim(),
+              linkedBranchId: sb.linkedBranchId || sb.sourceBranchId
+            }))
+          : [];
+
+        if (item.id !== undefined && childrenByParentId.has(String(item.id))) {
+          for (const child of childrenByParentId.get(String(item.id))!) {
+            const childName = String(child.name || '').trim();
+            if (childName && !subBranches.some(s => s.branchName.toLowerCase() === childName.toLowerCase())) {
+              subBranches.push({
+                id: String(child.id || 'sub-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)),
+                branchName: childName,
+                devName: 'Por asignar',
+                notesOrCommits: String(child.desc || '').trim()
+              });
+            }
+          }
+        }
+
+        const normalizedBranch: TrackedBranch = {
+          id: String(item.id || 'br-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
+          name: cleanName,
+          moduleFlow: resolvedFlow,
+          featureTitle: String(item.featureTitle || item.desc || cleanName).trim(),
+          state,
+          qaVersions,
+          devs: uniqueDevs,
+          subBranches,
+          objectivesSummary: String(item.objectivesSummary ?? item.desc ?? ''),
+          rawCommitsOrDiff: String(item.rawCommitsOrDiff ?? ''),
+          createdAt: String(item.createdAt || new Date().toISOString().slice(0, 10)),
+          updatedAt: String(item.updatedAt || new Date().toISOString().slice(0, 10))
+        };
+
+        if (!branchByName.has(nameKey)) {
+          branchByName.set(nameKey, normalizedBranch);
+        } else {
+          // Si había una rama duplicada con el mismo nombre, fusionar su información sin perder nada
+          const existing = branchByName.get(nameKey)!;
+          for (const v of normalizedBranch.qaVersions) {
+            if (!existing.qaVersions.includes(v)) existing.qaVersions.push(v);
+          }
+          for (const d of normalizedBranch.devs) {
+            if (!existing.devs.some(ed => ed.toLowerCase() === d.toLowerCase())) {
+              existing.devs.push(d);
+            }
+          }
+          if (!existing.objectivesSummary && normalizedBranch.objectivesSummary) {
+            existing.objectivesSummary = normalizedBranch.objectivesSummary;
+          }
+          if (!existing.rawCommitsOrDiff && normalizedBranch.rawCommitsOrDiff) {
+            existing.rawCommitsOrDiff = normalizedBranch.rawCommitsOrDiff;
+          }
+          if (existing.moduleFlow === 'General' && normalizedBranch.moduleFlow !== 'General') {
+            existing.moduleFlow = normalizedBranch.moduleFlow;
+          }
+        }
+      }
+
+      this.branches = Array.from(branchByName.values());
+
+      // Actualizar únicamente caché local en navegador (NUNCA sobrescribir el disco al leer)
+      try {
+        const payload: GravityLeadWorkspace = {
+          branches: this.branches,
+          releaseBlocks: this.releaseBlocks,
+          availableDevs: this.availableDevs,
+          availableFlows: this.availableFlows
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch {
+        // Ignorar errores de cuota
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Error al parsear el JSON del perfil Gravity:', err);
+      return false;
     }
   }
 
@@ -254,8 +711,29 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
         availableFlows: this.availableFlows
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      this.persistActiveProfileToDisk();
     } catch {
       // Ignorar errores de cuota
+    }
+  }
+
+  private async persistActiveProfileToDisk(): Promise<void> {
+    try {
+      const rootDir = await this.ensureAppBaseDir();
+      const payload: GravityLeadWorkspace = {
+        branches: this.branches,
+        releaseBlocks: this.releaseBlocks,
+        availableDevs: this.availableDevs,
+        availableFlows: this.availableFlows
+      };
+      await this.docApi.saveJsonDoc(
+        this.activeProfileFile,
+        this.BASE_FOLDER,
+        JSON.stringify(payload, null, 2),
+        rootDir
+      );
+    } catch {
+      // Ignorar si está offline
     }
   }
 

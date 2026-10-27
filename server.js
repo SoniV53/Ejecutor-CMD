@@ -160,9 +160,9 @@ const server = http.createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/api/bat/info') return batController.getBatInfo(req, res);
     if (req.method === 'POST' && req.url === '/api/bat/delete') return batController.deleteBat(req, res);
 
-    // GLOBAL GOOGLE DRIVE SYNC MANAGER (Sincronización de toda la data: json, bat, api_docs)
-    if (req.method === 'GET' && req.url === '/api/sync/bundle') return syncController.getSyncBundle(req, res);
-    if (req.method === 'POST' && req.url === '/api/sync/restore') return syncController.restoreSyncBundle(req, res);
+    // GLOBAL GOOGLE DRIVE SYNC MANAGER (Sincronización de toda la data: json, bat, api_docs y carpetas de la app)
+    if (req.method === 'GET' && req.url.startsWith('/api/sync/bundle')) return syncController.getSyncBundle(req, res);
+    if (req.method === 'POST' && req.url.startsWith('/api/sync/restore')) return syncController.restoreSyncBundle(req, res);
 
     // GOOGLE OAUTH EN NAVEGADOR
     if (req.method === 'GET' && req.url === '/api/auth/google/login') return googleAuthController.login(req, res);

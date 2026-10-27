@@ -134,12 +134,29 @@
       </div>
 
       <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 md:p-6 space-y-5 shadow-lg">
-        <!-- Carpetas cubiertas -->
+        <!-- Carpetas cubiertas (detectadas dinámicamente donde está ubicada la app) -->
         <div class="flex items-center gap-2 flex-wrap text-xs">
-          <span class="text-slate-400">Carpetas sincronizadas:</span>
-          <span class="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-mono border border-emerald-500/30">api_docs/</span>
-          <span class="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 font-mono border border-indigo-500/30">bat/</span>
-          <span class="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 font-mono border border-amber-500/30">json/</span>
+          <span class="text-slate-400">Carpetas detectadas en la app:</span>
+          <ng-container *ngIf="detectedFolders.length > 0">
+            <label
+              *ngFor="let folder of detectedFolders"
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-mono border cursor-pointer select-none transition-colors"
+              [ngClass]="
+                folder.selected
+                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/35'
+                  : 'bg-slate-950/60 text-slate-500 border-slate-800'
+              "
+              title="Marca o desmarca esta carpeta para incluirla o excluirla al subir a Google Drive"
+            >
+              <input
+                type="checkbox"
+                [checked]="folder.selected"
+                (change)="toggleFolderSelection(folder)"
+                class="rounded border-slate-600 text-emerald-500 focus:ring-0 cursor-pointer"
+              />
+              <span>{{ folder.name }}/ ({{ folder.fileCount }})</span>
+            </label>
+          </ng-container>
           <span class="text-slate-500 text-[11px] ml-auto">Carpeta en Drive: <strong class="text-slate-300 font-mono">Workspace-Hub</strong></span>
         </div>
 
@@ -210,16 +227,61 @@
               Última sincronización: <strong class="text-slate-200 font-medium">{{ formatLastSync(syncStatus.lastSync) }}</strong>
             </div>
 
-            <div class="flex items-center gap-2.5">
+            <div class="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                (click)="toggleFileSelector()"
+                class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                title="Elegir qué archivos de las carpetas de la app subir y cuáles no"
+              >
+                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 11l3 3L22 4"></path>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+                <span>{{ showFileSelector ? 'Ocultar selección' : 'Elegir qué archivos subir' }}</span>
+              </button>
+
               <button
                 type="button"
                 (click)="syncUpload()"
                 [disabled]="syncStatus.isSyncing"
                 class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md transition-all active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-2"
               >
-                <i *ngIf="!syncStatus.isSyncing" data-lucide="cloud-upload" class="w-4 h-4"></i>
-                <i *ngIf="syncStatus.isSyncing" data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
-                <span>Subir Respaldo a Drive</span>
+                <svg
+                  *ngIf="!syncStatus.isSyncing"
+                  class="w-4 h-4 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path>
+                  <path d="M12 12v9"></path>
+                  <path d="m16 16-4-4-4 4"></path>
+                </svg>
+                <svg
+                  *ngIf="syncStatus.isSyncing"
+                  class="w-4 h-4 animate-spin shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+                </svg>
+                <span>
+                  {{
+                    syncStatus.isSyncing
+                      ? 'Subiendo respaldo...'
+                      : localFiles.length > 0
+                        ? 'Subir Respaldo a Drive (' + selectedFilesCount + ')'
+                        : 'Subir Respaldo a Drive'
+                  }}
+                </span>
               </button>
 
               <button
@@ -228,15 +290,125 @@
                 [disabled]="syncStatus.isSyncing"
                 class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-all active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-2"
               >
-                <i data-lucide="cloud-download" class="w-4 h-4"></i>
+                <svg
+                  class="w-4 h-4 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path>
+                  <path d="M12 12v9"></path>
+                  <path d="m8 17 4 4 4-4"></path>
+                </svg>
                 <span>Descargar de Drive</span>
               </button>
             </div>
           </div>
 
+          <!-- Panel desplegable para elegir qué archivos subir y cuáles no -->
+          <div
+            *ngIf="showFileSelector"
+            class="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-3"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  (click)="activeBucketFilter = 'all'"
+                  class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                  [ngClass]="activeBucketFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'"
+                >
+                  Todas ({{ localFiles.length }})
+                </button>
+                <div
+                  *ngFor="let folder of detectedFolders"
+                  (click)="activeBucketFilter = folder.name"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold border transition-colors cursor-pointer"
+                  [ngClass]="
+                    activeBucketFilter === folder.name
+                      ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                      : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+                  "
+                >
+                  <input
+                    type="checkbox"
+                    [checked]="folder.selected"
+                    (click)="toggleFolderSelection(folder, $event)"
+                    class="rounded border-slate-600 text-emerald-500 focus:ring-0 cursor-pointer"
+                    title="Incluir o excluir toda la carpeta {{ folder.name }}/"
+                  />
+                  <span>{{ folder.name }}/ ({{ folder.fileCount }})</span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  (click)="selectAllFiles(true)"
+                  class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 font-semibold cursor-pointer"
+                >
+                  Marcar todos
+                </button>
+                <button
+                  type="button"
+                  (click)="selectAllFiles(false)"
+                  class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 font-semibold cursor-pointer"
+                >
+                  Desmarcar
+                </button>
+                <button
+                  type="button"
+                  (click)="loadLocalFiles()"
+                  class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer"
+                >
+                  Refrescar
+                </button>
+              </div>
+            </div>
+
+            <div class="max-h-52 overflow-y-auto space-y-1.5 pr-1">
+              <div *ngIf="isLoadingLocalFiles" class="text-xs text-slate-400 py-3 text-center">
+                Cargando carpetas y archivos...
+              </div>
+              <div
+                *ngIf="!isLoadingLocalFiles && filteredLocalFiles.length === 0"
+                class="text-xs text-slate-500 py-3 text-center"
+              >
+                No hay archivos en esta carpeta (si la carpeta está marcada arriba, se subirá a Drive).
+              </div>
+              <label
+                *ngFor="let file of filteredLocalFiles"
+                class="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border text-xs cursor-pointer select-none transition-colors"
+                [ngClass]="
+                  file.selected
+                    ? 'bg-slate-900 border-slate-700 text-slate-100'
+                    : 'bg-slate-950/40 border-slate-800/60 text-slate-500'
+                "
+              >
+                <div class="flex items-center gap-2 min-w-0">
+                  <input
+                    type="checkbox"
+                    [checked]="file.selected"
+                    (change)="toggleFileItemSelection(file)"
+                    class="rounded border-slate-600 text-emerald-500 focus:ring-0 cursor-pointer shrink-0"
+                  />
+                  <span class="font-mono text-xs truncate">{{ file.relativePath }}</span>
+                </div>
+                <span class="text-[10px] font-bold shrink-0" [ngClass]="file.selected ? 'text-emerald-400' : 'text-slate-600'">
+                  {{ file.selected ? 'Subir' : 'No subir' }}
+                </span>
+              </label>
+            </div>
+          </div>
+
           <!-- Mensaje de estado -->
           <div *ngIf="syncStatus.isSyncing" class="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center gap-2.5 text-xs text-indigo-300">
-            <i data-lucide="loader-2" class="w-4 h-4 animate-spin shrink-0"></i>
+            <svg class="w-4 h-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+            </svg>
             <span>{{ syncStatus.message }}</span>
           </div>
         </div>

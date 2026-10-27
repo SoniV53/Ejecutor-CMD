@@ -7,15 +7,26 @@ const BASE_DIR = process.env.PORTABLE_EXECUTABLE_DIR || path.join(__dirname, '..
 const DOCS_ROOT = path.join(BASE_DIR, 'api_docs');
 const DOCS_ROOT_JSON = path.join(BASE_DIR, 'json');
 
-// Asegurar que la carpeta raíz de docs exista
+// Asegurar que las carpetas raíz existan
 if (!fs.existsSync(DOCS_ROOT)) {
     fs.mkdirSync(DOCS_ROOT, { recursive: true });
 }
+if (!fs.existsSync(DOCS_ROOT_JSON)) {
+    fs.mkdirSync(DOCS_ROOT_JSON, { recursive: true });
+}
 
-function resolveRoot(root) {
+function isInternalJsonPath(subPath) {
+    const clean = (subPath || '').replace(/\\/g, '/').replace(/^\/+/, '').trim();
+    return clean === 'json' || clean.startsWith('json/');
+}
+
+function resolveRoot(root, subPath = '') {
     const trimmed = (root || '').trim();
     if (trimmed && fs.existsSync(trimmed)) {
         return trimmed;
+    }
+    if (isInternalJsonPath(subPath)) {
+        return BASE_DIR;
     }
     return DOCS_ROOT;
 }
@@ -24,28 +35,45 @@ const getDocInfo = (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
         defaultDocsDir: DOCS_ROOT,
+        jsonDir: DOCS_ROOT_JSON,
+        gravityDir: path.join(DOCS_ROOT_JSON, 'gravity'),
+        ramaDir: path.join(DOCS_ROOT_JSON, 'rama'),
         baseDir: BASE_DIR
     }));
 };
 
-// Migración suave: si existen archivos en json/json/rama que no estén en api_docs/json/rama, copiarlos
+// Migración limpia: mover archivos de Repo Docs que estaban en api_docs/json/rama o json/json/rama hacia json/rama
+// para que api_docs quede exclusivamente para las notas de API Docs
 try {
-    const legacyRamaDir = path.join(DOCS_ROOT_JSON, 'json', 'rama');
-    const targetRamaDir = path.join(DOCS_ROOT, 'json', 'rama');
-    if (fs.existsSync(legacyRamaDir)) {
-        if (!fs.existsSync(targetRamaDir)) {
-            fs.mkdirSync(targetRamaDir, { recursive: true });
-        }
-        const legacyFiles = fs.readdirSync(legacyRamaDir);
-        for (const f of legacyFiles) {
-            if (f.endsWith('.json')) {
-                const srcFile = path.join(legacyRamaDir, f);
-                const dstFile = path.join(targetRamaDir, f);
-                if (!fs.existsSync(dstFile)) {
-                    fs.copyFileSync(srcFile, dstFile);
+    const canonicalRamaDir = path.join(DOCS_ROOT_JSON, 'rama');
+    const canonicalGravityDir = path.join(DOCS_ROOT_JSON, 'gravity');
+    if (!fs.existsSync(canonicalRamaDir)) fs.mkdirSync(canonicalRamaDir, { recursive: true });
+    if (!fs.existsSync(canonicalGravityDir)) fs.mkdirSync(canonicalGravityDir, { recursive: true });
+
+    const legacySources = [
+        path.join(DOCS_ROOT_JSON, 'json', 'rama'),
+        path.join(DOCS_ROOT, 'json', 'rama')
+    ];
+
+    for (const srcDir of legacySources) {
+        if (fs.existsSync(srcDir)) {
+            const files = fs.readdirSync(srcDir);
+            for (const f of files) {
+                if (f.endsWith('.json')) {
+                    const srcFile = path.join(srcDir, f);
+                    const dstFile = path.join(canonicalRamaDir, f);
+                    if (!fs.existsSync(dstFile)) {
+                        fs.copyFileSync(srcFile, dstFile);
+                    }
                 }
             }
         }
+    }
+
+    // Limpiar la carpeta accidental api_docs/json para que no aparezca en API Docs
+    const accidentalApiDocsJson = path.join(DOCS_ROOT, 'json');
+    if (fs.existsSync(accidentalApiDocsJson)) {
+        fs.rmSync(accidentalApiDocsJson, { recursive: true, force: true });
     }
 } catch {
     // Ignorar errores de migración opcional
@@ -55,7 +83,7 @@ const listDocs = (req, res) => {
     const urlParams = new URL(req.url, `http://${req.headers.host}`);
     const rootParam = urlParams.searchParams.get('root') || '';
     const subDir = urlParams.searchParams.get('path') || '';
-    const effectiveRoot = resolveRoot(rootParam);
+    const effectiveRoot = resolveRoot(rootParam, subDir);
 
     const targetPath = subDir ? path.join(effectiveRoot, subDir) : effectiveRoot;
 
@@ -145,7 +173,7 @@ const saveDoc = (req, res) => {
     req.on('end', () => {
         try {
             const { fileName, folder, content, root } = JSON.parse(body);
-            const effectiveRoot = resolveRoot(root);
+            const effectiveRoot = resolveRoot(root, folder);
             const targetFolder = folder ? path.join(effectiveRoot, folder) : effectiveRoot;
 
             if (!fs.existsSync(targetFolder)) {
@@ -192,7 +220,7 @@ const saveJsonDoc = (req, res) => {
     req.on('end', () => {
         try {
             const { fileName, folder, content, root } = JSON.parse(body);
-            const effectiveRoot = resolveRoot(root);
+            const effectiveRoot = resolveRoot(root, folder);
             const targetFolder = folder ? path.join(effectiveRoot, folder) : effectiveRoot;
 
             if (!fs.existsSync(targetFolder)) {
@@ -225,7 +253,7 @@ const readFile = (req, res) => {
         return res.end(JSON.stringify({ error: 'Ruta no especificada' }));
     }
 
-    const effectiveRoot = resolveRoot(rootParam);
+    const effectiveRoot = resolveRoot(rootParam, filePath);
 
     try {
         const fullPath = path.isAbsolute(filePath) ? filePath : path.join(effectiveRoot, filePath);
@@ -249,7 +277,7 @@ const deleteItem = (req, res) => {
     req.on('end', () => {
         try {
             const { itemPath, root } = JSON.parse(body);
-            const effectiveRoot = resolveRoot(root);
+            const effectiveRoot = resolveRoot(root, itemPath);
             const fullPath = path.isAbsolute(itemPath) ? itemPath : path.join(effectiveRoot, itemPath);
 
             if (fs.existsSync(fullPath)) {
@@ -275,7 +303,7 @@ const renameItem = (req, res) => {
     req.on('end', () => {
         try {
             const { oldPath, newName, root } = JSON.parse(body);
-            const effectiveRoot = resolveRoot(root);
+            const effectiveRoot = resolveRoot(root, oldPath);
             const fullOldPath = path.isAbsolute(oldPath) ? oldPath : path.join(effectiveRoot, oldPath);
 
             if (!fs.existsSync(fullOldPath)) {
@@ -307,7 +335,7 @@ const openInExplorer = (req, res) => {
     req.on('end', () => {
         try {
             const { folder, root } = JSON.parse(body || '{}');
-            const effectiveRoot = resolveRoot(root);
+            const effectiveRoot = resolveRoot(root, folder);
             const targetFolder = folder ? (path.isAbsolute(folder) ? folder : path.join(effectiveRoot, folder)) : effectiveRoot;
 
             if (!fs.existsSync(targetFolder)) {

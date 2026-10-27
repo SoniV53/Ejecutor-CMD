@@ -13,6 +13,21 @@ export interface NavItem {
   icon: string;
 }
 
+export interface SelectableSyncFolder {
+  name: string;
+  fileCount: number;
+  selected: boolean;
+}
+
+export interface SelectableSyncFile {
+  key: string;
+  bucket: string;
+  folderLabel: string;
+  name: string;
+  relativePath: string;
+  selected: boolean;
+}
+
 @Component({
   selector: 'app-sidebar-nav',
   standalone: true,
@@ -29,6 +44,12 @@ export class SidebarNavComponent implements OnInit, OnDestroy, AfterViewInit {
   user: GoogleUserProfile | null = null;
   syncStatus: SyncStatus = { isSyncing: false, lastSync: null, message: 'Listo' };
   showSyncModal = false;
+
+  // Selector de todas las carpetas y archivos donde está ubicada la app
+  detectedFolders: SelectableSyncFolder[] = [];
+  localFiles: SelectableSyncFile[] = [];
+  isLoadingLocalFiles = false;
+  activeBucketFilter = 'all';
 
   toastMsg = '';
   toastVisible = false;
@@ -99,7 +120,130 @@ export class SidebarNavComponent implements OnInit, OnDestroy, AfterViewInit {
 
   toggleSyncModal(): void {
     this.showSyncModal = !this.showSyncModal;
+    if (this.showSyncModal) {
+      this.loadLocalFiles();
+    }
     setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  async loadLocalFiles(): Promise<void> {
+    this.isLoadingLocalFiles = true;
+    try {
+      const bundle = await this.googleDrive.getLocalWorkspaceFiles();
+      const prevUnselectedFiles = new Set(
+        this.localFiles.filter((f) => !f.selected).map((f) => f.key)
+      );
+      const prevUnselectedFolders = new Set(
+        this.detectedFolders.filter((fl) => !fl.selected).map((fl) => fl.name)
+      );
+
+      const folderEntries =
+        bundle.folders && bundle.folders.length > 0
+          ? bundle.folders
+          : Object.keys(bundle.data || {}).map((name) => ({
+              name,
+              fileCount: (bundle.data[name] || []).length,
+              files: bundle.data[name] || []
+            }));
+
+      const foldersList: SelectableSyncFolder[] = [];
+      const filesList: SelectableSyncFile[] = [];
+
+      for (const folder of folderEntries) {
+        const folderSelected = !prevUnselectedFolders.has(folder.name);
+        const items = folder.files || [];
+
+        foldersList.push({
+          name: folder.name,
+          fileCount: items.length,
+          selected: folderSelected
+        });
+
+        for (const item of items) {
+          const rel = item.relativePath || item.name;
+          const key = `${folder.name}:${rel}`;
+          filesList.push({
+            key,
+            bucket: folder.name,
+            folderLabel: `${folder.name}/`,
+            name: item.name,
+            relativePath: `${folder.name}/${rel}`,
+            selected: folderSelected && !prevUnselectedFiles.has(key)
+          });
+        }
+      }
+
+      this.detectedFolders = foldersList;
+      this.localFiles = filesList;
+    } catch (err) {
+      console.warn('No se pudieron listar carpetas y archivos locales:', err);
+    } finally {
+      this.isLoadingLocalFiles = false;
+      setTimeout(() => this.lucide.refresh(), 50);
+    }
+  }
+
+  get filteredLocalFiles(): SelectableSyncFile[] {
+    if (this.activeBucketFilter === 'all') return this.localFiles;
+    return this.localFiles.filter((f) => f.bucket === this.activeBucketFilter);
+  }
+
+  get selectedFilesCount(): number {
+    return this.localFiles.filter((f) => f.selected).length;
+  }
+
+  get selectedFoldersCount(): number {
+    return this.detectedFolders.filter((fl) => fl.selected).length;
+  }
+
+  get canUploadSelection(): boolean {
+    return this.selectedFilesCount > 0 || this.selectedFoldersCount > 0;
+  }
+
+  getBucketCount(bucket: string): number {
+    return this.localFiles.filter((f) => f.bucket === bucket).length;
+  }
+
+  setBucketFilter(filter: string): void {
+    this.activeBucketFilter = filter;
+  }
+
+  toggleFolderSelection(folder: SelectableSyncFolder, event?: Event): void {
+    if (event) event.stopPropagation();
+    folder.selected = !folder.selected;
+    for (const file of this.localFiles) {
+      if (file.bucket === folder.name) {
+        file.selected = folder.selected;
+      }
+    }
+  }
+
+  toggleFileSelection(file: SelectableSyncFile): void {
+    file.selected = !file.selected;
+    const parentFolder = this.detectedFolders.find((fl) => fl.name === file.bucket);
+    if (parentFolder) {
+      const anySelectedInFolder = this.localFiles.some(
+        (f) => f.bucket === file.bucket && f.selected
+      );
+      parentFolder.selected = anySelectedInFolder;
+    }
+  }
+
+  selectAllFiles(selected: boolean): void {
+    if (this.activeBucketFilter === 'all') {
+      for (const fl of this.detectedFolders) {
+        fl.selected = selected;
+      }
+      for (const f of this.localFiles) {
+        f.selected = selected;
+      }
+    } else {
+      const targetFolder = this.detectedFolders.find((fl) => fl.name === this.activeBucketFilter);
+      if (targetFolder) targetFolder.selected = selected;
+      for (const f of this.filteredLocalFiles) {
+        f.selected = selected;
+      }
+    }
   }
 
   async loginGoogle(): Promise<void> {
@@ -120,7 +264,17 @@ export class SidebarNavComponent implements OnInit, OnDestroy, AfterViewInit {
 
   async syncUpload(): Promise<void> {
     try {
-      const res = await this.googleDrive.uploadFullWorkspaceToDrive();
+      const selectedKeys = new Set(
+        this.localFiles.filter((f) => f.selected).map((f) => f.key)
+      );
+      const selectedFolders = new Set(
+        this.detectedFolders.filter((fl) => fl.selected).map((fl) => fl.name)
+      );
+      if (selectedKeys.size === 0 && selectedFolders.size === 0) {
+        this.showToast('Selecciona al menos una carpeta o archivo para subir');
+        return;
+      }
+      const res = await this.googleDrive.uploadFullWorkspaceToDrive(selectedKeys, selectedFolders);
       this.showToast(res.message);
     } catch (err: any) {
       this.showToast('Error al subir: ' + (err.message || err));
@@ -130,6 +284,7 @@ export class SidebarNavComponent implements OnInit, OnDestroy, AfterViewInit {
   async syncDownload(): Promise<void> {
     try {
       const res = await this.googleDrive.downloadFullWorkspaceFromDrive();
+      await this.loadLocalFiles();
       this.showToast(res.message);
     } catch (err: any) {
       this.showToast('Error al descargar: ' + (err.message || err));

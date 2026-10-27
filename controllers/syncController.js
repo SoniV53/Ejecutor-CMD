@@ -6,12 +6,59 @@ const JSON_DIR = path.join(BASE_DIR, 'json');
 const BAT_DIR = path.join(BASE_DIR, 'bat');
 const DOCS_DIR = path.join(BASE_DIR, 'api_docs');
 
-// Asegurar que las carpetas base existan
+// Carpetas internas del sistema / código fuente / compilación que NO son carpetas de usuario
+const IGNORED_SYSTEM_DIRS = new Set([
+    'node_modules',
+    'src',
+    'dist',
+    'release',
+    'out',
+    'build',
+    'controllers',
+    'scripts',
+    'assets',
+    'tasks',
+    'resources',
+    'locales',
+    'swiftshader',
+    'win-unpacked',
+    '.git',
+    '.angular',
+    '.vscode',
+    '.gemini',
+    '.idea',
+    '.github'
+]);
+
+// Asegurar que las carpetas base por defecto existan
 [JSON_DIR, BAT_DIR, DOCS_DIR].forEach(dir => {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }
 });
+
+// Detecta todas las carpetas de usuario que existan donde está ubicada la app (ej. api_docs, bat, json, notas, etc.)
+function getAppUserFolders() {
+    if (!fs.existsSync(BASE_DIR)) return [];
+    const entries = fs.readdirSync(BASE_DIR, { withFileTypes: true });
+    const folders = [];
+    for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const name = entry.name;
+        if (name.startsWith('.')) continue;
+        if (IGNORED_SYSTEM_DIRS.has(name.toLowerCase())) continue;
+        folders.push(name);
+    }
+    // Ordenar poniendo primero api_docs, bat, json y luego cualquier carpeta creada por el usuario (ej. notas)
+    const priority = { api_docs: 1, bat: 2, json: 3 };
+    folders.sort((a, b) => {
+        const pa = priority[a.toLowerCase()] || 99;
+        const pb = priority[b.toLowerCase()] || 99;
+        if (pa !== pb) return pa - pb;
+        return a.localeCompare(b);
+    });
+    return folders;
+}
 
 // Función auxiliar para leer recursivamente todos los archivos de un directorio
 function readFilesRecursively(dirPath, rootDir = dirPath) {
@@ -46,26 +93,33 @@ function readFilesRecursively(dirPath, rootDir = dirPath) {
     return results;
 }
 
-// GET /api/sync/bundle -> Obtiene toda la data de la app (json, bat, api_docs)
+// GET /api/sync/bundle -> Obtiene TODAS las carpetas y archivos donde está ubicada la app
 const getSyncBundle = (req, res) => {
     try {
-        const jsonFiles = readFilesRecursively(JSON_DIR);
-        const batFiles = readFilesRecursively(BAT_DIR);
-        const apiDocFiles = readFilesRecursively(DOCS_DIR);
+        const folderNames = getAppUserFolders();
+        const data = {};
+        const counts = {};
+        const folders = [];
+
+        for (const folderName of folderNames) {
+            const folderPath = path.join(BASE_DIR, folderName);
+            const files = readFilesRecursively(folderPath);
+            data[folderName] = files;
+            counts[folderName] = files.length;
+            folders.push({
+                name: folderName,
+                fileCount: files.length,
+                files
+            });
+        }
 
         const bundle = {
             status: 'success',
             timestamp: Date.now(),
-            counts: {
-                json: jsonFiles.length,
-                bat: batFiles.length,
-                api_docs: apiDocFiles.length
-            },
-            data: {
-                json: jsonFiles,
-                bat: batFiles,
-                api_docs: apiDocFiles
-            }
+            baseDir: BASE_DIR,
+            folders,
+            counts,
+            data
         };
 
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -77,7 +131,7 @@ const getSyncBundle = (req, res) => {
     }
 };
 
-// POST /api/sync/restore -> Restaura o actualiza archivos en el disco local
+// POST /api/sync/restore -> Restaura o actualiza cualquier carpeta y archivo en el directorio de la app
 const restoreSyncBundle = (req, res) => {
     let body = '';
     req.on('data', chunk => (body += chunk.toString('utf8')));
@@ -85,45 +139,50 @@ const restoreSyncBundle = (req, res) => {
         try {
             const payload = JSON.parse(body || '{}');
             const data = payload.data || {};
+            const emptyFolders = Array.isArray(payload.emptyFolders) ? payload.emptyFolders : [];
             let writtenCount = 0;
 
-            // 1. Restaurar archivos JSON
-            if (Array.isArray(data.json)) {
-                for (const item of data.json) {
-                    if (!item.name || typeof item.content !== 'string') continue;
-                    const cleanName = path.basename(item.relativePath || item.name);
-                    const targetFile = path.join(JSON_DIR, cleanName);
-                    fs.writeFileSync(targetFile, item.content, 'utf8');
-                    writtenCount++;
+            // Crear carpetas vacías seleccionadas si aplica (ej. carpeta 'notas' recién creada)
+            for (const rawFolder of emptyFolders) {
+                const safeFolderName = path.basename(String(rawFolder || '').trim());
+                if (!safeFolderName || safeFolderName.startsWith('.') || IGNORED_SYSTEM_DIRS.has(safeFolderName.toLowerCase())) {
+                    continue;
+                }
+                const folderTarget = path.join(BASE_DIR, safeFolderName);
+                if (!fs.existsSync(folderTarget)) {
+                    fs.mkdirSync(folderTarget, { recursive: true });
                 }
             }
 
-            // 2. Restaurar archivos BAT
-            if (Array.isArray(data.bat)) {
-                for (const item of data.bat) {
-                    if (!item.name || typeof item.content !== 'string') continue;
-                    const cleanName = path.basename(item.relativePath || item.name);
-                    const targetFile = path.join(BAT_DIR, cleanName);
-                    const normalized = item.content.replace(/\r?\n/g, '\r\n');
-                    fs.writeFileSync(targetFile, normalized, 'utf8');
-                    writtenCount++;
+            // Restaurar archivos de todas las carpetas recibidas (api_docs, bat, json, notas, etc.)
+            for (const [rawFolderName, items] of Object.entries(data)) {
+                const safeFolderName = path.basename(String(rawFolderName || '').trim());
+                if (!safeFolderName || safeFolderName.startsWith('.') || IGNORED_SYSTEM_DIRS.has(safeFolderName.toLowerCase())) {
+                    continue;
                 }
-            }
+                if (!Array.isArray(items)) continue;
 
-            // 3. Restaurar archivos API_DOCS (pueden ser recursivos)
-            if (Array.isArray(data.api_docs)) {
-                for (const item of data.api_docs) {
-                    const rel = (item.relativePath || item.name || '').replace(/\\/g, '/');
-                    if (!rel || typeof item.content !== 'string') continue;
+                const folderRoot = path.join(BASE_DIR, safeFolderName);
+                if (!fs.existsSync(folderRoot)) {
+                    fs.mkdirSync(folderRoot, { recursive: true });
+                }
 
-                    const targetFile = path.join(DOCS_DIR, rel);
+                for (const item of items) {
+                    const rel = (item.relativePath || item.name || '').replace(/\\/g, '/').replace(/^\/+/, '');
+                    if (!rel || rel.includes('..') || typeof item.content !== 'string') continue;
+
+                    const targetFile = path.join(folderRoot, rel);
                     const targetDir = path.dirname(targetFile);
-
                     if (!fs.existsSync(targetDir)) {
                         fs.mkdirSync(targetDir, { recursive: true });
                     }
 
-                    fs.writeFileSync(targetFile, item.content, 'utf8');
+                    const contentToWrite =
+                        safeFolderName.toLowerCase() === 'bat' || rel.toLowerCase().endsWith('.bat')
+                            ? item.content.replace(/\r?\n/g, '\r\n')
+                            : item.content;
+
+                    fs.writeFileSync(targetFile, contentToWrite, 'utf8');
                     writtenCount++;
                 }
             }

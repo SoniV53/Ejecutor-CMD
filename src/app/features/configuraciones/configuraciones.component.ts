@@ -25,6 +25,21 @@ export class ConfiguracionesComponent implements OnInit, OnDestroy, AfterViewIni
   isLoggedIn = false;
   user: GoogleUserProfile | null = null;
   syncStatus: SyncStatus = { isSyncing: false, lastSync: null, message: 'Listo' };
+  showFileSelector = false;
+  detectedFolders: Array<{
+    name: string;
+    fileCount: number;
+    selected: boolean;
+  }> = [];
+  localFiles: Array<{
+    key: string;
+    bucket: string;
+    name: string;
+    relativePath: string;
+    selected: boolean;
+  }> = [];
+  isLoadingLocalFiles = false;
+  activeBucketFilter = 'all';
 
   toastMsg = '';
   toastVisible = false;
@@ -67,6 +82,8 @@ export class ConfiguracionesComponent implements OnInit, OnDestroy, AfterViewIni
         this.lucide.refresh();
       })
     );
+
+    this.loadLocalFiles();
   }
 
   ngAfterViewInit(): void {
@@ -110,9 +127,147 @@ export class ConfiguracionesComponent implements OnInit, OnDestroy, AfterViewIni
     setTimeout(() => this.lucide.refresh(), 50);
   }
 
+  toggleFileSelector(): void {
+    this.showFileSelector = !this.showFileSelector;
+    if (this.showFileSelector) {
+      this.loadLocalFiles();
+    }
+    setTimeout(() => this.lucide.refresh(), 40);
+  }
+
+  async loadLocalFiles(): Promise<void> {
+    this.isLoadingLocalFiles = true;
+    try {
+      const bundle = await this.googleDrive.getLocalWorkspaceFiles();
+      const prevUnselectedFiles = new Set(
+        this.localFiles.filter(f => !f.selected).map(f => f.key)
+      );
+      const prevUnselectedFolders = new Set(
+        this.detectedFolders.filter(fl => !fl.selected).map(fl => fl.name)
+      );
+
+      const folderEntries =
+        bundle.folders && bundle.folders.length > 0
+          ? bundle.folders
+          : Object.keys(bundle.data || {}).map(name => ({
+              name,
+              fileCount: (bundle.data[name] || []).length,
+              files: bundle.data[name] || []
+            }));
+
+      const foldersList: Array<{ name: string; fileCount: number; selected: boolean }> = [];
+      const list: Array<{
+        key: string;
+        bucket: string;
+        name: string;
+        relativePath: string;
+        selected: boolean;
+      }> = [];
+
+      for (const folder of folderEntries) {
+        const folderSelected = !prevUnselectedFolders.has(folder.name);
+        const items = folder.files || [];
+
+        foldersList.push({
+          name: folder.name,
+          fileCount: items.length,
+          selected: folderSelected
+        });
+
+        for (const item of items) {
+          const rel = item.relativePath || item.name;
+          const key = `${folder.name}:${rel}`;
+          list.push({
+            key,
+            bucket: folder.name,
+            name: item.name,
+            relativePath: `${folder.name}/${rel}`,
+            selected: folderSelected && !prevUnselectedFiles.has(key)
+          });
+        }
+      }
+
+      this.detectedFolders = foldersList;
+      this.localFiles = list;
+    } catch {
+      // Ignorar error de red
+    } finally {
+      this.isLoadingLocalFiles = false;
+      setTimeout(() => this.lucide.refresh(), 40);
+    }
+  }
+
+  get filteredLocalFiles() {
+    if (this.activeBucketFilter === 'all') return this.localFiles;
+    return this.localFiles.filter(f => f.bucket === this.activeBucketFilter);
+  }
+
+  get selectedFilesCount(): number {
+    return this.localFiles.filter(f => f.selected).length;
+  }
+
+  get selectedFoldersCount(): number {
+    return this.detectedFolders.filter(fl => fl.selected).length;
+  }
+
+  toggleFolderSelection(
+    folder: { name: string; fileCount: number; selected: boolean },
+    event?: Event
+  ): void {
+    if (event) event.stopPropagation();
+    folder.selected = !folder.selected;
+    for (const file of this.localFiles) {
+      if (file.bucket === folder.name) {
+        file.selected = folder.selected;
+      }
+    }
+  }
+
+  toggleFileItemSelection(file: { bucket: string; selected: boolean }): void {
+    file.selected = !file.selected;
+    const parentFolder = this.detectedFolders.find(fl => fl.name === file.bucket);
+    if (parentFolder) {
+      parentFolder.selected = this.localFiles.some(
+        f => f.bucket === file.bucket && f.selected
+      );
+    }
+  }
+
+  selectAllFiles(selected: boolean): void {
+    if (this.activeBucketFilter === 'all') {
+      for (const fl of this.detectedFolders) {
+        fl.selected = selected;
+      }
+      for (const f of this.localFiles) {
+        f.selected = selected;
+      }
+    } else {
+      const targetFolder = this.detectedFolders.find(fl => fl.name === this.activeBucketFilter);
+      if (targetFolder) targetFolder.selected = selected;
+      for (const f of this.filteredLocalFiles) {
+        f.selected = selected;
+      }
+    }
+  }
+
   async syncUpload(): Promise<void> {
     try {
-      const res = await this.googleDrive.uploadFullWorkspaceToDrive();
+      let selectedKeys: Set<string> | undefined;
+      let selectedFolders: Set<string> | undefined;
+      if (this.localFiles.length > 0 || this.detectedFolders.length > 0) {
+        selectedKeys = new Set(this.localFiles.filter(f => f.selected).map(f => f.key));
+        selectedFolders = new Set(
+          this.detectedFolders.filter(fl => fl.selected).map(fl => fl.name)
+        );
+        if (selectedKeys.size === 0 && selectedFolders.size === 0) {
+          this.showToast('Selecciona al menos una carpeta o archivo para subir');
+          return;
+        }
+      }
+      const res = await this.googleDrive.uploadFullWorkspaceToDrive(
+        selectedKeys,
+        selectedFolders
+      );
       this.showToast(res.message);
     } catch (err: any) {
       this.showToast('Error al subir: ' + (err.message || err));
@@ -122,6 +277,9 @@ export class ConfiguracionesComponent implements OnInit, OnDestroy, AfterViewIni
   async syncDownload(): Promise<void> {
     try {
       const res = await this.googleDrive.downloadFullWorkspaceFromDrive();
+      if (this.showFileSelector) {
+        await this.loadLocalFiles();
+      }
       this.showToast(res.message);
     } catch (err: any) {
       this.showToast('Error al descargar: ' + (err.message || err));
