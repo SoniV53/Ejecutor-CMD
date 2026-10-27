@@ -113,6 +113,9 @@ export class RepoBranchDetailComponent implements OnChanges, AfterViewInit {
   newTagColor = 'indigo';
   readonly tagColorOptions = TAG_COLOR_OPTIONS;
 
+  copiedBranchKey: string | null = null;
+  private copiedBranchTimer: any;
+
   getSelectedTagDotClass(color: string): string {
     return getTagDotClass(color);
   }
@@ -650,6 +653,22 @@ export class RepoBranchDetailComponent implements OnChanges, AfterViewInit {
     } catch {
       return dateStr;
     }
+  }
+
+  async copyBranchName(name: string, key = 'main', event?: Event): Promise<void> {
+    if (event) event.stopPropagation();
+    const clean = (name || '').trim();
+    if (!clean) return;
+    try {
+      await navigator.clipboard.writeText(clean);
+      this.copiedBranchKey = key;
+      this.lucide.refresh();
+      if (this.copiedBranchTimer) clearTimeout(this.copiedBranchTimer);
+      this.copiedBranchTimer = setTimeout(() => {
+        this.copiedBranchKey = null;
+        this.lucide.refresh();
+      }, 1500);
+    } catch {}
   }
 
   exportBranchPDF(): void {

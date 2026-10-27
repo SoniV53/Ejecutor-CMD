@@ -753,9 +753,25 @@
             </button>
           </div>
 
-          <h1 class="text-2xl md:text-3xl font-bold text-slate-900 font-mono mb-2 break-words">
-            {{ currentBranch.name }}
-          </h1>
+          <div class="flex flex-wrap items-center gap-2.5 mb-2">
+            <h1 class="text-2xl md:text-3xl font-bold text-slate-900 font-mono break-words">
+              {{ currentBranch.name }}
+            </h1>
+            <button
+              type="button"
+              (click)="copyBranchName(currentBranch.name, 'header_' + currentBranch.id, $event)"
+              class="no-print inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition cursor-pointer shadow-2xs"
+              [ngClass]="
+                copiedBranchKey === 'header_' + currentBranch.id
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                  : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600 hover:text-indigo-600'
+              "
+              title="Copiar nombre de la rama"
+            >
+              <i [attr.data-lucide]="copiedBranchKey === 'header_' + currentBranch.id ? 'check' : 'copy'" class="w-3.5 h-3.5"></i>
+              <span>{{ copiedBranchKey === 'header_' + currentBranch.id ? 'Copiada' : 'Copiar' }}</span>
+            </button>
+          </div>
           <p *ngIf="currentBranch.desc" class="text-slate-600 mt-1 max-w-3xl leading-relaxed whitespace-pre-wrap text-sm">
             {{ currentBranch.desc }}
           </p>

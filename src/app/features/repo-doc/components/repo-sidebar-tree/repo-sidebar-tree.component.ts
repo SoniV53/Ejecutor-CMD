@@ -50,6 +50,8 @@ export class RepoSidebarTreeComponent implements OnChanges, AfterViewInit {
   searchFilterTab: 'all' | 'folders' | 'branches' = 'all';
   draggingBranchId: string | null = null;
   dragOverFolderId: string | 'ROOT' | null = null;
+  copiedBranchId: string | null = null;
+  private copiedTimer: any;
 
   constructor(private lucide: LucideIconService) {}
 
@@ -256,6 +258,22 @@ export class RepoSidebarTreeComponent implements OnChanges, AfterViewInit {
       parentId: parentBranch.id,
       isMain: false
     });
+  }
+
+  async onCopyBranchName(branch: RepoBranch, event: Event): Promise<void> {
+    event.stopPropagation();
+    const clean = (branch?.name || '').trim();
+    if (!clean) return;
+    try {
+      await navigator.clipboard.writeText(clean);
+      this.copiedBranchId = branch.id;
+      this.lucide.refresh();
+      if (this.copiedTimer) clearTimeout(this.copiedTimer);
+      this.copiedTimer = setTimeout(() => {
+        this.copiedBranchId = null;
+        this.lucide.refresh();
+      }, 1500);
+    } catch {}
   }
 
   // Drag & Drop para mover ramas entre carpetas y subcarpetas

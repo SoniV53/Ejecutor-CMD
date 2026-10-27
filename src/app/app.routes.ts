@@ -6,6 +6,7 @@ import { DocGeneratorComponent } from './features/doc-generator/doc-generator.co
 import { RedesComponent } from './features/redes/redes.component';
 import { ApiDocComponent } from './features/api-doc/api-doc.component';
 import { RepoDocComponent } from './features/repo-doc/repo-doc.component';
+import { GravityLeadComponent } from './features/gravity-lead/gravity-lead.component';
 import { ConfiguracionesComponent } from './features/configuraciones/configuraciones.component';
 
 @Component({
@@ -26,6 +27,7 @@ export const routes: Routes = [
   { path: 'api-doc', component: ApiDocComponent },
   { path: 'doc-api', redirectTo: 'api-doc', pathMatch: 'full' },
   { path: 'repo-doc', component: RepoDocComponent },
+  { path: 'gravity-lead', component: GravityLeadComponent },
   { path: 'emulador', component: EmuladorRoutePlaceholderComponent },
   { path: 'configuraciones', component: ConfiguracionesComponent },
   { path: '**', redirectTo: 'hub' }

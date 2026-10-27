@@ -18,6 +18,7 @@ const spaRoutes = new Set([
   '/api-doc',
   '/doc-api',
   '/repo-doc',
+  '/gravity-lead',
   '/configuraciones'
 ]);
 

@@ -1,0 +1,1706 @@
+<div class="flex flex-col h-full w-full bg-[#020617] text-slate-100 overflow-hidden select-none">
+  <!-- CABECERA MINIMALISTA -->
+  <header class="h-14 border-b border-slate-800/80 bg-[#060b19] px-4 md:px-6 flex items-center justify-between gap-4 shrink-0">
+    <div class="flex items-center gap-3 min-w-0">
+      <a
+        routerLink="/hub"
+        class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/70 transition-colors"
+        title="Volver al Hub"
+      >
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+      </a>
+      <div class="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
+        <i data-lucide="git-pull-request" class="w-4 h-4"></i>
+      </div>
+      <div class="min-w-0">
+        <h1 class="text-sm md:text-base font-bold text-white truncate">Gravity — Tech Lead Co-Pilot</h1>
+        <p class="text-[11px] text-slate-400 truncate hidden sm:block">
+          Trazabilidad de ramas, diccionario de versiones QA y generación estricta de MRs hacia develop
+        </p>
+      </div>
+    </div>
+
+    <!-- Navegación de los 3 Módulos + Botón Nueva Rama -->
+    <div class="flex items-center gap-2 shrink-0">
+      <div class="flex items-center bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-xs">
+        <button
+          type="button"
+          (click)="activeSection = 'branches'; generatedSingleMr = ''"
+          class="px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+          [ngClass]="activeSection === 'branches' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'"
+        >
+          <i data-lucide="git-branch" class="w-3.5 h-3.5"></i>
+          <span>Ramas & MR</span>
+          <span class="text-[10px] opacity-80">({{ branches.length }})</span>
+        </button>
+
+        <button
+          type="button"
+          (click)="activeSection = 'versions'"
+          class="px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+          [ngClass]="activeSection === 'versions' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'"
+        >
+          <i data-lucide="tag" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">Versiones QA</span>
+          <span class="text-[10px] opacity-80">({{ totalVersionMappings }})</span>
+        </button>
+
+        <button
+          type="button"
+          (click)="activeSection = 'blocks'"
+          class="px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+          [ngClass]="activeSection === 'blocks' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'"
+        >
+          <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">Release Blocks</span>
+          <span class="text-[10px] opacity-80">({{ certifiedCount }})</span>
+        </button>
+      </div>
+
+      <button
+        type="button"
+        (click)="exportAllBranchesExcel()"
+        class="px-3 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+        title="Exportar todas las ramas, estados y versiones QA a un archivo Excel (.xlsx) estilizado"
+      >
+        <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+        <span class="hidden sm:inline">Exportar Excel</span>
+      </button>
+
+      <button
+        type="button"
+        (click)="openNewBranchModal()"
+        class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+      >
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+        <span>Nueva Rama</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ======================================================================= -->
+  <!-- SECCIÓN 1: MÓDULO 1 & 2 (TRAZABILIDAD DE RAMAS + GENERADOR DE MR)       -->
+  <!-- ======================================================================= -->
+  <div *ngIf="activeSection === 'branches'" class="flex-1 flex overflow-hidden">
+    <!-- Lista lateral limpia de ramas -->
+    <aside class="w-80 md:w-96 border-r border-slate-800/80 bg-[#050914] flex flex-col shrink-0">
+      <!-- Buscador y filtro de estado -->
+      <div class="p-3 border-b border-slate-800/70 space-y-2">
+        <div class="relative flex items-center">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 absolute left-3 pointer-events-none"></i>
+          <input
+            type="text"
+            [(ngModel)]="searchQuery"
+            placeholder="Buscar rama, flujo o versión (ej. 6.10.13)..."
+            class="w-full bg-slate-900/80 border border-slate-800 rounded-xl pl-8 pr-7 py-1.5 text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-indigo-500/60"
+          />
+          <button
+            *ngIf="searchQuery"
+            type="button"
+            (click)="searchQuery = ''"
+            class="absolute right-2 text-slate-500 hover:text-slate-300 cursor-pointer"
+          >
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <!-- Filtros rápidos de estado -->
+        <div class="grid grid-cols-4 gap-1 text-[10px] font-semibold">
+          <button
+            type="button"
+            (click)="stateFilter = 'ALL'"
+            class="py-1 rounded-lg border transition-colors cursor-pointer"
+            [ngClass]="stateFilter === 'ALL' ? 'bg-slate-800 text-white border-slate-700' : 'border-transparent text-slate-400 hover:text-slate-200'"
+          >
+            Todas
+          </button>
+          <button
+            type="button"
+            (click)="stateFilter = 'En desarrollo'"
+            class="py-1 rounded-lg border transition-colors cursor-pointer truncate px-1"
+            [ngClass]="stateFilter === 'En desarrollo' ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' : 'border-transparent text-slate-400 hover:text-slate-200'"
+          >
+            Desarrollo
+          </button>
+          <button
+            type="button"
+            (click)="stateFilter = 'QA'"
+            class="py-1 rounded-lg border transition-colors cursor-pointer"
+            [ngClass]="stateFilter === 'QA' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'border-transparent text-slate-400 hover:text-slate-200'"
+          >
+            QA
+          </button>
+          <button
+            type="button"
+            (click)="stateFilter = 'Certificada'"
+            class="py-1 rounded-lg border transition-colors cursor-pointer"
+            [ngClass]="stateFilter === 'Certificada' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'border-transparent text-slate-400 hover:text-slate-200'"
+          >
+            Certificada
+          </button>
+        </div>
+
+        <!-- Filtro y creación rápida de Categorías (Módulo / Flujo) -->
+        <div class="pt-1.5 border-t border-slate-800/60 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Categorías (Módulo / Flujo)
+            </span>
+            <button
+              type="button"
+              (click)="showAddCategorySidebar = !showAddCategorySidebar"
+              class="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 cursor-pointer"
+            >
+              {{ showAddCategorySidebar ? 'Cerrar' : '+ Categoría' }}
+            </button>
+          </div>
+
+          <div *ngIf="showAddCategorySidebar" class="flex gap-1.5">
+            <input
+              type="text"
+              [(ngModel)]="sidebarCategoryInput"
+              (keydown.enter)="createCategoryFromSidebar()"
+              placeholder="Ej. Transferencias, Pagos..."
+              class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-[11px] text-slate-200 outline-none focus:border-indigo-500"
+            />
+            <button
+              type="button"
+              (click)="createCategoryFromSidebar()"
+              class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-[10px] font-bold text-white cursor-pointer"
+            >
+              Crear
+            </button>
+          </div>
+
+          <div *ngIf="availableFlows.length > 0" class="flex flex-wrap items-center gap-1 pt-0.5">
+            <button
+              type="button"
+              (click)="categoryFilter = 'ALL'"
+              class="px-2 py-0.5 rounded-md text-[10px] font-semibold border shrink-0 transition-colors cursor-pointer"
+              [ngClass]="
+                categoryFilter === 'ALL'
+                  ? 'bg-indigo-600/25 border-indigo-500/50 text-indigo-200'
+                  : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200'
+              "
+            >
+              Todas
+            </button>
+            <button
+              *ngFor="let cat of availableFlows"
+              type="button"
+              (click)="categoryFilter = cat"
+              class="group/cat inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium border shrink-0 transition-colors cursor-pointer"
+              [ngClass]="
+                categoryFilter.toLowerCase() === cat.toLowerCase()
+                  ? 'bg-indigo-600/25 border-indigo-500/50 text-indigo-200 font-semibold'
+                  : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200'
+              "
+            >
+              <span>{{ cat }}</span>
+              <span
+                (click)="deleteGlobalCategory(cat, $event)"
+                class="opacity-0 group-hover/cat:opacity-100 ml-0.5 transition-opacity"
+                [ngClass]="getCategoryBranchCount(cat) > 0 ? 'text-slate-600 hover:text-amber-400' : 'text-slate-400 hover:text-rose-400'"
+                [title]="getCategoryBranchCount(cat) > 0 ? 'En uso por ' + getCategoryBranchCount(cat) + ' rama(s) (desasócialas para eliminar)' : 'Eliminar categoría'"
+              >×</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Listado de ramas agrupado por Categoría (Módulo / Flujo) -->
+      <div class="flex-1 overflow-y-auto p-2 space-y-2">
+        <!-- Estado limpio sin información ingresada -->
+        <div
+          *ngIf="filteredBranches.length === 0"
+          class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500"
+        >
+          <div class="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center mb-3 text-slate-600">
+            <i data-lucide="git-branch" class="w-5 h-5"></i>
+          </div>
+          <p class="text-xs font-semibold text-slate-400 mb-1">
+            {{ branches.length === 0 ? 'Sin ramas registradas' : 'Sin resultados para el filtro' }}
+          </p>
+          <p class="text-[11px] text-slate-500 mb-4 max-w-[220px]">
+            {{ branches.length === 0 ? 'Registra tu primera rama con formato feature/[fecha]/[flujo]/[desarrollo].' : 'Prueba con otro término o limpia el filtro.' }}
+          </p>
+          <button
+            *ngIf="branches.length === 0"
+            type="button"
+            (click)="openNewBranchModal()"
+            class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+          >
+            + Registrar rama
+          </button>
+        </div>
+
+        <!-- Grupos por Categoría (Módulo / Flujo) con trackBy y SVG nativo para evitar parpadeos -->
+        <div *ngFor="let group of groupedFilteredBranches; trackBy: trackByCategory" class="space-y-1">
+          <!-- Cabecera de Categoría colapsable -->
+          <div
+            (click)="toggleCategoryCollapse(group.category)"
+            class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-900/70 hover:bg-slate-900 border border-slate-800/70 cursor-pointer text-[11px] font-bold text-slate-300"
+          >
+            <div class="flex items-center gap-1.5 truncate">
+              <svg
+                class="w-3.5 h-3.5 text-indigo-400 shrink-0 transition-transform duration-150"
+                [class.-rotate-90]="isCategoryCollapsed(group.category)"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+              <svg
+                class="w-3.5 h-3.5 text-indigo-400 shrink-0"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              </svg>
+              <span class="truncate">{{ group.category }}</span>
+            </div>
+            <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">
+              {{ group.branches.length }}
+            </span>
+          </div>
+
+          <!-- Filas minimalistas de ramas dentro de la categoría -->
+          <div *ngIf="!isCategoryCollapsed(group.category)" class="space-y-1 pl-1.5">
+            <div
+              *ngFor="let b of group.branches; trackBy: trackByBranchId"
+              (click)="selectBranch(b.id)"
+              class="group p-2.5 rounded-xl border transition-all cursor-pointer"
+              [ngClass]="
+                selectedBranchId === b.id
+                  ? 'bg-slate-900 border-indigo-500/50 shadow-sm'
+                  : 'bg-slate-950/40 border-slate-900 hover:border-slate-800 hover:bg-slate-900/40'
+              "
+            >
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-400/90 truncate">
+                  {{ b.moduleFlow || 'General' }}
+                </span>
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <span
+                    class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+                    [ngClass]="getStateBadgeClass(b.state)"
+                  >
+                    <span class="w-1.5 h-1.5 rounded-full" [ngClass]="getStateDotClass(b.state)"></span>
+                    {{ b.state }}
+                  </span>
+                  <button
+                    type="button"
+                    (click)="copyBranchName(b.name, 'list_' + b.id, $event)"
+                    class="p-1 rounded hover:bg-slate-800 transition-colors cursor-pointer"
+                    [ngClass]="copiedKey === 'list_' + b.id ? 'text-emerald-400' : 'text-slate-400 hover:text-indigo-300'"
+                    title="Copiar nombre de la rama"
+                  >
+                    <i [attr.data-lucide]="copiedKey === 'list_' + b.id ? 'check' : 'copy'" class="w-3 h-3"></i>
+                  </button>
+                  <button
+                    type="button"
+                    (click)="exportBranchPdf(b, $event)"
+                    class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-emerald-400 transition-all cursor-pointer"
+                    title="Descargar PDF de esta rama"
+                  >
+                    <i data-lucide="file-down" class="w-3 h-3"></i>
+                  </button>
+                  <button
+                    type="button"
+                    (click)="deleteBranch(b.id, $event)"
+                    class="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-rose-400 transition-opacity cursor-pointer"
+                    title="Eliminar rama"
+                  >
+                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between gap-1.5 mb-1">
+                <p class="text-xs font-mono text-slate-200 truncate" [title]="b.name">
+                  {{ b.name }}
+                </p>
+              </div>
+
+              <div class="flex items-center justify-between gap-2 text-[10px] text-slate-500">
+                <span class="truncate">{{ b.featureTitle }}</span>
+                <div *ngIf="b.qaVersions?.length" class="flex items-center gap-1 shrink-0">
+                  <span
+                    *ngFor="let v of b.qaVersions.slice(0, 2)"
+                    class="px-1.5 py-0.2 rounded bg-slate-800 text-amber-300 font-mono"
+                  >
+                    v{{ v }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Indicador visual cuando esta rama pertenece a otra rama Padre (rama1 -> padre ramaUnion) -->
+              <div
+                *ngIf="getParentBranches(b) as parents"
+                class="mt-1.5 flex flex-wrap gap-1"
+                [hidden]="parents.length === 0"
+              >
+                <span
+                  *ngFor="let parent of parents"
+                  (click)="selectBranch(parent.id); $event.stopPropagation()"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-500/15 hover:bg-violet-500/25 border border-violet-500/35 text-[10px] font-mono text-violet-300 transition-colors cursor-pointer max-w-full truncate"
+                  [title]="'Esta rama está unificada dentro de la rama padre: ' + parent.name + ' (clic para ir)'"
+                >
+                  <span class="font-sans font-bold text-violet-400">↳ Padre:</span>
+                  <span class="truncate">{{ parent.name }}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Panel de detalle de la rama + Generador de MR (Módulo 1 y 2) -->
+    <main class="flex-1 overflow-y-auto p-4 md:p-6">
+      <!-- Estado vacío cuando no hay rama seleccionada -->
+      <div
+        *ngIf="!selectedBranch"
+        class="h-full flex flex-col items-center justify-center text-center text-slate-500 p-6"
+      >
+        <div class="w-12 h-12 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-center mb-3 text-slate-600">
+          <i data-lucide="terminal" class="w-6 h-6"></i>
+        </div>
+        <h2 class="text-sm font-bold text-slate-300 mb-1">Panel de Liderazgo Técnico listo</h2>
+        <p class="text-xs text-slate-500 max-w-md">
+          Selecciona una rama del panel izquierdo o registra una nueva para gestionar su estado
+          (<span class="text-slate-300">En desarrollo → QA → Certificada</span>), vincular compilaciones de QA y generar su Merge Request hacia <code class="text-indigo-400">develop</code>.
+        </p>
+      </div>
+
+      <!-- Detalle de la rama seleccionada -->
+      <div *ngIf="selectedBranch as branch" class="max-w-4xl mx-auto space-y-5 pb-12">
+        <!-- 1. Cabecera y Control Estricto de Estados (En desarrollo -> QA -> Certificada) -->
+        <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 space-y-4">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-400 block mb-1">
+                Rama Activa
+              </span>
+              <div class="flex items-center gap-2">
+                <input
+                  type="text"
+                  [(ngModel)]="branch.name"
+                  (ngModelChange)="onBranchFieldChange(branch)"
+                  class="flex-1 min-w-0 bg-transparent text-sm md:text-base font-mono font-bold text-white border-b border-transparent focus:border-indigo-500 outline-none pb-0.5"
+                  placeholder="feature/DDMMYYYY/flujo/desarrollo"
+                />
+                <button
+                  type="button"
+                  (click)="copyBranchName(branch.name, 'detail_' + branch.id)"
+                  class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                  [ngClass]="copiedKey === 'detail_' + branch.id ? 'text-emerald-400 border-emerald-500/40' : 'text-slate-200'"
+                  title="Copiar nombre de la rama"
+                >
+                  <i [attr.data-lucide]="copiedKey === 'detail_' + branch.id ? 'check' : 'copy'" class="w-3.5 h-3.5"></i>
+                  <span>{{ copiedKey === 'detail_' + branch.id ? 'Copiada' : 'Copiar' }}</span>
+                </button>
+                <button
+                  type="button"
+                  (click)="exportBranchPdf(branch)"
+                  class="px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                  title="Generar reporte PDF de esta rama"
+                >
+                  <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
+                  <span>PDF</span>
+                </button>
+              </div>
+
+              <!-- Aviso claro de trazabilidad si esta rama pertenece a otra rama Padre (rama1 -> padre ramaUnion) -->
+              <div
+                *ngIf="getParentBranches(branch) as parentBranches"
+                class="mt-2.5 flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/30"
+                [hidden]="parentBranches.length === 0"
+              >
+                <span class="text-[11px] font-bold text-violet-300 flex items-center gap-1.5">
+                  <span>↳ Rama Padre (Unificada en):</span>
+                </span>
+                <div
+                  *ngFor="let pBranch of parentBranches"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/90 border border-violet-500/40 text-xs font-mono text-violet-200"
+                >
+                  <button
+                    type="button"
+                    (click)="selectBranch(pBranch.id)"
+                    class="hover:text-white hover:underline cursor-pointer truncate max-w-xs"
+                    title="Ir a la rama padre"
+                  >
+                    {{ pBranch.name }}
+                  </button>
+                  <button
+                    type="button"
+                    (click)="copyBranchName(pBranch.name, 'parent_' + pBranch.id, $event)"
+                    class="text-slate-400 hover:text-violet-300 text-[10px] font-sans font-semibold px-1 cursor-pointer"
+                    title="Copiar nombre de la rama padre"
+                  >
+                    {{ copiedKey === 'parent_' + pBranch.id ? '✓' : 'Copiar' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Selector de transición estricta -->
+            <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 gap-1">
+              <button
+                *ngFor="let st of lifecycleStates"
+                type="button"
+                (click)="setBranchState(branch, st)"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+                [ngClass]="
+                  branch.state === st
+                    ? getStateBadgeClass(st) + ' border'
+                    : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                "
+              >
+                <span class="w-1.5 h-1.5 rounded-full" [ngClass]="getStateDotClass(st)"></span>
+                <span>{{ st }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Campos base para el título del MR: Categoría (Módulo / Flujo) y Nombre Descriptivo -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Categoría — Módulo / Flujo
+                </label>
+                <button
+                  type="button"
+                  (click)="showAddCategoryInput = !showAddCategoryInput"
+                  class="px-2 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-indigo-300 border border-slate-700 cursor-pointer"
+                >
+                  {{ showAddCategoryInput ? 'Cerrar' : '+ Categoría' }}
+                </button>
+              </div>
+
+              <!-- Input para crear nueva categoría explícitamente con botón o Enter -->
+              <div *ngIf="showAddCategoryInput || availableFlows.length === 0" class="flex gap-1.5 mb-2">
+                <input
+                  type="text"
+                  [(ngModel)]="categoryInput"
+                  (keydown.enter)="createAndSelectCategory(branch)"
+                  placeholder="Nueva categoría (ej. Pendo, Pagos)..."
+                  class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-indigo-500"
+                />
+                <button
+                  type="button"
+                  (click)="createAndSelectCategory(branch)"
+                  class="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white cursor-pointer"
+                >
+                  Crear
+                </button>
+              </div>
+
+              <!-- Tags rápidos de categorías existentes (1 clic para asignar/quitar, × para borrar si no tiene ramas) -->
+              <div class="flex flex-wrap gap-1.5">
+                <div
+                  *ngFor="let fl of availableFlows"
+                  (click)="selectCategoryForBranch(branch, fl)"
+                  class="group/fl inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-all cursor-pointer select-none"
+                  [ngClass]="
+                    branch.moduleFlow.toLowerCase() === fl.toLowerCase()
+                      ? 'bg-indigo-600/25 border-indigo-500 text-indigo-200 font-semibold'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                  "
+                  [title]="branch.moduleFlow.toLowerCase() === fl.toLowerCase() ? 'Clic para desasociar esta categoría de la rama' : 'Clic para asignar esta categoría a la rama'"
+                >
+                  <span
+                    class="w-2 h-2 rounded-full"
+                    [ngClass]="branch.moduleFlow.toLowerCase() === fl.toLowerCase() ? 'bg-indigo-400' : 'bg-slate-600'"
+                  ></span>
+                  <span>{{ fl }}</span>
+                  <button
+                    type="button"
+                    (click)="deleteGlobalCategory(fl, $event)"
+                    class="opacity-0 group-hover/fl:opacity-100 text-[10px] ml-0.5 cursor-pointer transition-opacity"
+                    [ngClass]="getCategoryBranchCount(fl) > 0 ? 'text-slate-600 hover:text-amber-400' : 'text-slate-400 hover:text-rose-400'"
+                    [title]="getCategoryBranchCount(fl) > 0 ? 'En uso por ' + getCategoryBranchCount(fl) + ' rama(s) (desasócialas primero para eliminar)' : 'Eliminar categoría'"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                Nombre descriptivo del feature o validación
+              </label>
+              <input
+                type="text"
+                [(ngModel)]="branch.featureTitle"
+                (ngModelChange)="onBranchFieldChange(branch)"
+                placeholder="Ej. Validación de inicialización de metadatos y control de errores"
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Mapeo de Versiones QA y Desarrolladores Involucrados (COMO TAGS DE 1 CLIC) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Versiones de compilación QA -->
+          <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <i data-lucide="tag" class="w-3.5 h-3.5 text-amber-400"></i>
+                Versiones de Compilación QA
+              </span>
+              <span class="text-[10px] text-slate-500">Version Mapping</span>
+            </div>
+
+            <div class="flex gap-2">
+              <input
+                type="text"
+                [(ngModel)]="versionInput"
+                (keydown.enter)="addQaVersion(branch)"
+                placeholder="Ej. 6.10.13"
+                class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-mono text-slate-200 outline-none focus:border-amber-500/60"
+              />
+              <button
+                type="button"
+                (click)="addQaVersion(branch)"
+                class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 cursor-pointer"
+              >
+                Vincular
+              </button>
+            </div>
+
+            <div class="flex flex-wrap gap-1.5 pt-1">
+              <span
+                *ngIf="!branch.qaVersions.length"
+                class="text-[11px] text-slate-500 italic"
+              >
+                Sin versiones QA asignadas
+              </span>
+              <span
+                *ngFor="let v of branch.qaVersions"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono"
+              >
+                v{{ v }}
+                <button
+                  type="button"
+                  (click)="removeQaVersion(branch, v)"
+                  class="text-amber-400/70 hover:text-amber-200 cursor-pointer"
+                >
+                  ×
+                </button>
+              </span>
+            </div>
+          </div>
+
+          <!-- Desarrolladores involucrados como TAGS CLICKEABLES -->
+          <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <i data-lucide="users" class="w-3.5 h-3.5 text-indigo-400"></i>
+                Devs Involucrados (Tags de 1 clic)
+              </span>
+              <button
+                type="button"
+                (click)="showAddDevInput = !showAddDevInput"
+                class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-indigo-300 border border-slate-700 transition-colors cursor-pointer"
+              >
+                {{ showAddDevInput ? 'Cerrar' : '+ Nuevo Tag Dev' }}
+              </button>
+            </div>
+
+            <!-- Input compacto solo cuando se desea registrar un nuevo nombre al catálogo de tags -->
+            <div *ngIf="showAddDevInput || availableDevs.length === 0" class="flex gap-2">
+              <input
+                type="text"
+                [(ngModel)]="devInput"
+                (keydown.enter)="createAndSelectDevTag(branch)"
+                placeholder="Crear tag de dev (ej. Erick, Soni, Jose)..."
+                class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-indigo-500/60"
+              />
+              <button
+                type="button"
+                (click)="createAndSelectDevTag(branch)"
+                class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white cursor-pointer"
+              >
+                Crear Tag
+              </button>
+            </div>
+
+            <!-- Nube de Tags Globales de Desarrolladores: clic para activar/desactivar en esta rama -->
+            <div class="flex flex-wrap gap-1.5 pt-0.5">
+              <span
+                *ngIf="availableDevs.length === 0"
+                class="text-[11px] text-slate-500 italic"
+              >
+                Crea tus tags de desarrolladores una vez y asígnalos dando un clic.
+              </span>
+
+              <div
+                *ngFor="let dev of availableDevs"
+                (click)="toggleDevTagInBranch(branch, dev)"
+                class="group/dev inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer select-none"
+                [ngClass]="
+                  isDevSelectedInBranch(branch, dev)
+                    ? 'bg-indigo-600/25 border-indigo-500 text-indigo-200 shadow-xs'
+                    : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                "
+                [title]="isDevSelectedInBranch(branch, dev) ? 'Clic para quitar de esta rama' : 'Clic para asignar a esta rama'"
+              >
+                <span
+                  class="w-2 h-2 rounded-full transition-colors"
+                  [ngClass]="isDevSelectedInBranch(branch, dev) ? 'bg-indigo-400' : 'bg-slate-600'"
+                ></span>
+                <span>{{ dev }}</span>
+                <button
+                  type="button"
+                  (click)="deleteGlobalDevTag(dev, $event)"
+                  class="opacity-0 group-hover/dev:opacity-100 text-[10px] text-slate-500 hover:text-rose-400 ml-0.5 transition-opacity cursor-pointer"
+                  title="Eliminar tag del catálogo global"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Contexto del Desarrollo, Sub-ramas y Commits (Módulo 2) -->
+        <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                Objetivos cumplidos, integraciones y control de errores
+              </label>
+              <textarea
+                rows="5"
+                [(ngModel)]="branch.objectivesSummary"
+                (ngModelChange)="onBranchFieldChange(branch)"
+                placeholder="Escribe un objetivo por línea (ej. Se implementó manejo de errores en inicialización, configuración de timeout, etc.)"
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 outline-none focus:border-indigo-500 resize-y"
+              ></textarea>
+            </div>
+
+            <div>
+              <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                Commits o resúmenes de sub-ramas (Extracción automática)
+              </label>
+              <textarea
+                rows="5"
+                [(ngModel)]="branch.rawCommitsOrDiff"
+                (ngModelChange)="onBranchFieldChange(branch)"
+                placeholder="Pega aquí el log de commits o puntos de las sub-ramas de los devs para sintetizarlos en el MR..."
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs font-mono text-slate-300 outline-none focus:border-indigo-500 resize-y"
+              ></textarea>
+            </div>
+          </div>
+
+          <!-- Sub-ramas opcionales de desarrolladores o ramas existentes jaladas -->
+          <div class="pt-2 border-t border-slate-800/70">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Sub-ramas de Desarrolladores ({{ branch.subBranches.length }})
+                </span>
+                <button
+                  *ngIf="branches.length > 1"
+                  type="button"
+                  (click)="showPullExistingBranchSelector = !showPullExistingBranchSelector"
+                  class="px-2.5 py-0.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer flex items-center gap-1"
+                  [ngClass]="
+                    showPullExistingBranchSelector
+                      ? 'bg-violet-600 text-white border-violet-500'
+                      : 'bg-violet-500/15 hover:bg-violet-500/25 text-violet-300 border-violet-500/35'
+                  "
+                >
+                  <span>{{ showPullExistingBranchSelector ? 'Cerrar selector' : '+ Jalar rama existente' }}</span>
+                </button>
+              </div>
+
+              <!-- Selección rápida de Dev con 1 clic para la sub-rama -->
+              <div *ngIf="availableDevs.length > 0" class="flex items-center gap-1 flex-wrap">
+                <span class="text-[10px] text-slate-500 mr-1">Dev rápido:</span>
+                <button
+                  *ngFor="let dev of availableDevs"
+                  type="button"
+                  (click)="subBranchDevInput = dev"
+                  class="px-2 py-0.5 rounded-full text-[10px] border transition-colors cursor-pointer"
+                  [ngClass]="
+                    subBranchDevInput.toLowerCase() === dev.toLowerCase()
+                      ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200 font-semibold'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                  "
+                >
+                  {{ dev }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Panel para jalar ramas que ya existen en el workspace (ramaUnion <- rama1 + rama2) -->
+            <div
+              *ngIf="showPullExistingBranchSelector"
+              class="mb-3 p-3 rounded-xl bg-slate-950/90 border border-violet-500/35 space-y-2"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-[11px] font-bold text-violet-300">
+                  Selecciona las ramas existentes que deseas unificar dentro de esta rama:
+                </span>
+                <input
+                  type="text"
+                  [(ngModel)]="pullBranchSearchQuery"
+                  placeholder="Filtrar ramas existentes..."
+                  class="w-48 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-[11px] text-slate-200 outline-none focus:border-violet-500"
+                />
+              </div>
+
+              <div class="max-h-36 overflow-y-auto space-y-1 pr-1">
+                <div
+                  *ngFor="let cand of getAvailableBranchesToPull(branch)"
+                  (click)="togglePullExistingBranch(branch, cand)"
+                  class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition-colors"
+                  [ngClass]="
+                    isBranchPulledIn(branch, cand)
+                      ? 'bg-violet-600/20 border-violet-500/60 text-violet-100'
+                      : 'bg-slate-900/60 border-slate-800/80 text-slate-300 hover:border-slate-700'
+                  "
+                >
+                  <div class="min-w-0 flex-1 flex items-center gap-2">
+                    <span
+                      class="w-3.5 h-3.5 rounded flex items-center justify-center border text-[10px] shrink-0"
+                      [ngClass]="
+                        isBranchPulledIn(branch, cand)
+                          ? 'bg-violet-600 border-violet-500 text-white'
+                          : 'border-slate-700 bg-slate-950 text-transparent'
+                      "
+                    >✓</span>
+                    <span class="font-mono text-[11px] truncate">{{ cand.name }}</span>
+                    <span class="text-[10px] text-slate-400 truncate hidden sm:inline">
+                      — {{ cand.featureTitle }}
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-indigo-300">
+                      {{ cand.moduleFlow || 'General' }}
+                    </span>
+                    <span
+                      *ngIf="cand.devs?.length"
+                      class="text-[10px] text-slate-400"
+                    >
+                      ({{ cand.devs.join(', ') }})
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 mb-2">
+              <input
+                type="text"
+                [(ngModel)]="subBranchNameInput"
+                placeholder="Sub-rama (ej. feature/ajustes-sv)"
+                class="sm:col-span-4 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-mono text-slate-200 outline-none"
+              />
+              <input
+                type="text"
+                [(ngModel)]="subBranchDevInput"
+                placeholder="Dev (clic arriba o escribe)"
+                class="sm:col-span-3 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 outline-none"
+              />
+              <input
+                type="text"
+                [(ngModel)]="subBranchNotesInput"
+                (keydown.enter)="addSubBranch(branch)"
+                placeholder="Aporte / objetivo de la sub-rama"
+                class="sm:col-span-4 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 outline-none"
+              />
+              <button
+                type="button"
+                (click)="addSubBranch(branch)"
+                class="sm:col-span-1 py-1.5 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white cursor-pointer"
+              >
+                +
+              </button>
+            </div>
+
+            <div *ngIf="branch.subBranches.length > 0" class="space-y-1.5 mt-2">
+              <div
+                *ngFor="let sub of branch.subBranches"
+                class="px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800/80 text-xs"
+              >
+                <!-- Vista normal de la sub-rama -->
+                <div *ngIf="editingSubBranchId !== sub.id" class="flex items-center justify-between gap-2">
+                  <div class="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
+                    <span class="font-mono text-indigo-300">{{ sub.branchName }}</span>
+                    <button
+                      type="button"
+                      (click)="copyBranchName(sub.branchName, 'sub_' + sub.id, $event)"
+                      class="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-indigo-300 transition-colors cursor-pointer"
+                      title="Copiar nombre de sub-rama"
+                    >
+                      <i [attr.data-lucide]="copiedKey === 'sub_' + sub.id ? 'check' : 'copy'" class="w-3 h-3"></i>
+                    </button>
+                    <button
+                      *ngIf="getLinkedBranch(sub) as linked"
+                      type="button"
+                      (click)="selectBranch(linked.id)"
+                      class="px-2 py-0.5 rounded-md bg-violet-500/15 hover:bg-violet-500/25 border border-violet-500/35 text-[10px] font-semibold text-violet-300 cursor-pointer"
+                      title="Ir al detalle de esta rama vinculada"
+                    >
+                      ↗ Ir a rama ({{ linked.state }})
+                    </button>
+                    <span *ngIf="sub.devName" class="px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 text-[10px]">
+                      {{ sub.devName }}
+                    </span>
+                    <span class="text-slate-400 truncate">{{ sub.notesOrCommits }}</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      (click)="startEditSubBranch(sub)"
+                      class="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-indigo-300 transition-colors cursor-pointer"
+                      title="Editar sub-rama"
+                    >
+                      <i data-lucide="pencil" class="w-3 h-3"></i>
+                    </button>
+                    <button
+                      type="button"
+                      (click)="removeSubBranch(branch, sub.id)"
+                      class="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
+                      title="Eliminar sub-rama"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Modo edición inline de la sub-rama -->
+                <div *ngIf="editingSubBranchId === sub.id" class="space-y-2">
+                  <div *ngIf="availableDevs.length > 0" class="flex items-center gap-1 flex-wrap">
+                    <span class="text-[10px] text-slate-500 mr-1">Asignar dev:</span>
+                    <button
+                      *ngFor="let dev of availableDevs"
+                      type="button"
+                      (click)="editSubBranchDev = dev"
+                      class="px-2 py-0.5 rounded-full text-[10px] border transition-colors cursor-pointer"
+                      [ngClass]="
+                        editSubBranchDev.toLowerCase() === dev.toLowerCase()
+                          ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200 font-semibold'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                      "
+                    >
+                      {{ dev }}
+                    </button>
+                  </div>
+
+                  <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                    <input
+                      type="text"
+                      [(ngModel)]="editSubBranchName"
+                      (keydown.enter)="saveEditSubBranch(branch, sub)"
+                      placeholder="Nombre de sub-rama"
+                      class="sm:col-span-4 bg-slate-900 border border-indigo-500/40 rounded-lg px-2.5 py-1 text-xs font-mono text-white outline-none focus:border-indigo-500"
+                    />
+                    <input
+                      type="text"
+                      [(ngModel)]="editSubBranchDev"
+                      (keydown.enter)="saveEditSubBranch(branch, sub)"
+                      placeholder="Desarrollador"
+                      class="sm:col-span-3 bg-slate-900 border border-indigo-500/40 rounded-lg px-2.5 py-1 text-xs text-white outline-none focus:border-indigo-500"
+                    />
+                    <input
+                      type="text"
+                      [(ngModel)]="editSubBranchNotes"
+                      (keydown.enter)="saveEditSubBranch(branch, sub)"
+                      placeholder="Aporte / objetivo de la sub-rama"
+                      class="sm:col-span-3 bg-slate-900 border border-indigo-500/40 rounded-lg px-2.5 py-1 text-xs text-white outline-none focus:border-indigo-500"
+                    />
+                    <div class="sm:col-span-2 flex items-center gap-1">
+                      <button
+                        type="button"
+                        (click)="saveEditSubBranch(branch, sub)"
+                        class="flex-1 py-1 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-[11px] font-bold text-white cursor-pointer"
+                      >
+                        Guardar
+                      </button>
+                      <button
+                        type="button"
+                        (click)="cancelEditSubBranch()"
+                        class="py-1 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300 cursor-pointer"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Generador de MR con Validación Estricta de Estado "Certificada" -->
+        <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="text-xs font-bold text-white uppercase tracking-wider">
+                Generación de Merge Request (Plantilla Estricta)
+              </h3>
+              <p class="text-[11px] text-slate-400">
+                Solo habilitado cuando la rama se encuentra en estado <strong class="text-emerald-400">Certificada</strong>.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              [disabled]="branch.state !== 'Certificada'"
+              (click)="generateSingleBranchMr(branch)"
+              class="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              [ngClass]="
+                branch.state === 'Certificada'
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
+                  : 'bg-slate-800 text-slate-400'
+              "
+            >
+              <i data-lucide="file-check" class="w-4 h-4"></i>
+              <span>Generar MR hacia develop</span>
+            </button>
+          </div>
+
+          <!-- Aviso de bloqueo si no está Certificada -->
+          <div
+            *ngIf="branch.state !== 'Certificada'"
+            class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-3 text-xs text-amber-200"
+          >
+            <span>
+              Estado actual: <strong>{{ branch.state }}</strong>. La generación de MR está bloqueada hasta que la rama sea certificada.
+            </span>
+            <button
+              type="button"
+              (click)="advanceBranchState(branch)"
+              class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 font-semibold shrink-0 cursor-pointer"
+            >
+              Avanzar a {{ branch.state === 'En desarrollo' ? 'QA' : 'Certificada' }} →
+            </button>
+          </div>
+
+          <!-- Salida con la [PLANTILLA DE MR ESTRICTA] -->
+          <div *ngIf="generatedSingleMr" class="space-y-2 pt-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                [PLANTILLA DE MR ESTRICTA]
+              </span>
+              <button
+                type="button"
+                (click)="copyText(generatedSingleMr)"
+                class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 flex items-center gap-1.5 cursor-pointer"
+              >
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                <span>Copiar MR</span>
+              </button>
+            </div>
+            <textarea
+              rows="9"
+              [(ngModel)]="generatedSingleMr"
+              class="w-full bg-slate-950 border border-emerald-500/30 rounded-xl p-3.5 text-xs font-mono text-slate-100 outline-none"
+            ></textarea>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- SECCIÓN 2: DICCIONARIO DE VERSIONES QA (VERSION MAPPING)                -->
+  <!-- ======================================================================= -->
+  <div *ngIf="activeSection === 'versions'" class="flex-1 overflow-y-auto p-4 md:p-8">
+    <div class="max-w-4xl mx-auto space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-bold text-white">Diccionario de Trazabilidad de Versiones QA</h2>
+          <p class="text-xs text-slate-400">
+            Ingresa un número de compilación (ej. <code class="text-amber-300">6.10.13</code>) para identificar de inmediato su rama y flujo.
+          </p>
+        </div>
+
+        <div class="relative w-full sm:w-72">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5 pointer-events-none"></i>
+          <input
+            type="text"
+            [(ngModel)]="searchQuery"
+            placeholder="Buscar versión (ej. 6.10.13)..."
+            class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-4 py-2 text-xs text-slate-200 outline-none focus:border-amber-500/60"
+          />
+        </div>
+      </div>
+
+      <div
+        *ngIf="versionDictionary.length === 0"
+        class="p-10 rounded-2xl bg-slate-900/40 border border-slate-800/80 text-center text-slate-500"
+      >
+        <p class="text-xs font-semibold text-slate-400 mb-1">Sin versiones mapeadas</p>
+        <p class="text-[11px]">
+          Cuando vincules una versión de compilación QA dentro de una rama, aparecerá aquí para consulta inmediata.
+        </p>
+      </div>
+
+      <div *ngIf="versionDictionary.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div
+          *ngFor="let item of versionDictionary"
+          (click)="selectBranch(item.branch.id)"
+          class="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-amber-500/40 transition-all cursor-pointer flex items-center justify-between gap-3"
+        >
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono text-xs font-bold">
+                v{{ item.version }}
+              </span>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-400">
+                {{ item.branch.moduleFlow }}
+              </span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <p class="text-xs font-mono text-slate-200 truncate">{{ item.branch.name }}</p>
+              <button
+                type="button"
+                (click)="copyBranchName(item.branch.name, 'ver_' + item.version + '_' + item.branch.id, $event)"
+                class="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-amber-300 shrink-0 cursor-pointer"
+                title="Copiar nombre de la rama"
+              >
+                <i [attr.data-lucide]="copiedKey === 'ver_' + item.version + '_' + item.branch.id ? 'check' : 'copy'" class="w-3 h-3"></i>
+              </button>
+            </div>
+            <p class="text-[11px] text-slate-400 truncate">{{ item.branch.featureTitle }}</p>
+          </div>
+
+          <span
+            class="text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0"
+            [ngClass]="getStateBadgeClass(item.branch.state)"
+          >
+            {{ item.branch.state }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- SECCIÓN 3: MÓDULO 3 — CONSOLIDACIÓN DE RAMAS (RELEASE BLOCKS)           -->
+  <!-- ======================================================================= -->
+  <div *ngIf="activeSection === 'blocks'" class="flex-1 overflow-y-auto p-4 md:p-8">
+    <div class="max-w-4xl mx-auto space-y-6 pb-12">
+      <div>
+        <h2 class="text-base font-bold text-white">Consolidación de Ramas (Release Blocks)</h2>
+        <p class="text-xs text-slate-400">
+          Selecciona las ramas a unificar. Todas deben estar en estado <strong class="text-emerald-400">Certificada</strong> para consolidar el MR único.
+        </p>
+      </div>
+
+      <!-- Selector de ramas para el bloque -->
+      <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+            1. Selecciona las ramas del bloque ({{ selectedBlockBranchIds.size }} seleccionadas)
+          </span>
+          <button
+            *ngIf="selectedBlockBranchIds.size > 0"
+            type="button"
+            (click)="copySelectedBlockBranchNames()"
+            class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-slate-200 flex items-center gap-1.5 cursor-pointer"
+          >
+            <i data-lucide="copy" class="w-3 h-3"></i>
+            <span>Copiar ramas seleccionadas</span>
+          </button>
+        </div>
+
+        <div *ngIf="branches.length === 0" class="text-xs text-slate-500 py-4 text-center">
+          No hay ramas registradas todavía.
+        </div>
+
+        <div *ngIf="branches.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div
+            *ngFor="let b of branches"
+            (click)="toggleBranchInBlock(b.id)"
+            class="p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2"
+            [ngClass]="
+              selectedBlockBranchIds.has(b.id)
+                ? 'bg-indigo-600/15 border-indigo-500/60'
+                : 'bg-slate-950/60 border-slate-800/80 hover:border-slate-700'
+            "
+          >
+            <div class="flex items-center gap-2.5 min-w-0">
+              <input
+                type="checkbox"
+                [checked]="selectedBlockBranchIds.has(b.id)"
+                (click)="$event.stopPropagation(); toggleBranchInBlock(b.id)"
+                class="rounded border-slate-700"
+              />
+              <div class="min-w-0">
+                <p class="text-xs font-mono text-slate-200 truncate">{{ b.name }}</p>
+                <p class="text-[10px] text-slate-400 truncate">{{ b.moduleFlow }} — {{ b.featureTitle }}</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                (click)="copyBranchName(b.name, 'blk_' + b.id, $event)"
+                class="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-indigo-300 cursor-pointer"
+                title="Copiar nombre de la rama"
+              >
+                <i [attr.data-lucide]="copiedKey === 'blk_' + b.id ? 'check' : 'copy'" class="w-3 h-3"></i>
+              </button>
+              <span
+                class="text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0"
+                [ngClass]="getStateBadgeClass(b.state)"
+              >
+                {{ b.state }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alerta de validación estricta si alguna rama seleccionada NO está Certificada -->
+        <div
+          *ngIf="uncertifiedBlockBranches.length > 0"
+          class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-200 space-y-1"
+        >
+          <p class="font-bold">Bloqueo de Release Block: Hay ramas seleccionadas sin certificar</p>
+          <p class="text-[11px] text-rose-300">
+            Las siguientes ramas deben pasar a estado <strong>Certificada</strong> antes de generar el MR unificado:
+          </p>
+          <ul class="list-disc list-inside font-mono text-[11px]">
+            <li *ngFor="let ub of uncertifiedBlockBranches">{{ ub.name }} ({{ ub.state }})</li>
+          </ul>
+        </div>
+
+        <!-- Metadatos del bloque y botón de consolidación -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-slate-800/70">
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              Módulo del Bloque
+            </label>
+            <input
+              type="text"
+              [(ngModel)]="blockModuleFlow"
+              placeholder="Ej. Transferencias / PENDO"
+              class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+            />
+          </div>
+          <div class="md:col-span-2">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              Título descriptivo del Release Block
+            </label>
+            <input
+              type="text"
+              [(ngModel)]="blockFeatureTitle"
+              placeholder="Ej. Consolidado de mejoras y correcciones certificadas hacia develop"
+              class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+            />
+          </div>
+        </div>
+
+        <div class="flex justify-end">
+          <button
+            type="button"
+            [disabled]="!canGenerateBlockMr"
+            (click)="generateReleaseBlockMr()"
+            class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-xs font-bold transition-all cursor-pointer disabled:cursor-not-allowed"
+          >
+            Consolidar y Generar MR del Bloque
+          </button>
+        </div>
+
+        <!-- Resultado del MR Unificado -->
+        <div *ngIf="generatedBlockMr" class="space-y-2 pt-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+              [PLANTILLA DE MR ESTRICTA — RELEASE BLOCK]
+            </span>
+            <button
+              type="button"
+              (click)="copyText(generatedBlockMr)"
+              class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 flex items-center gap-1.5 cursor-pointer"
+            >
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>Copiar MR Unificado</span>
+            </button>
+          </div>
+          <textarea
+            rows="11"
+            [(ngModel)]="generatedBlockMr"
+            class="w-full bg-slate-950 border border-emerald-500/30 rounded-xl p-3.5 text-xs font-mono text-slate-100 outline-none"
+          ></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL NUEVA RAMA -->
+  <div
+    *ngIf="showNewBranchModal"
+    class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4"
+  >
+    <div
+      class="w-full max-w-md bg-[#0a0f1d] border border-slate-800 rounded-2xl p-5 space-y-4 shadow-2xl"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-white">Registrar Nueva Rama</h3>
+        <button
+          type="button"
+          (click)="showNewBranchModal = false"
+          class="text-slate-400 hover:text-white cursor-pointer"
+        >
+          ×
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+            Nombre de la Rama (feature/[fecha]/[flujo]/[desarrollo])
+          </label>
+          <input
+            type="text"
+            [ngModel]="newBranchName"
+            (ngModelChange)="onNewBranchNameChange($event)"
+            placeholder="feature/26102026/transferencias/mejora-selector"
+            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-white outline-none focus:border-indigo-500"
+          />
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              Módulo / Flujo
+            </label>
+            <input
+              type="text"
+              [(ngModel)]="newBranchFlow"
+              placeholder="Ej. Transferencias"
+              class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+            />
+            <div *ngIf="availableFlows.length > 0" class="flex flex-wrap gap-1 mt-1.5">
+              <button
+                *ngFor="let fl of availableFlows"
+                type="button"
+                (click)="newBranchFlow = fl"
+                class="px-2 py-0.5 rounded-md text-[10px] border transition-colors cursor-pointer"
+                [ngClass]="
+                  newBranchFlow.toLowerCase() === fl.toLowerCase()
+                    ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300 font-semibold'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                "
+              >
+                {{ fl }}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              Estado Inicial
+            </label>
+            <select
+              [(ngModel)]="newBranchState"
+              class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none"
+            >
+              <option value="En desarrollo">En desarrollo</option>
+              <option value="QA">QA</option>
+              <option value="Certificada">Certificada</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+            Título descriptivo del feature
+          </label>
+          <input
+            type="text"
+            [(ngModel)]="newBranchTitle"
+            placeholder="Ej. Mejora en selector de cuenta destino"
+            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+          />
+        </div>
+
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+            Versión QA (opcional)
+          </label>
+          <input
+            type="text"
+            [(ngModel)]="newBranchVersionInput"
+            placeholder="Ej. 6.10.13"
+            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-white outline-none"
+          />
+        </div>
+
+        <!-- Selección de Devs mediante Tags de 1 clic -->
+        <div class="space-y-2 pt-1">
+          <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+            Devs Involucrados (Clic en tag para asignar)
+          </label>
+
+          <!-- Tags disponibles -->
+          <div *ngIf="availableDevs.length > 0" class="flex flex-wrap gap-1.5">
+            <button
+              *ngFor="let dev of availableDevs"
+              type="button"
+              (click)="toggleDevTagInModal(dev)"
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer"
+              [ngClass]="
+                isDevSelectedInModal(dev)
+                  ? 'bg-indigo-600/25 border-indigo-500 text-indigo-200'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+              "
+            >
+              <span
+                class="w-2 h-2 rounded-full"
+                [ngClass]="isDevSelectedInModal(dev) ? 'bg-indigo-400' : 'bg-slate-600'"
+              ></span>
+              <span>{{ dev }}</span>
+            </button>
+          </div>
+
+          <!-- Agregar nuevo tag de dev desde el modal -->
+          <div class="flex gap-2">
+            <input
+              type="text"
+              [(ngModel)]="newBranchCustomDevInput"
+              (keydown.enter)="addCustomDevInModal()"
+              placeholder="Nuevo tag de dev (ej. Erick, Soni)..."
+              class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white outline-none"
+            />
+            <button
+              type="button"
+              (click)="addCustomDevInModal()"
+              class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-indigo-300 cursor-pointer"
+            >
+              + Tag
+            </button>
+          </div>
+        </div>
+
+        <!-- Opcional: Jalar ramas existentes al crear una rama de unión (ramaUnion = rama1 + rama2) -->
+        <div *ngIf="branches.length > 0" class="space-y-1.5 pt-1 border-t border-slate-800/70">
+          <label class="text-[10px] font-bold uppercase tracking-wider text-violet-400 block">
+            Unificar / Jalar ramas existentes como sub-ramas (Opcional)
+          </label>
+          <div class="max-h-28 overflow-y-auto space-y-1 pr-1">
+            <div
+              *ngFor="let b of branches"
+              (click)="toggleLinkedBranchInNewModal(b)"
+              class="flex items-center justify-between gap-2 px-2.5 py-1 rounded-lg border text-xs cursor-pointer transition-colors"
+              [ngClass]="
+                isBranchLinkedInNewModal(b.id)
+                  ? 'bg-violet-600/20 border-violet-500 text-violet-100'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+              "
+            >
+              <div class="flex items-center gap-2 min-w-0">
+                <span
+                  class="w-3.5 h-3.5 rounded flex items-center justify-center border text-[10px] shrink-0"
+                  [ngClass]="
+                    isBranchLinkedInNewModal(b.id)
+                      ? 'bg-violet-600 border-violet-500 text-white'
+                      : 'border-slate-700 bg-slate-950 text-transparent'
+                  "
+                >✓</span>
+                <span class="font-mono text-[11px] truncate">{{ b.name }}</span>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 shrink-0">
+                {{ b.moduleFlow || 'General' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-2 pt-2">
+        <button
+          type="button"
+          (click)="showNewBranchModal = false"
+          class="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 cursor-pointer"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          (click)="createBranch()"
+          class="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white cursor-pointer"
+        >
+          Registrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CONFIGURACIÓN DE REPORTE PDF (SELECCIONAR QUÉ VA Y QUÉ NO) -->
+  <div
+    *ngIf="showPdfConfigModal && pdfTargetBranch as pBranch"
+    class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4"
+    (click)="showPdfConfigModal = false"
+  >
+    <div
+      class="w-full max-w-lg max-h-[88vh] bg-[#0a0f1d] border border-slate-800 rounded-2xl p-5 flex flex-col gap-4 shadow-2xl"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="flex items-center justify-between gap-3 border-b border-slate-800/80 pb-3 shrink-0">
+        <div>
+          <h3 class="text-sm font-bold text-white">Configurar Contenido del PDF</h3>
+          <p class="text-[11px] text-slate-400 font-mono truncate max-w-sm">{{ pBranch.name }}</p>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button
+            type="button"
+            (click)="selectAllPdfOptions()"
+            class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-indigo-300 cursor-pointer"
+          >
+            Todo
+          </button>
+          <button
+            type="button"
+            (click)="selectMinimalPdfOptions()"
+            class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-300 cursor-pointer"
+          >
+            Solo resumen
+          </button>
+          <button
+            type="button"
+            (click)="showPdfConfigModal = false"
+            class="ml-1 text-slate-400 hover:text-white cursor-pointer text-base leading-none"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+
+      <!-- Cuerpo scrollable con selectores de qué va y qué no -->
+      <div class="flex-1 overflow-y-auto space-y-3.5 pr-1">
+        <!-- 1. Encabezado / Título -->
+        <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-2">
+          <label class="flex items-center gap-2 text-xs font-bold text-slate-200 cursor-pointer">
+            <input
+              type="checkbox"
+              [(ngModel)]="pdfOptions.includeHeader"
+              class="rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-0"
+            />
+            <span>1. Encabezado (Título principal del documento)</span>
+          </label>
+          <div *ngIf="pdfOptions.includeHeader" class="pl-5">
+            <input
+              type="text"
+              [(ngModel)]="pdfCustomHeaderTitle"
+              placeholder="Título del encabezado del PDF..."
+              class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-indigo-500"
+            />
+          </div>
+        </div>
+
+        <!-- 2. Ficha Técnica y campos individuales -->
+        <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-2">
+          <label class="flex items-center gap-2 text-xs font-bold text-slate-200 cursor-pointer">
+            <input
+              type="checkbox"
+              [(ngModel)]="pdfOptions.includeTechSheet"
+              class="rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-0"
+            />
+            <span>2. Tabla de Ficha Técnica</span>
+          </label>
+
+          <div *ngIf="pdfOptions.includeTechSheet" class="pl-5 flex flex-wrap gap-1.5 pt-0.5">
+            <button
+              type="button"
+              (click)="pdfOptions.fieldBranch = !pdfOptions.fieldBranch"
+              class="px-2.5 py-1 rounded-full text-[11px] border transition-colors cursor-pointer"
+              [ngClass]="pdfOptions.fieldBranch ? 'bg-indigo-600/25 border-indigo-500 text-indigo-200 font-semibold' : 'bg-slate-950 border-slate-800 text-slate-500'"
+            >
+              Rama
+            </button>
+            <button
+              type="button"
+              (click)="pdfOptions.fieldCategory = !pdfOptions.fieldCategory"
+              class="px-2.5 py-1 rounded-full text-[11px] border transition-colors cursor-pointer"
+              [ngClass]="pdfOptions.fieldCategory ? 'bg-indigo-600/25 border-indigo-500 text-indigo-200 font-semibold' : 'bg-slate-950 border-slate-800 text-slate-500'"
+            >
+              Módulo / Flujo
+            </button>
+            <button
+              type="button"
+              (click)="pdfOptions.fieldFeature = !pdfOptions.fieldFeature"
+              class="px-2.5 py-1 rounded-full text-[11px] border transition-colors cursor-pointer"
+              [ngClass]="pdfOptions.fieldFeature ? 'bg-indigo-600/25 border-indigo-500 text-indigo-200 font-semibold' : 'bg-slate-950 border-slate-800 text-slate-500'"
+            >
+              Feature / Validación
+            </button>
+            <button
+              type="button"
+              (click)="pdfOptions.fieldState = !pdfOptions.fieldState"
+              class="px-2.5 py-1 rounded-full text-[11px] border transition-colors cursor-pointer"
+              [ngClass]="pdfOptions.fieldState ? 'bg-indigo-600/25 border-indigo-500 text-indigo-200 font-semibold' : 'bg-slate-950 border-slate-800 text-slate-500'"
+            >
+              Estado Actual
+            </button>
+            <button
+              type="button"
+              (click)="pdfOptions.fieldQaVersions = !pdfOptions.fieldQaVersions"
+              class="px-2.5 py-1 rounded-full text-[11px] border transition-colors cursor-pointer"
+              [ngClass]="pdfOptions.fieldQaVersions ? 'bg-indigo-600/25 border-indigo-500 text-indigo-200 font-semibold' : 'bg-slate-950 border-slate-800 text-slate-500'"
+            >
+              Versiones QA
+            </button>
+            <button
+              type="button"
+              (click)="pdfOptions.fieldDevs = !pdfOptions.fieldDevs"
+              class="px-2.5 py-1 rounded-full text-[11px] border transition-colors cursor-pointer"
+              [ngClass]="pdfOptions.fieldDevs ? 'bg-indigo-600/25 border-indigo-500 text-indigo-200 font-semibold' : 'bg-slate-950 border-slate-800 text-slate-500'"
+            >
+              Devs Involucrados
+            </button>
+            <button
+              type="button"
+              (click)="pdfOptions.fieldUpdatedAt = !pdfOptions.fieldUpdatedAt"
+              class="px-2.5 py-1 rounded-full text-[11px] border transition-colors cursor-pointer"
+              [ngClass]="pdfOptions.fieldUpdatedAt ? 'bg-indigo-600/25 border-indigo-500 text-indigo-200 font-semibold' : 'bg-slate-950 border-slate-800 text-slate-500'"
+            >
+              Última Actualización
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Objetivos e Integraciones -->
+        <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-2">
+          <label class="flex items-center gap-2 text-xs font-bold text-slate-200 cursor-pointer">
+            <input
+              type="checkbox"
+              [(ngModel)]="pdfOptions.includeObjectives"
+              class="rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-0"
+            />
+            <span>3. Objetivos Cumplidos e Integraciones ({{ pdfSelectableObjectives.length }})</span>
+          </label>
+
+          <div *ngIf="pdfOptions.includeObjectives && pdfSelectableObjectives.length > 0" class="pl-5 space-y-1 max-h-32 overflow-y-auto">
+            <label
+              *ngFor="let obj of pdfSelectableObjectives"
+              class="flex items-start gap-2 text-[11px] text-slate-300 cursor-pointer hover:text-white"
+            >
+              <input
+                type="checkbox"
+                [(ngModel)]="obj.selected"
+                class="mt-0.5 rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-0"
+              />
+              <span class="leading-tight">{{ obj.text }}</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 4. Sub-ramas -->
+        <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-2">
+          <label class="flex items-center gap-2 text-xs font-bold text-slate-200 cursor-pointer">
+            <input
+              type="checkbox"
+              [(ngModel)]="pdfOptions.includeSubBranches"
+              class="rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-0"
+            />
+            <span>4. Sub-ramas de Desarrolladores ({{ pdfSelectableSubBranches.length }})</span>
+          </label>
+
+          <div *ngIf="pdfOptions.includeSubBranches && pdfSelectableSubBranches.length > 0" class="pl-5 space-y-1 max-h-28 overflow-y-auto">
+            <label
+              *ngFor="let item of pdfSelectableSubBranches"
+              class="flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer hover:text-white"
+            >
+              <input
+                type="checkbox"
+                [(ngModel)]="item.selected"
+                class="rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-0"
+              />
+              <span class="font-mono text-indigo-300 truncate">{{ item.sub.branchName }}</span>
+              <span *ngIf="item.sub.devName" class="text-[10px] text-slate-500">({{ item.sub.devName }})</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 5. Plantilla de Merge Request (MR) -->
+        <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80">
+          <label class="flex items-center gap-2 text-xs font-bold text-slate-200 cursor-pointer">
+            <input
+              type="checkbox"
+              [(ngModel)]="pdfOptions.includeMrPreview"
+              class="rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-0"
+            />
+            <span>5. Bloque de Plantilla de Merge Request (MR)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Botones de acción -->
+      <div class="flex gap-2 pt-2 border-t border-slate-800/80 shrink-0">
+        <button
+          type="button"
+          (click)="showPdfConfigModal = false"
+          class="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 cursor-pointer"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          (click)="confirmExportBranchPdf()"
+          class="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white cursor-pointer flex items-center justify-center gap-1.5"
+        >
+          <span>Generar y Descargar PDF</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTIFICACIÓN CLICKEABLE DE DESCARGA COMPLETADA (ABRE CARPETA AL DAR CLIC) -->
+  <div
+    *ngIf="downloadNotificationVisible"
+    (click)="openDownloadedFileFolder()"
+    class="fixed bottom-5 right-5 z-50 max-w-sm p-3.5 rounded-2xl bg-[#0b1528] hover:bg-[#111f3a] border border-emerald-500/50 shadow-2xl cursor-pointer transition-all group"
+    title="Haz clic para abrir la carpeta donde se guardó el archivo"
+  >
+    <div class="flex items-start gap-3">
+      <div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-bold text-emerald-300">Descarga completada exitosamente</p>
+        <p class="text-[11px] font-mono text-slate-200 truncate mt-0.5">{{ downloadFileName }}</p>
+        <p class="text-[10px] text-indigo-300 group-hover:text-indigo-200 font-semibold mt-1 flex items-center gap-1">
+          <span>Haz clic aquí para mostrar en carpeta</span>
+          <span>→</span>
+        </p>
+      </div>
+      <button
+        type="button"
+        (click)="closeDownloadNotification($event)"
+        class="text-slate-500 hover:text-slate-200 text-sm leading-none px-1 cursor-pointer"
+        title="Cerrar notificación"
+      >
+        ×
+      </button>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div
+    *ngIf="toastVisible"
+    class="fixed bottom-5 left-5 z-50 px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white shadow-xl"
+  >
+    {{ toastMsg }}
+  </div>
+</div>

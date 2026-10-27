@@ -183,6 +183,32 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    // ABRIR CARPETA DE DESCARGAS O MOSTRAR ARCHIVO EN EXPLORADOR
+    if (req.method === 'POST' && req.url === '/api/system/open-downloads') {
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', () => {
+            try {
+                const os = require('os');
+                const { exec } = require('child_process');
+                const parsed = body ? JSON.parse(body) : {};
+                const downloadsDir = path.join(os.homedir(), 'Downloads');
+                const targetFile = parsed.fileName ? path.join(downloadsDir, path.basename(parsed.fileName)) : '';
+                if (targetFile && fs.existsSync(targetFile)) {
+                    exec(`explorer.exe /select,"${targetFile}"`);
+                } else {
+                    exec(`explorer.exe "${downloadsDir}"`);
+                }
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: true }));
+            } catch (e) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: false, error: e.message }));
+            }
+        });
+        return;
+    }
+
     // 404 para cualquier otra ruta que no exista
     res.writeHead(404);
     res.end('404 Not Found');

@@ -65,6 +65,15 @@ const DEFAULT_MODULES: Omit<WorkspaceModuleItem, 'enabled'>[] = [
     color: 'emerald'
   },
   {
+    id: 'gravity-lead',
+    route: '/gravity-lead',
+    title: 'Gravity — Tech Lead',
+    shortTitle: 'Gravity MR',
+    description: 'Trazabilidad de ramas, versiones de QA y generación estricta de MRs y Release Blocks.',
+    icon: 'git-pull-request',
+    color: 'purple'
+  },
+  {
     id: 'emulador',
     route: '/emulador',
     title: 'Emulador de Dispositivos',
