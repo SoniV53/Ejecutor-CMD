@@ -46,6 +46,8 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
 
   consoleMin = false;
   consoleMax = false;
+  consolePosition: 'bottom' | 'right' =
+    (localStorage.getItem('cmd_console_position') as 'bottom' | 'right') || 'bottom';
   logs: CmdConsoleLog[] = [];
   activeLogId: string | null = null;
   logsCleared = false;
@@ -116,7 +118,14 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.activeProfile === 'ALL') {
       return this.projects;
     }
-    return this.projects.filter(p => p.profiles && p.profiles.includes(this.activeProfile));
+    return this.projects.filter(p => {
+      if (!p.profiles || p.profiles.length === 0) {
+        return true; // Proyectos sin perfil son globales (visibles en todos los perfiles)
+      }
+      return p.profiles.some(
+        prof => prof && (prof.trim().toUpperCase() === 'ALL' || prof.trim() === this.activeProfile)
+      );
+    });
   }
 
   get editingProject(): CmdProject | null {
@@ -138,9 +147,17 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
 
   get displayedCommands(): CmdCommandItem[] {
     // 1. Filtrar primero por el Perfil Activo (si no es 'ALL')
+    // Comandos sin perfil asignado (o con lista vacía) son GLOBALES y se muestran en cualquier perfil
     let pool = this.commands;
     if (this.activeProfile !== 'ALL') {
-      pool = pool.filter(cmd => cmd.profiles && cmd.profiles.includes(this.activeProfile));
+      pool = pool.filter(cmd => {
+        if (!cmd.profiles || cmd.profiles.length === 0) {
+          return true; // Global: sin perfiles asignados, visible en cualquier perfil
+        }
+        return cmd.profiles.some(
+          p => p && (p.trim().toUpperCase() === 'ALL' || p.trim() === this.activeProfile)
+        );
+      });
     }
 
     const project = this.activeProject;
@@ -273,6 +290,14 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
     this.lucide.refresh();
   }
 
+  toggleConsolePosition(): void {
+    this.consolePosition = this.consolePosition === 'bottom' ? 'right' : 'bottom';
+    try {
+      localStorage.setItem('cmd_console_position', this.consolePosition);
+    } catch {}
+    this.lucide.refresh();
+  }
+
   async clearLogs(): Promise<void> {
     this.api.killAllProcesses().catch(() => {});
     this.logs = [];
@@ -385,9 +410,7 @@ export class DashboardCmdComponent implements OnInit, OnDestroy, AfterViewInit {
           name: data.name,
           path: data.path,
           tags: data.tags || [],
-          profiles: data.profiles && data.profiles.length > 0
-            ? data.profiles
-            : (this.activeProfile !== 'ALL' ? [this.activeProfile] : [])
+          profiles: data.profiles || []
         }
       ];
     }

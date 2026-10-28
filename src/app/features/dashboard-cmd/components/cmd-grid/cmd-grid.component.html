@@ -46,7 +46,10 @@
       *ngIf="!collapsedCategories[catGroup.name]"
       [ngClass]="
         viewMode === 'card'
-          ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
+          ? (consolePosition === 'right'
+              ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3 gap-5'
+              : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'
+            )
           : 'flex flex-col gap-2.5'
       "
     >
@@ -127,7 +130,7 @@
             </div>
 
             <!-- Tags y Perfiles del Comando si existen -->
-            <div *ngIf="(c.profiles && c.profiles.length > 0) || (c.tags && c.tags.length > 0)" class="flex flex-wrap items-center gap-1 mb-2">
+            <div class="flex flex-wrap items-center gap-1 mb-2">
               <span
                 *ngFor="let p of c.profiles"
                 class="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-purple-950/70 text-purple-300 border border-purple-500/30 flex items-center gap-1"
@@ -135,6 +138,14 @@
               >
                 <i data-lucide="layers" class="w-2.5 h-2.5"></i>
                 {{ p }}
+              </span>
+              <span
+                *ngIf="!c.profiles || c.profiles.length === 0"
+                class="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-slate-800/80 text-slate-400 border border-slate-700/60 flex items-center gap-1"
+                title="Comando Global (visible en todos los perfiles)"
+              >
+                <i data-lucide="globe" class="w-2.5 h-2.5 text-indigo-400"></i>
+                Global
               </span>
               <span
                 *ngFor="let t of c.tags"
@@ -240,7 +251,7 @@
               title="Segundo Plano"
             ></i>
             <!-- Tags y Perfiles en vista lista -->
-            <div *ngIf="(c.profiles && c.profiles.length > 0) || (c.tags && c.tags.length > 0)" class="hidden md:flex items-center gap-1">
+            <div class="hidden md:flex items-center gap-1">
               <span
                 *ngFor="let p of c.profiles"
                 class="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-purple-950/70 text-purple-300 border border-purple-500/30 flex items-center gap-1"
@@ -248,6 +259,14 @@
               >
                 <i data-lucide="layers" class="w-2.5 h-2.5"></i>
                 {{ p }}
+              </span>
+              <span
+                *ngIf="!c.profiles || c.profiles.length === 0"
+                class="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-slate-800/80 text-slate-400 border border-slate-700/60 flex items-center gap-1"
+                title="Comando Global (visible en todos los perfiles)"
+              >
+                <i data-lucide="globe" class="w-2.5 h-2.5 text-indigo-400"></i>
+                Global
               </span>
               <span
                 *ngFor="let t of c.tags"

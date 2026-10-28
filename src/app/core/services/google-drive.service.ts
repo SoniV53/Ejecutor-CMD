@@ -210,6 +210,7 @@ export class GoogleDriveService {
     headers.set('Authorization', `Bearer ${token}`);
 
     const res = await fetch(`https://www.googleapis.com/drive/v3/${endpoint}`, {
+      cache: 'no-store',
       ...options,
       headers
     });
@@ -287,6 +288,192 @@ export class GoogleDriveService {
     if (!createRes.ok) throw new Error(`No se pudo crear la subcarpeta ${folderName}`);
     const folder = await createRes.json();
     return folder.id;
+  }
+
+  /**
+   * Sube o actualiza un archivo binario (ej. Excel .xlsx, PDF, ZIP) en una carpeta de Google Drive.
+   * Si el archivo ya existe con ese nombre en la carpeta padre, lo actualiza (PATCH de medios).
+   * Si no existe, lo crea nuevo (multipart/related POST).
+   * Retorna el id del archivo, su webViewLink para abrirlo en Google Drive/Google Sheets y su nombre.
+   */
+  async uploadOrUpdateBinaryFile(
+    parentId: string,
+    fileName: string,
+    data: Uint8Array | ArrayBuffer | Blob,
+    mimeType: string = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ): Promise<{ fileId: string; webViewLink?: string; name: string }> {
+    if (!this.isLoggedIn()) {
+      throw new Error('Debes conectar tu cuenta de Google.');
+    }
+
+    const token = await this.getFreshToken();
+    const q = `'${parentId}' in parents and name = '${fileName.replace(/'/g, "\\'")}' and trashed = false`;
+    const searchRes = await this.driveFetch(`files?q=${encodeURIComponent(q)}&fields=files(id,name,webViewLink)`);
+
+    let existingFile: any = null;
+    if (searchRes.ok) {
+      const searchData = await searchRes.json();
+      if (searchData.files && searchData.files.length > 0) {
+        existingFile = searchData.files[0];
+      }
+    }
+
+    const binaryBlob = data instanceof Blob ? data : new Blob([data], { type: mimeType });
+
+    if (existingFile) {
+      // Actualizar archivo existente (PATCH media)
+      const patchRes = await fetch(
+        `https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=media&fields=id,name,webViewLink`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': mimeType
+          },
+          body: binaryBlob
+        }
+      );
+
+      if (!patchRes.ok) {
+        throw new Error(`Error al actualizar archivo ${fileName} en Google Drive (${patchRes.status})`);
+      }
+      const updated = await patchRes.json();
+      return {
+        fileId: updated.id || existingFile.id,
+        webViewLink: updated.webViewLink || existingFile.webViewLink,
+        name: fileName
+      };
+    } else {
+      // Crear nuevo archivo binario vía multipart/related
+      const metadata = {
+        name: fileName,
+        parents: [parentId],
+        mimeType: mimeType
+      };
+
+      const boundary = '-------314159265358979323846';
+      const metadataHeader =
+        `--${boundary}\r\n` +
+        `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+        JSON.stringify(metadata) +
+        `\r\n--${boundary}\r\n` +
+        `Content-Type: ${mimeType}\r\n\r\n`;
+
+      const metadataBlob = new Blob([metadataHeader], { type: 'text/plain; charset=UTF-8' });
+      const closeBlob = new Blob([`\r\n--${boundary}--`], { type: 'text/plain; charset=UTF-8' });
+      const multipartBody = new Blob([metadataBlob, binaryBlob, closeBlob]);
+
+      const createRes = await fetch(
+        `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': `multipart/related; boundary=${boundary}`
+          },
+          body: multipartBody
+        }
+      );
+
+      if (!createRes.ok) {
+        throw new Error(`Error al crear archivo ${fileName} en Google Drive (${createRes.status})`);
+      }
+      const created = await createRes.json();
+      return {
+        fileId: created.id,
+        webViewLink: created.webViewLink,
+        name: fileName
+      };
+    }
+  }
+
+  /**
+   * Cambia el nombre de un archivo en Google Drive por su ID.
+   */
+  async renameDriveFile(fileId: string, newName: string): Promise<void> {
+    const res = await this.driveFetch(`files/${fileId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName })
+    });
+    if (!res.ok) {
+      throw new Error(`Error renombrando archivo en Google Drive (${res.status})`);
+    }
+  }
+
+  /**
+   * Lee el contenido binario (ArrayBuffer) de un archivo en Google Drive por su ID.
+   * Maneja tanto archivos binarios nativos (.xlsx) como hojas de Google Sheets exportadas a .xlsx.
+   * Cuenta con anulación estricta de caché (cache-busting) para obtener siempre la versión más reciente.
+   */
+  async readBinaryFile(fileId: string): Promise<ArrayBuffer> {
+    const timestamp = Date.now();
+    const antiCacheHeaders = {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    };
+
+    try {
+      const metaRes = await this.driveFetch(`files/${fileId}?fields=id,name,mimeType,modifiedTime&_t=${timestamp}`, {
+        cache: 'no-store',
+        headers: antiCacheHeaders
+      });
+      if (metaRes.ok) {
+        const meta = await metaRes.json();
+        if (meta.mimeType === 'application/vnd.google-apps.spreadsheet') {
+          // Si el archivo fue convertido a Google Sheets en el navegador, exportarlo a .xlsx fresco
+          const exportRes = await this.driveFetch(
+            `files/${fileId}/export?mimeType=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet&_t=${timestamp}`,
+            {
+              cache: 'no-store',
+              headers: antiCacheHeaders
+            }
+          );
+          if (exportRes.ok) {
+            return await exportRes.arrayBuffer();
+          }
+        }
+      }
+    } catch {}
+
+    // Intentar descarga directa de medios (para archivos .xlsx binarios estándar) con anulación de caché
+    const res = await this.driveFetch(`files/${fileId}?alt=media&_t=${timestamp}`, {
+      cache: 'no-store',
+      headers: antiCacheHeaders
+    });
+    if (res.ok) {
+      return await res.arrayBuffer();
+    }
+
+    // Fallback por si Google Drive requiere exportar
+    const fallbackExport = await this.driveFetch(
+      `files/${fileId}/export?mimeType=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet&_t=${timestamp}`,
+      {
+        cache: 'no-store',
+        headers: antiCacheHeaders
+      }
+    );
+    if (fallbackExport.ok) {
+      return await fallbackExport.arrayBuffer();
+    }
+
+    throw new Error(`Error al leer archivo de Google Drive (${res.status})`);
+  }
+
+  /**
+   * Busca un archivo por nombre dentro de una carpeta específica de Google Drive.
+   */
+  async findFileInFolder(parentId: string, fileName: string): Promise<GoogleDriveFile | null> {
+    const q = `'${parentId}' in parents and name = '${fileName.replace(/'/g, "\\'")}' and trashed = false`;
+    const res = await this.driveFetch(`files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,modifiedTime,size)`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.files && data.files.length > 0) {
+        return data.files[0];
+      }
+    }
+    return null;
   }
 
   // --- SINCRONIZACIÓN GLOBAL DE TODAS LAS CARPETAS DE LA APP ---

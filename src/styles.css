@@ -55,6 +55,15 @@ body {
   animation: fadeIn 0.35s ease-out forwards;
 }
 
+/* Mejor visibilidad y grosor de trazo para iconos Lucide en botones y fondos oscuros */
+i[data-lucide] svg,
+.lucide,
+[data-lucide-inner] {
+  stroke-width: 2.25px !important;
+  display: inline-block;
+  vertical-align: middle;
+}
+
 @media print {
   .no-print {
     display: none !important;

@@ -35,43 +35,51 @@
       (importProfileCommands)="importProfileCommands($event)"
     ></app-cmd-header>
 
-    <div class="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar">
-      <app-cmd-grid
-        [commands]="displayedCommands"
-        [explicitCategories]="explicitCategories"
-        [collapsedCategories]="collapsedCategories"
-        [viewMode]="viewMode"
-        [searchTerm]="searchTerm"
-        (toggleCategory)="toggleCategory($event)"
-        (editCategory)="editCategory($event)"
-        (deleteCategory)="deleteCategory($event)"
-        (editCommand)="editCommand($event)"
-        (editBatCommand)="editBatCommand($event)"
-        (exportBatCommand)="exportSingleBat($event)"
-        (deleteCommand)="deleteCommand($event)"
-        (runCommand)="runCommand($event)"
-      ></app-cmd-grid>
-    </div>
+    <div
+      class="flex-1 flex min-h-0 overflow-hidden relative"
+      [ngClass]="consolePosition === 'right' ? 'flex-row' : 'flex-col'"
+    >
+      <div class="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar min-w-0">
+        <app-cmd-grid
+          [commands]="displayedCommands"
+          [explicitCategories]="explicitCategories"
+          [collapsedCategories]="collapsedCategories"
+          [viewMode]="viewMode"
+          [searchTerm]="searchTerm"
+          [consolePosition]="consolePosition"
+          (toggleCategory)="toggleCategory($event)"
+          (editCategory)="editCategory($event)"
+          (deleteCategory)="deleteCategory($event)"
+          (editCommand)="editCommand($event)"
+          (editBatCommand)="editBatCommand($event)"
+          (exportBatCommand)="exportSingleBat($event)"
+          (deleteCommand)="deleteCommand($event)"
+          (runCommand)="runCommand($event)"
+        ></app-cmd-grid>
+      </div>
 
-    <app-cmd-console-drawer
-      [logs]="logs"
-      [activeLogId]="activeLogId"
-      [consoleMin]="consoleMin"
-      [consoleMax]="consoleMax"
-      [cleared]="logsCleared"
-      [activeCwd]="activeProject?.path || 'C:\\'"
-      (toggleConsole)="toggleConsole()"
-      (toggleConsoleMax)="toggleConsoleMax()"
-      (clearLogs)="clearLogs()"
-      (selectTab)="selectTab($event)"
-      (closeTab)="closeTab($event)"
-      (clearTabOutput)="clearTabOutput($event)"
-      (createNewTab)="createNewTerminalTab()"
-      (rerunTab)="rerunTab($event)"
-      (stopProcess)="stopProcess($event)"
-      (runManualCommand)="runManualCommand($event)"
-      (sendProcessInput)="sendInputToProcess($event)"
-    ></app-cmd-console-drawer>
+      <app-cmd-console-drawer
+        [logs]="logs"
+        [activeLogId]="activeLogId"
+        [consoleMin]="consoleMin"
+        [consoleMax]="consoleMax"
+        [consolePosition]="consolePosition"
+        [cleared]="logsCleared"
+        [activeCwd]="activeProject?.path || 'C:\\'"
+        (toggleConsole)="toggleConsole()"
+        (toggleConsoleMax)="toggleConsoleMax()"
+        (togglePosition)="toggleConsolePosition()"
+        (clearLogs)="clearLogs()"
+        (selectTab)="selectTab($event)"
+        (closeTab)="closeTab($event)"
+        (clearTabOutput)="clearTabOutput($event)"
+        (createNewTab)="createNewTerminalTab()"
+        (rerunTab)="rerunTab($event)"
+        (stopProcess)="stopProcess($event)"
+        (runManualCommand)="runManualCommand($event)"
+        (sendProcessInput)="sendInputToProcess($event)"
+      ></app-cmd-console-drawer>
+    </div>
   </main>
 
   <!-- Modales clásicos (Proyecto, Categoría, Comando Estándar, Perfiles) -->

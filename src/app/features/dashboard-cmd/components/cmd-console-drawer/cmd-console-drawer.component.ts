@@ -5,7 +5,9 @@ import {
   EventEmitter,
   OnChanges,
   AfterViewInit,
-  SimpleChanges
+  SimpleChanges,
+  ViewChild,
+  ElementRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -44,11 +46,13 @@ export class CmdConsoleDrawerComponent implements OnChanges, AfterViewInit {
   @Input() activeLogId: string | null = null;
   @Input() consoleMin = false;
   @Input() consoleMax = false;
+  @Input() consolePosition: 'bottom' | 'right' = 'bottom';
   @Input() cleared = false;
   @Input() activeCwd = 'C:\\';
 
   @Output() toggleConsole = new EventEmitter<void>();
   @Output() toggleConsoleMax = new EventEmitter<void>();
+  @Output() togglePosition = new EventEmitter<void>();
   @Output() clearLogs = new EventEmitter<void>();
   @Output() selectTab = new EventEmitter<string>();
   @Output() closeTab = new EventEmitter<string>();
@@ -59,11 +63,18 @@ export class CmdConsoleDrawerComponent implements OnChanges, AfterViewInit {
   @Output() runManualCommand = new EventEmitter<string>();
   @Output() sendProcessInput = new EventEmitter<{ processId: string; input: string }>();
 
+  @ViewChild('terminalOutputEl') terminalOutputRef?: ElementRef<HTMLPreElement>;
+
   manualCmdText = '';
   stdinMap: Record<string, string> = {};
   runningCount = 0;
   activeLog: CmdConsoleLog | null = null;
   activeLogHtml: SafeHtml = '';
+
+  autoScroll = true;
+  showScrollToBottomBtn = false;
+  private lastOutputLength = 0;
+  private lastActiveTabId: string | null = null;
 
   constructor(
     private lucide: LucideIconService,
@@ -72,6 +83,7 @@ export class CmdConsoleDrawerComponent implements OnChanges, AfterViewInit {
 
   ngAfterViewInit(): void {
     this.lucide.refresh();
+    this.scheduleScrollToBottom();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -85,13 +97,69 @@ export class CmdConsoleDrawerComponent implements OnChanges, AfterViewInit {
         this.activeLog.output ||
         (this.activeLog.running ? 'Iniciando proceso en CMD interno...' : '(Sin salida en consola)');
       this.activeLogHtml = this.sanitizer.bypassSecurityTrustHtml(this.colorizeTerminalText(raw));
+
+      const tabSwitched = this.activeLog.id !== this.lastActiveTabId;
+      const outputGrew = raw.length !== this.lastOutputLength;
+      this.lastActiveTabId = this.activeLog.id;
+      this.lastOutputLength = raw.length;
+
+      if (tabSwitched) {
+        this.autoScroll = true;
+        this.scheduleScrollToBottom(true);
+      } else if (outputGrew && this.autoScroll) {
+        this.scheduleScrollToBottom(false);
+      }
     } else {
       this.activeLogHtml = '';
+      this.lastActiveTabId = null;
+      this.lastOutputLength = 0;
+      this.showScrollToBottomBtn = false;
     }
 
     if (changes['consoleMin'] || changes['consoleMax']) {
       this.lucide.refresh();
+      if (!this.consoleMin && this.autoScroll) {
+        this.scheduleScrollToBottom(false);
+      }
     }
+  }
+
+  private scheduleScrollToBottom(force = false): void {
+    setTimeout(() => {
+      if (force || this.autoScroll) {
+        this.scrollToBottom(false);
+      }
+    }, 20);
+  }
+
+  scrollToBottom(smooth = true): void {
+    const el = this.terminalOutputRef?.nativeElement;
+    if (!el) return;
+    this.autoScroll = true;
+    this.showScrollToBottomBtn = false;
+    if (smooth && typeof el.scrollTo === 'function') {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    } else {
+      el.scrollTop = el.scrollHeight;
+    }
+  }
+
+  toggleAutoScroll(event: Event): void {
+    event.stopPropagation();
+    this.autoScroll = !this.autoScroll;
+    if (this.autoScroll) {
+      this.scrollToBottom(true);
+    }
+  }
+
+  onTerminalScroll(): void {
+    const el = this.terminalOutputRef?.nativeElement;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const isAtBottom = distanceFromBottom <= 36;
+    this.showScrollToBottomBtn = !isAtBottom;
+    // Si el usuario hace scroll manual hacia arriba, pausar auto-scroll hasta que vuelva a bajar o pulse el botón
+    this.autoScroll = isAtBottom;
   }
 
   private escapeHtml(str: string): string {
@@ -261,6 +329,11 @@ export class CmdConsoleDrawerComponent implements OnChanges, AfterViewInit {
   onToggleMax(event: Event): void {
     event.stopPropagation();
     this.toggleConsoleMax.emit();
+  }
+
+  onTogglePosition(event: Event): void {
+    event.stopPropagation();
+    this.togglePosition.emit();
   }
 
   onStopProcess(event: Event, processId?: string): void {

@@ -5,10 +5,16 @@ import { RouterModule } from '@angular/router';
 import { LucideIconService } from '../../core/services/lucide-icon.service';
 import { DocApiService, DocExplorerItem } from '../../core/services/doc-api.service';
 import { GoogleDriveService } from '../../core/services/google-drive.service';
+import { ElectronService } from '../../core/services/electron.service';
+import * as ExcelJS from 'exceljs';
 import {
+  BranchFolderLink,
   BranchLifecycleState,
+  ExcelDesignConfig,
+  ExcelDesignPreset,
   GravityLeadWorkspace,
   ReleaseBlockRecord,
+  ReleaseEmailContact,
   SubBranchContext,
   TrackedBranch
 } from './models/gravity-lead.models';
@@ -18,6 +24,9 @@ declare const XLSX: any;
 
 const STORAGE_KEY = 'consoleflow_gravity_lead_v1';
 const ACTIVE_PROFILE_KEY = 'gravityActiveProfileFile';
+const EMAIL_CONTACTS_KEY = 'gravity_release_email_contacts';
+const EMAIL_LAST_BUILD_FOLDER_KEY = 'gravity_last_build_folder';
+const EXCEL_DESIGN_KEY = 'gravity_excel_design_config';
 
 @Component({
   selector: 'app-gravity-lead',
@@ -77,6 +86,24 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
   editSubBranchName = '';
   editSubBranchDev = '';
   editSubBranchNotes = '';
+
+  // Gestión de Direcciones / Enlaces de Carpetas de Compilados por Rama (Drive, Nube, Red)
+  branchFolderUrlInput = '';
+  branchFolderLabelInput = '';
+  showAddFolderLinkInput = false;
+
+  // Sincronización de Excel con Google Drive
+  driveExcelSyncing = false;
+  driveExcelImporting = false;
+  localExcelImporting = false;
+  driveExcelLastSyncTime: number | null = null;
+  driveExcelFileId: string | null = null;
+  driveExcelWebViewLink: string | null = null;
+  autoSyncExcelToDrive = localStorage.getItem('gravity_auto_sync_excel') === 'true';
+  showDriveExcelModal = false;
+  showToolsMenu = false;
+  customExcelFileName = '';
+  private driveExcelDebounceTimer: any = null;
 
   // Resultado del MR generado en vista individual
   generatedSingleMr = '';
@@ -141,13 +168,128 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
   }> = [];
   isUploadingFolderFiles = false;
 
+  // Modal Generador de Plantilla de Correo de Liberación
+  showEmailTemplateModal = false;
+  emailGreetingTime: 'tardes' | 'dias' | 'noches' = 'tardes';
+  emailCustomGreeting = '';
+  emailVersion = '';
+  emailBranchVersions: string[] = [];
+  emailPlatforms = 'IOS y Android';
+  emailContent = '';
+  emailBuildFolder = '';
+  emailSubject = '';
+  emailTargetBranch: TrackedBranch | null = null;
+  emailModalTab: 'preview' | 'contacts' = 'preview';
+
+  // Apartado de Destinatarios Guardados (Para / CC)
+  savedEmailContacts: ReleaseEmailContact[] = [];
+  newContactEmail = '';
+  newContactName = '';
+  newContactType: 'to' | 'cc' = 'to';
+
+  // --- CONFIGURACIÓN DE DISEÑO PERSONALIZADO DE EXCEL (exceljs) ---
+  showExcelDesignModal = false;
+
+  excelDesign: ExcelDesignConfig = {
+    presetId: 'indigo',
+    titleBgColor: '#1e1b4b',
+    titleTextColor: '#ffffff',
+    tableTheme: 'TableStyleMedium9'
+  };
+
+  readonly excelDesignPresets: ExcelDesignPreset[] = [
+    {
+      id: 'indigo',
+      name: 'Indigo Tech',
+      titleBgColor: '#1e1b4b',
+      titleTextColor: '#ffffff',
+      tableTheme: 'TableStyleMedium9',
+      headerBgPreview: '#4338ca'
+    },
+    {
+      id: 'blue',
+      name: 'Azul Corporativo',
+      titleBgColor: '#0f172a',
+      titleTextColor: '#ffffff',
+      tableTheme: 'TableStyleMedium2',
+      headerBgPreview: '#1d4ed8'
+    },
+    {
+      id: 'emerald',
+      name: 'Verde Esmeralda',
+      titleBgColor: '#064e3b',
+      titleTextColor: '#ffffff',
+      tableTheme: 'TableStyleMedium10',
+      headerBgPreview: '#047857'
+    },
+    {
+      id: 'purple',
+      name: 'Púrpura Royal',
+      titleBgColor: '#3b0764',
+      titleTextColor: '#ffffff',
+      tableTheme: 'TableStyleMedium12',
+      headerBgPreview: '#7c3aed'
+    },
+    {
+      id: 'amber',
+      name: 'Ámbar Ejecutivo',
+      titleBgColor: '#451a03',
+      titleTextColor: '#ffffff',
+      tableTheme: 'TableStyleMedium3',
+      headerBgPreview: '#b45309'
+    },
+    {
+      id: 'slate',
+      name: 'Grafito Minimal',
+      titleBgColor: '#020617',
+      titleTextColor: '#38bdf8',
+      tableTheme: 'TableStyleMedium1',
+      headerBgPreview: '#334155'
+    },
+    {
+      id: 'rose',
+      name: 'Rubí / Vino',
+      titleBgColor: '#4c0519',
+      titleTextColor: '#ffffff',
+      tableTheme: 'TableStyleMedium4',
+      headerBgPreview: '#be123c'
+    },
+    {
+      id: 'custom',
+      name: 'Personalizado',
+      titleBgColor: '#1e1b4b',
+      titleTextColor: '#ffffff',
+      tableTheme: 'TableStyleMedium9',
+      headerBgPreview: '#6366f1'
+    }
+  ];
+
+  readonly excelTableThemes = [
+    { id: 'TableStyleMedium9', name: 'Azul Marino / Indigo (Zebra clásica)' },
+    { id: 'TableStyleMedium2', name: 'Azul Clásico Ejecutivo' },
+    { id: 'TableStyleMedium10', name: 'Verde Esmeralda / QA Pass' },
+    { id: 'TableStyleMedium12', name: 'Púrpura / Violeta Intenso' },
+    { id: 'TableStyleMedium3', name: 'Ámbar / Naranja Dinámico' },
+    { id: 'TableStyleMedium4', name: 'Rojo Vino / Coral' },
+    { id: 'TableStyleMedium1', name: 'Gris Carbón / Slate' },
+    { id: 'TableStyleMedium5', name: 'Celeste Suave' },
+    { id: 'TableStyleLight1', name: 'Minimalista Claro (Bordes sutiles)' },
+    { id: 'TableStyleLight9', name: 'Líneas Azules Sutiles' },
+    { id: 'TableStyleDark2', name: 'Contraste Alto Azul' },
+    { id: 'TableStyleDark10', name: 'Contraste Alto Verde' }
+  ];
+
   constructor(
     private lucide: LucideIconService,
     private docApi: DocApiService,
-    public googleDrive: GoogleDriveService
+    public googleDrive: GoogleDriveService,
+    private electronService: ElectronService
   ) {}
 
   ngOnInit(): void {
+    this.loadSavedEmailContacts();
+    this.loadDriveExcelMetadataForActiveProfile();
+    this.loadExcelDesign();
     this.initProfilesAndWorkspace();
   }
 
@@ -158,7 +300,8 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
   // --- GESTIÓN DE PERFILES Y CARPETA FÍSICA (json/gravity/) ---
 
   get activeProfileDisplayName(): string {
-    return (this.activeProfileFile || 'gravity_default.json').replace(/\.json$/i, '');
+    const raw = (this.activeProfileFile || 'default.json').replace(/\.json$/i, '');
+    return raw.replace(/^gravity[_-]/i, '') || raw;
   }
 
   private async ensureAppBaseDir(): Promise<string> {
@@ -239,6 +382,7 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
         const trimmed = res.content.replace(/^\uFEFF/, '').trim();
         this.activeProfileFile = fileName;
         localStorage.setItem(ACTIVE_PROFILE_KEY, fileName);
+        this.loadDriveExcelMetadataForActiveProfile();
         this.selectedBranchId = null;
 
         if (!trimmed) {
@@ -286,6 +430,7 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
 
     this.activeProfileFile = fileName;
     localStorage.setItem(ACTIVE_PROFILE_KEY, fileName);
+    this.loadDriveExcelMetadataForActiveProfile();
     this.branches = [];
     this.releaseBlocks = [];
     this.selectedBranchId = null;
@@ -313,6 +458,10 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
     } catch {
       this.showToast('No se pudo eliminar el perfil');
     }
+  }
+
+  async openProfileFolderInExplorer(): Promise<void> {
+    await this.openGravityFolderInExplorer();
   }
 
   async openGravityFolderInExplorer(): Promise<void> {
@@ -640,6 +789,32 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
           }
         }
 
+        // Construir enlaces o carpetas guardadas de compilados (Drive, nube, red)
+        const folderLinks: BranchFolderLink[] = Array.isArray(item.folderLinks)
+          ? item.folderLinks
+              .map((fl: any, idx: number) => ({
+                id: fl.id || 'fl_' + Date.now() + '_' + idx,
+                label: String(fl.label || '').trim(),
+                url: String(fl.url || '').trim(),
+                isPrimary: !!fl.isPrimary
+              }))
+              .filter((fl: BranchFolderLink) => !!fl.url)
+          : [];
+
+        let buildFolderUrl = String(item.buildFolderUrl || '').trim();
+        if (!buildFolderUrl && folderLinks.length > 0) {
+          const primary = folderLinks.find(f => f.isPrimary) || folderLinks[0];
+          buildFolderUrl = primary.url;
+        }
+        if (buildFolderUrl && folderLinks.length === 0) {
+          folderLinks.push({
+            id: 'fl_' + Date.now(),
+            label: this.inferFolderLabel(buildFolderUrl),
+            url: buildFolderUrl,
+            isPrimary: true
+          });
+        }
+
         const normalizedBranch: TrackedBranch = {
           id: String(item.id || 'br-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
           name: cleanName,
@@ -649,6 +824,8 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
           qaVersions,
           devs: uniqueDevs,
           subBranches,
+          buildFolderUrl,
+          folderLinks,
           objectivesSummary: String(item.objectivesSummary ?? item.desc ?? ''),
           rawCommitsOrDiff: String(item.rawCommitsOrDiff ?? ''),
           createdAt: String(item.createdAt || new Date().toISOString().slice(0, 10)),
@@ -660,6 +837,17 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
         } else {
           // Si había una rama duplicada con el mismo nombre, fusionar su información sin perder nada
           const existing = branchByName.get(nameKey)!;
+          if (!existing.buildFolderUrl && normalizedBranch.buildFolderUrl) {
+            existing.buildFolderUrl = normalizedBranch.buildFolderUrl;
+          }
+          if (normalizedBranch.folderLinks && normalizedBranch.folderLinks.length > 0) {
+            existing.folderLinks = existing.folderLinks || [];
+            for (const fl of normalizedBranch.folderLinks) {
+              if (!existing.folderLinks.some(efl => efl.url.toLowerCase() === fl.url.toLowerCase())) {
+                existing.folderLinks.push(fl);
+              }
+            }
+          }
           for (const v of normalizedBranch.qaVersions) {
             if (!existing.qaVersions.includes(v)) existing.qaVersions.push(v);
           }
@@ -682,13 +870,20 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
 
       this.branches = Array.from(branchByName.values());
 
+      if (Array.isArray(parsed.savedEmailContacts) && parsed.savedEmailContacts.length > 0) {
+        this.savedEmailContacts = parsed.savedEmailContacts;
+      } else {
+        this.loadSavedEmailContacts();
+      }
+
       // Actualizar únicamente caché local en navegador (NUNCA sobrescribir el disco al leer)
       try {
         const payload: GravityLeadWorkspace = {
           branches: this.branches,
           releaseBlocks: this.releaseBlocks,
           availableDevs: this.availableDevs,
-          availableFlows: this.availableFlows
+          availableFlows: this.availableFlows,
+          savedEmailContacts: this.savedEmailContacts
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       } catch {
@@ -708,10 +903,15 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
         branches: this.branches,
         releaseBlocks: this.releaseBlocks,
         availableDevs: this.availableDevs,
-        availableFlows: this.availableFlows
+        availableFlows: this.availableFlows,
+        savedEmailContacts: this.savedEmailContacts
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       this.persistActiveProfileToDisk();
+
+      if (this.autoSyncExcelToDrive && this.googleDrive.isLoggedIn()) {
+        this.scheduleDriveExcelSync();
+      }
     } catch {
       // Ignorar errores de cuota
     }
@@ -724,7 +924,8 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
         branches: this.branches,
         releaseBlocks: this.releaseBlocks,
         availableDevs: this.availableDevs,
-        availableFlows: this.availableFlows
+        availableFlows: this.availableFlows,
+        savedEmailContacts: this.savedEmailContacts
       };
       await this.docApi.saveJsonDoc(
         this.activeProfileFile,
@@ -1862,281 +2063,293 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
     }
   }
 
-  exportAllBranchesExcel(): void {
+  // --- GESTIÓN DE DISEÑO Y PERSONALIZACIÓN DE EXCEL (exceljs) ---
+
+  openExcelDesignModal(): void {
+    this.showExcelDesignModal = true;
+    this.showToolsMenu = false;
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  closeExcelDesignModal(): void {
+    this.showExcelDesignModal = false;
+  }
+
+  applyExcelDesignPreset(preset: ExcelDesignPreset): void {
+    this.excelDesign.presetId = preset.id;
+    this.excelDesign.titleBgColor = preset.titleBgColor;
+    this.excelDesign.titleTextColor = preset.titleTextColor;
+    this.excelDesign.tableTheme = preset.tableTheme;
+  }
+
+  onCustomColorChange(): void {
+    const matched = this.excelDesignPresets.find(
+      p =>
+        p.id !== 'custom' &&
+        p.titleBgColor.toLowerCase() === (this.excelDesign.titleBgColor || '').toLowerCase() &&
+        p.titleTextColor.toLowerCase() === (this.excelDesign.titleTextColor || '').toLowerCase() &&
+        p.tableTheme === this.excelDesign.tableTheme
+    );
+    this.excelDesign.presetId = matched ? matched.id : 'custom';
+  }
+
+  saveExcelDesign(): void {
     try {
-      const escXml = (val: any): string =>
-        String(val ?? '')
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&apos;');
+      localStorage.setItem(EXCEL_DESIGN_KEY, JSON.stringify(this.excelDesign));
+      this.showToast('¡Diseño de Excel guardado correctamente!');
+    } catch {}
+  }
 
-      const colLetter = (colIdx: number): string => {
-        let s = '';
-        let n = colIdx + 1;
-        while (n > 0) {
-          const m = (n - 1) % 26;
-          s = String.fromCharCode(65 + m) + s;
-          n = Math.floor((n - 1) / 26);
-        }
-        return s;
-      };
+  resetExcelDesign(): void {
+    const defaultPreset = this.excelDesignPresets[0];
+    this.applyExcelDesignPreset(defaultPreset);
+    this.saveExcelDesign();
+  }
 
-      const buildWorksheetXml = (
-        rows: { value: string | number; styleIdx: number }[][],
-        colWidths: number[],
-        mergeLastColIdx: number
-      ): string => {
-        const colsXml = colWidths
-          .map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`)
-          .join('');
-
-        const rowsXml = rows
-          .map((cells, rIdx) => {
-            const rowNum = rIdx + 1;
-            const heightAttr = rIdx === 0 ? ' ht="28" customHeight="1"' : rIdx === 1 ? ' ht="24" customHeight="1"' : '';
-            const cellsXml = cells
-              .map((cell, cIdx) => {
-                const ref = `${colLetter(cIdx)}${rowNum}`;
-                if (typeof cell.value === 'number') {
-                  return `<c r="${ref}" s="${cell.styleIdx}" t="n"><v>${cell.value}</v></c>`;
-                }
-                return `<c r="${ref}" s="${cell.styleIdx}" t="inlineStr"><is><t xml:space="preserve">${escXml(cell.value)}</t></is></c>`;
-              })
-              .join('');
-            return `<row r="${rowNum}"${heightAttr}>${cellsXml}</row>`;
-          })
-          .join('');
-
-        const endCol = colLetter(mergeLastColIdx);
-        return (
-          `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-          `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
-          `<cols>${colsXml}</cols>` +
-          `<sheetData>${rowsXml}</sheetData>` +
-          `<mergeCells count="1"><mergeCell ref="A1:${endCol}1"/></mergeCells>` +
-          `</worksheet>`
-        );
-      };
-
-      const getStateStyleIdx = (state: BranchLifecycleState): number => {
-        if (state === 'Certificada') return 4;
-        if (state === 'QA') return 5;
-        return 6;
-      };
-
-      // =========================================================================
-      // HOJA 1: CONTROL DE RAMAS
-      // =========================================================================
-      const headers1 = [
-        '#',
-        'Categoría (Módulo / Flujo)',
-        'Nombre de Rama',
-        'Título / Desarrollo',
-        'Estado',
-        'Versiones QA',
-        'Devs Involucrados',
-        'Objetivos y Descripción',
-        'Sub-ramas Asociadas',
-        'Última Actualización'
-      ];
-
-      const sheet1Rows: { value: string | number; styleIdx: number }[][] = [
-        headers1.map((_, i) => ({
-          value: i === 0 ? 'CONTROL DE RAMAS, CATEGORÍAS Y VERSIONES QA' : '',
-          styleIdx: 1
-        })),
-        headers1.map(h => ({ value: h, styleIdx: 2 }))
-      ];
-
-      if (this.branches.length === 0) {
-        sheet1Rows.push([
-          { value: '-', styleIdx: 7 },
-          { value: 'Sin ramas registradas', styleIdx: 0 },
-          { value: '-', styleIdx: 0 },
-          { value: '-', styleIdx: 0 },
-          { value: '-', styleIdx: 7 },
-          { value: '-', styleIdx: 7 },
-          { value: '-', styleIdx: 0 },
-          { value: '-', styleIdx: 0 },
-          { value: '-', styleIdx: 0 },
-          { value: '-', styleIdx: 7 }
-        ]);
-      } else {
-        this.branches.forEach((b, idx) => {
-          const bullets = this.extractBulletPointsFromBranch(b);
-          const objectivesText = bullets.length
-            ? bullets.map(item => `• ${item}`).join('\n')
-            : b.objectivesSummary || '-';
-          const subBranchesText = (b.subBranches || []).length
-            ? b.subBranches
-                .map(s => `• ${s.branchName} (${s.devName || 'Dev'}): ${s.notesOrCommits || ''}`)
-                .join('\n')
-            : '-';
-          const devsText = this.collectUniqueDevs([b]).join(', ') || '-';
-          const versionsText = (b.qaVersions || []).length
-            ? b.qaVersions.map(v => `v${v}`).join(', ')
-            : '-';
-          const updatedText = new Date(b.updatedAt || b.createdAt).toLocaleDateString('es-ES');
-
-          sheet1Rows.push([
-            { value: idx + 1, styleIdx: 7 },
-            { value: b.moduleFlow || 'General', styleIdx: 8 },
-            { value: b.name, styleIdx: 3 },
-            { value: b.featureTitle || '-', styleIdx: 0 },
-            { value: b.state, styleIdx: getStateStyleIdx(b.state) },
-            { value: versionsText, styleIdx: 7 },
-            { value: devsText, styleIdx: 0 },
-            { value: objectivesText, styleIdx: 0 },
-            { value: subBranchesText, styleIdx: 0 },
-            { value: updatedText, styleIdx: 7 }
-          ]);
-        });
-      }
-
-      const sheet1Xml = buildWorksheetXml(
-        sheet1Rows,
-        [6, 24, 48, 36, 18, 18, 26, 54, 42, 16],
-        9
-      );
-
-      // =========================================================================
-      // HOJA 2: DICCIONARIO VERSIONES QA
-      // =========================================================================
-      const headers2 = [
-        'Versión QA',
-        'Rama Asociada',
-        'Categoría (Módulo / Flujo)',
-        'Estado Actual',
-        'Devs Involucrados'
-      ];
-
-      const sheet2Rows: { value: string | number; styleIdx: number }[][] = [
-        headers2.map((_, i) => ({
-          value: i === 0 ? 'DICCIONARIO DE VERSIONES QA (VERSION MAPPING)' : '',
-          styleIdx: 1
-        })),
-        headers2.map(h => ({ value: h, styleIdx: 2 }))
-      ];
-
-      if (this.versionDictionary.length === 0) {
-        sheet2Rows.push([
-          { value: 'Sin versiones registradas', styleIdx: 0 },
-          { value: '-', styleIdx: 0 },
-          { value: '-', styleIdx: 0 },
-          { value: '-', styleIdx: 7 },
-          { value: '-', styleIdx: 0 }
-        ]);
-      } else {
-        for (const item of this.versionDictionary) {
-          sheet2Rows.push([
-            { value: `v${item.version}`, styleIdx: 7 },
-            { value: item.branch.name, styleIdx: 3 },
-            { value: item.branch.moduleFlow || 'General', styleIdx: 8 },
-            { value: item.branch.state, styleIdx: getStateStyleIdx(item.branch.state) },
-            { value: this.collectUniqueDevs([item.branch]).join(', ') || '-', styleIdx: 0 }
-          ]);
+  loadExcelDesign(): void {
+    try {
+      const raw = localStorage.getItem(EXCEL_DESIGN_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.titleBgColor && parsed.tableTheme) {
+          this.excelDesign = {
+            presetId: parsed.presetId || 'indigo',
+            titleBgColor: parsed.titleBgColor,
+            titleTextColor: parsed.titleTextColor || '#ffffff',
+            tableTheme: parsed.tableTheme
+          };
         }
       }
+    } catch {}
+  }
 
-      const sheet2Xml = buildWorksheetXml(sheet2Rows, [18, 48, 24, 18, 30], 4);
+  // --- GENERACIÓN DEL LIBRO EXCEL (.XLSX) PROFESIONAL CON EXCELJS ---
 
-      // =========================================================================
-      // ESTILOS Y ARCHIVOS OPENXML (.XLSX NATIVO SIN DEPENDENCIAS EXTERNAS)
-      // =========================================================================
-      const stylesXml =
-        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-        `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
-        `<fonts count="7">` +
-        `<font><sz val="10"/><color rgb="FF0F172A"/><name val="Calibri"/></font>` +
-        `<font><b/><sz val="12"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>` +
-        `<font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>` +
-        `<font><b/><sz val="9.5"/><color rgb="FF1E1B4B"/><name val="Consolas"/></font>` +
-        `<font><b/><sz val="10"/><color rgb="FF065F46"/><name val="Calibri"/></font>` +
-        `<font><b/><sz val="10"/><color rgb="FF92400E"/><name val="Calibri"/></font>` +
-        `<font><b/><sz val="10"/><color rgb="FF3730A3"/><name val="Calibri"/></font>` +
-        `</fonts>` +
-        `<fills count="8">` +
-        `<fill><patternFill patternType="none"/></fill>` +
-        `<fill><patternFill patternType="gray125"/></fill>` +
-        `<fill><patternFill patternType="solid"><fgColor rgb="FF0F172A"/><bgColor indexed="64"/></patternFill></fill>` +
-        `<fill><patternFill patternType="solid"><fgColor rgb="FF1E293B"/><bgColor indexed="64"/></patternFill></fill>` +
-        `<fill><patternFill patternType="solid"><fgColor rgb="FFD1FAE5"/><bgColor indexed="64"/></patternFill></fill>` +
-        `<fill><patternFill patternType="solid"><fgColor rgb="FFFEF3C7"/><bgColor indexed="64"/></patternFill></fill>` +
-        `<fill><patternFill patternType="solid"><fgColor rgb="FFE0E7FF"/><bgColor indexed="64"/></patternFill></fill>` +
-        `<fill><patternFill patternType="solid"><fgColor rgb="FFF8FAFC"/><bgColor indexed="64"/></patternFill></fill>` +
-        `</fills>` +
-        `<borders count="2">` +
-        `<border><left/><right/><top/><bottom/><diagonal/></border>` +
-        `<border>` +
-        `<left style="thin"><color rgb="FFCBD5E1"/></left>` +
-        `<right style="thin"><color rgb="FFCBD5E1"/></right>` +
-        `<top style="thin"><color rgb="FFCBD5E1"/></top>` +
-        `<bottom style="thin"><color rgb="FFCBD5E1"/></bottom>` +
-        `<diagonal/>` +
-        `</border>` +
-        `</borders>` +
-        `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
-        `<cellXfs count="9">` +
-        `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
-        `<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>` +
-        `<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>` +
-        `<xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
-        `<xf numFmtId="0" fontId="4" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` +
-        `<xf numFmtId="0" fontId="5" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` +
-        `<xf numFmtId="0" fontId="6" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` +
-        `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top" wrapText="1"/></xf>` +
-        `<xf numFmtId="0" fontId="6" fillId="7" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top" wrapText="1"/></xf>` +
-        `</cellXfs>` +
-        `</styleSheet>`;
+  async buildExcelWorkbookBytes(): Promise<Uint8Array> {
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'ConsoleFlow / Workspace-Hub';
+    workbook.lastModifiedBy = 'Tech Lead';
+    workbook.created = new Date();
+    workbook.modified = new Date();
 
-      const workbookXml =
-        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-        `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
-        `<sheets>` +
-        `<sheet name="Control de Ramas" sheetId="1" r:id="rId1"/>` +
-        `<sheet name="Versiones QA" sheetId="2" r:id="rId2"/>` +
-        `</sheets>` +
-        `</workbook>`;
+    const hexToArgb = (hex: string, defaultArgb = 'FF1E1B4B'): string => {
+      if (!hex) return defaultArgb;
+      let clean = hex.replace('#', '').trim();
+      if (clean.length === 3) {
+        clean = clean.split('').map(c => c + c).join('');
+      }
+      if (clean.length === 6) {
+        return 'FF' + clean.toUpperCase();
+      }
+      if (clean.length === 8) {
+        return clean.toUpperCase();
+      }
+      return defaultArgb;
+    };
 
-      const workbookRelsXml =
-        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-        `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-        `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>` +
-        `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>` +
-        `<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
-        `</Relationships>`;
+    const titleBgArgb = hexToArgb(this.excelDesign.titleBgColor, 'FF1E1B4B');
+    const titleTextArgb = hexToArgb(this.excelDesign.titleTextColor, 'FFFFFFFF');
+    const tableTheme = this.excelDesign.tableTheme || 'TableStyleMedium9';
+    const profileName = this.activeProfileDisplayName.toUpperCase();
 
-      const rootRelsXml =
-        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-        `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-        `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>` +
-        `</Relationships>`;
+    // =========================================================================
+    // HOJA 1: CONTROL DE RAMAS Y TRAZABILIDAD
+    // =========================================================================
+    const ws1 = workbook.addWorksheet('Control de Ramas', {
+      views: [{ state: 'frozen', ySplit: 2 }]
+    });
 
-      const contentTypesXml =
-        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-        `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
-        `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
-        `<Default Extension="xml" ContentType="application/xml"/>` +
-        `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
-        `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
-        `<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
-        `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
-        `</Types>`;
+    // Fila 1: Título unificado (12 columnas: A a L)
+    ws1.mergeCells('A1:L1');
+    const title1 = ws1.getCell('A1');
+    title1.value = `CONTROL DE RAMAS, CATEGORÍAS Y VERSIONES QA - ${profileName}`;
+    title1.font = { name: 'Calibri', size: 13, bold: true, color: { argb: titleTextArgb } };
+    title1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: titleBgArgb } };
+    title1.alignment = { vertical: 'middle', horizontal: 'center' };
+    ws1.getRow(1).height = 32;
 
-      const zipBytes = this.buildZipArchiveBytes([
-        { path: '[Content_Types].xml', content: contentTypesXml },
-        { path: '_rels/.rels', content: rootRelsXml },
-        { path: 'xl/workbook.xml', content: workbookXml },
-        { path: 'xl/_rels/workbook.xml.rels', content: workbookRelsXml },
-        { path: 'xl/styles.xml', content: stylesXml },
-        { path: 'xl/worksheets/sheet1.xml', content: sheet1Xml },
-        { path: 'xl/worksheets/sheet2.xml', content: sheet2Xml }
+    // Ancho de columnas (12 columnas)
+    ws1.columns = [
+      { key: 'num', width: 6 },
+      { key: 'id', width: 28 },
+      { key: 'cat', width: 24 },
+      { key: 'name', width: 48 },
+      { key: 'title', width: 36 },
+      { key: 'state', width: 18 },
+      { key: 'versions', width: 18 },
+      { key: 'devs', width: 26 },
+      { key: 'objectives', width: 54 },
+      { key: 'subbranches', width: 42 },
+      { key: 'folders', width: 36 },
+      { key: 'updated', width: 16 }
+    ];
+
+    const headers1 = [
+      '#',
+      'ID de Rama',
+      'Categoría (Módulo / Flujo)',
+      'Nombre de Rama',
+      'Título / Desarrollo',
+      'Estado',
+      'Versiones QA',
+      'Devs Involucrados',
+      'Objetivos y Descripción',
+      'Sub-ramas Asociadas',
+      'Carpeta / Enlace Cloud',
+      'Última Actualización'
+    ];
+
+    const rows1: any[][] = [];
+    if (this.branches.length === 0) {
+      rows1.push([
+        '-', '-', 'Sin ramas registradas', '-', '-', '-', '-', '-', '-', '-', '-', '-'
       ]);
+    } else {
+      this.branches.forEach((b, idx) => {
+        const bullets = this.extractBulletPointsFromBranch(b);
+        const objectivesText = bullets.length
+          ? bullets.map(item => `• ${item}`).join('\n')
+          : b.objectivesSummary || '-';
+        const subBranchesText = (b.subBranches || []).length
+          ? b.subBranches
+              .map(s => `• ${s.branchName} (${s.devName || 'Dev'}): ${s.notesOrCommits || ''}`)
+              .join('\n')
+          : '-';
+        const devsText = this.collectUniqueDevs([b]).join(', ') || '-';
+        const versionsText = (b.qaVersions || []).length
+          ? b.qaVersions.map(v => `v${v}`).join(', ')
+          : '-';
+        const updatedText = new Date(b.updatedAt || b.createdAt).toLocaleDateString('es-ES');
+        const folderLinkText = (b.folderLinks || []).length
+          ? b.folderLinks.map(fl => `${fl.label ? fl.label + ': ' : ''}${fl.url}`).join('\n')
+          : (b.buildFolderUrl || '-');
 
-      const dateSlug = new Date().toISOString().slice(0, 10);
-      const fileName = `Control_de_Ramas_${dateSlug}.xlsx`;
+        rows1.push([
+          idx + 1,
+          b.id,
+          b.moduleFlow || 'General',
+          b.name,
+          b.featureTitle || '-',
+          b.state,
+          versionsText,
+          devsText,
+          objectivesText,
+          subBranchesText,
+          folderLinkText,
+          updatedText
+        ]);
+      });
+    }
+
+    ws1.addTable({
+      name: 'TablaControlRamas',
+      ref: 'A2',
+      headerRow: true,
+      totalsRow: false,
+      style: {
+        theme: (tableTheme as any) || 'TableStyleMedium9',
+        showRowStripes: true
+      },
+      columns: headers1.map(h => ({ name: h, filterButton: true })),
+      rows: rows1
+    });
+
+    // Formato de celdas para Hoja 1
+    ws1.eachRow((row, rowNumber) => {
+      if (rowNumber > 2) {
+        row.alignment = { vertical: 'middle', wrapText: true };
+        row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell(2).alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell(2).font = { name: 'Consolas', size: 9, color: { argb: 'FF64748B' } };
+        row.getCell(6).alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell(7).alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell(12).alignment = { vertical: 'middle', horizontal: 'center' };
+      }
+    });
+
+    // =========================================================================
+    // HOJA 2: DICCIONARIO VERSIONES QA
+    // =========================================================================
+    const ws2 = workbook.addWorksheet('Diccionario Versiones QA', {
+      views: [{ state: 'frozen', ySplit: 2 }]
+    });
+
+    // Fila 1: Título unificado
+    ws2.mergeCells('A1:F1');
+    const title2 = ws2.getCell('A1');
+    title2.value = `DICCIONARIO DE VERSIONES QA Y COMPILADOS - ${profileName}`;
+    title2.font = { name: 'Calibri', size: 13, bold: true, color: { argb: titleTextArgb } };
+    title2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: titleBgArgb } };
+    title2.alignment = { vertical: 'middle', horizontal: 'center' };
+    ws2.getRow(1).height = 32;
+
+    ws2.columns = [
+      { key: 'ver', width: 18 },
+      { key: 'branch', width: 48 },
+      { key: 'cat', width: 24 },
+      { key: 'state', width: 18 },
+      { key: 'devs', width: 30 },
+      { key: 'folder', width: 36 }
+    ];
+
+    const headers2 = [
+      'Versión QA',
+      'Rama Asociada',
+      'Categoría (Módulo / Flujo)',
+      'Estado Actual',
+      'Devs Involucrados',
+      'Carpeta / Enlace Cloud'
+    ];
+
+    const rows2: any[][] = [];
+    if (this.versionDictionary.length === 0) {
+      rows2.push(['Sin versiones registradas', '-', '-', '-', '-', '-']);
+    } else {
+      for (const item of this.versionDictionary) {
+        const branchFolder = (item.branch.folderLinks && item.branch.folderLinks.length > 0)
+          ? (item.branch.folderLinks.find(fl => fl.isPrimary)?.url || item.branch.folderLinks[0].url)
+          : (item.branch.buildFolderUrl || '-');
+
+        rows2.push([
+          `v${item.version}`,
+          item.branch.name,
+          item.branch.moduleFlow || 'General',
+          item.branch.state,
+          this.collectUniqueDevs([item.branch]).join(', ') || '-',
+          branchFolder
+        ]);
+      }
+    }
+
+    ws2.addTable({
+      name: 'TablaVersionesQA',
+      ref: 'A2',
+      headerRow: true,
+      totalsRow: false,
+      style: {
+        theme: (tableTheme as any) || 'TableStyleMedium9',
+        showRowStripes: true
+      },
+      columns: headers2.map(h => ({ name: h, filterButton: true })),
+      rows: rows2
+    });
+
+    ws2.eachRow((row, rowNumber) => {
+      if (rowNumber > 2) {
+        row.alignment = { vertical: 'middle', wrapText: true };
+        row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
+      }
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return new Uint8Array(buffer);
+  }
+
+  async exportAllBranchesExcel(): Promise<void> {
+    try {
+      const zipBytes = await this.buildExcelWorkbookBytes();
+      const fileName = this.driveExcelFileName;
       this.saveFileAndShowNotification(
         fileName,
         zipBytes,
@@ -2147,100 +2360,713 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
     }
   }
 
-  private buildZipArchiveBytes(files: { path: string; content: string }[]): Uint8Array {
-    const encoder = new TextEncoder();
-    const crcTable = new Uint32Array(256);
-    for (let n = 0; n < 256; n++) {
-      let c = n;
-      for (let k = 0; k < 8; k++) {
-        c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  // --- MENÚ SELECTOR DE HERRAMIENTAS Y OPCIONES ---
+
+  toggleToolsMenu(): void {
+    this.showToolsMenu = !this.showToolsMenu;
+    if (this.showToolsMenu) {
+      setTimeout(() => this.lucide.refresh(), 50);
+    }
+  }
+
+  // --- SINCRONIZACIÓN Y EXPORTACIÓN DE EXCEL A GOOGLE DRIVE ---
+
+  getDefaultExcelFileName(): string {
+    const cleanProfile = (this.activeProfileFile || 'default')
+      .replace(/\.json$/i, '')
+      .replace(/^gravity[_-]/i, '');
+    return `Control_de_Ramas_${cleanProfile || 'default'}.xlsx`;
+  }
+
+  get driveExcelFileName(): string {
+    let name = (this.customExcelFileName || '').trim();
+    if (!name) {
+      name = this.getDefaultExcelFileName();
+    }
+    if (!name.toLowerCase().endsWith('.xlsx')) {
+      name += '.xlsx';
+    }
+    return name;
+  }
+
+  loadDriveExcelMetadataForActiveProfile(): void {
+    try {
+      const profileSlug = (this.activeProfileFile || 'default').replace(/\.json$/i, '');
+      const raw = localStorage.getItem(`gravity_drive_excel_${profileSlug}`);
+      if (raw) {
+        const data = JSON.parse(raw);
+        this.driveExcelFileId = data.fileId || null;
+        this.driveExcelWebViewLink = data.webViewLink || null;
+        this.driveExcelLastSyncTime = data.lastSync || null;
+        this.customExcelFileName = data.fileName || this.getDefaultExcelFileName();
+      } else {
+        this.driveExcelFileId = null;
+        this.driveExcelWebViewLink = null;
+        this.driveExcelLastSyncTime = null;
+        this.customExcelFileName = this.getDefaultExcelFileName();
       }
-      crcTable[n] = c >>> 0;
+    } catch {
+      this.driveExcelFileId = null;
+      this.driveExcelWebViewLink = null;
+      this.driveExcelLastSyncTime = null;
+      this.customExcelFileName = this.getDefaultExcelFileName();
+    }
+  }
+
+  async updateExcelFileName(): Promise<void> {
+    const name = this.driveExcelFileName;
+    this.customExcelFileName = name;
+    const profileSlug = (this.activeProfileFile || 'default').replace(/\.json$/i, '');
+    localStorage.setItem(
+      `gravity_drive_excel_${profileSlug}`,
+      JSON.stringify({
+        fileId: this.driveExcelFileId,
+        webViewLink: this.driveExcelWebViewLink,
+        lastSync: this.driveExcelLastSyncTime,
+        fileName: name
+      })
+    );
+
+    if (this.driveExcelFileId && this.googleDrive.isLoggedIn()) {
+      try {
+        await this.googleDrive.renameDriveFile(this.driveExcelFileId, name);
+        this.showToast(`Nombre actualizado en Google Drive: ${name}`);
+      } catch {
+        this.showToast(`Nombre guardado: ${name}`);
+      }
+    } else {
+      this.showToast(`Nombre guardado: ${name}`);
+    }
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  async syncExcelToDrive(notifyUser = true): Promise<void> {
+    if (!this.googleDrive.isLoggedIn()) {
+      if (notifyUser) {
+        this.showToast('Conecta primero tu cuenta de Google Drive');
+      }
+      return;
     }
 
-    const crc32 = (bytes: Uint8Array): number => {
-      let crc = 0xffffffff;
-      for (let i = 0; i < bytes.length; i++) {
-        crc = crcTable[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+    if (this.driveExcelSyncing) return;
+    this.driveExcelSyncing = true;
+
+    try {
+      const rootFolderId = await this.googleDrive.getOrCreateAppFolder();
+      const excelFolderId = await this.googleDrive.getOrCreateSubfolder(rootFolderId, 'Excel');
+      const fileName = this.driveExcelFileName;
+
+      let fileId = this.driveExcelFileId;
+      if (!fileId) {
+        const found = await this.googleDrive.findFileInFolder(excelFolderId, fileName);
+        if (found) {
+          fileId = found.id;
+          this.driveExcelFileId = found.id;
+        }
       }
-      return (crc ^ 0xffffffff) >>> 0;
+
+      // Construir el Excel con todas las ramas actuales de la app y sus IDs únicos
+      const zipBytes = await this.buildExcelWorkbookBytes();
+
+      const result = await this.googleDrive.uploadOrUpdateBinaryFile(
+        excelFolderId,
+        fileName,
+        zipBytes,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+
+      this.driveExcelFileId = result.fileId;
+      this.driveExcelWebViewLink =
+        result.webViewLink ||
+        (result.fileId ? `https://drive.google.com/file/d/${result.fileId}/view` : null);
+      this.driveExcelLastSyncTime = Date.now();
+
+      const profileSlug = (this.activeProfileFile || 'default').replace(/\.json$/i, '');
+      localStorage.setItem(
+        `gravity_drive_excel_${profileSlug}`,
+        JSON.stringify({
+          fileId: this.driveExcelFileId,
+          webViewLink: this.driveExcelWebViewLink,
+          lastSync: this.driveExcelLastSyncTime,
+          fileName
+        })
+      );
+
+      if (notifyUser) {
+        this.showToast(`Excel sincronizado en Google Drive: ${fileName}`);
+      }
+    } catch (err: any) {
+      console.error('Error sincronizando Excel con Google Drive:', err);
+      if (notifyUser) {
+        this.showToast('Error al sincronizar con Google Drive: ' + (err.message || err));
+      }
+    } finally {
+      this.driveExcelSyncing = false;
+      setTimeout(() => this.lucide.refresh(), 100);
+    }
+  }
+
+  scheduleDriveExcelSync(): void {
+    if (this.driveExcelDebounceTimer) {
+      clearTimeout(this.driveExcelDebounceTimer);
+    }
+    // Debounce de 2 segundos para no sobrecargar Google Drive al teclear cambios rápidos
+    this.driveExcelDebounceTimer = setTimeout(() => {
+      this.syncExcelToDrive(false);
+    }, 2000);
+  }
+
+  toggleAutoSyncExcel(): void {
+    this.autoSyncExcelToDrive = !this.autoSyncExcelToDrive;
+    localStorage.setItem('gravity_auto_sync_excel', String(this.autoSyncExcelToDrive));
+    if (this.autoSyncExcelToDrive) {
+      this.showToast('Auto-sincronización activada. Se actualizará en Drive al realizar cambios.');
+      if (this.googleDrive.isLoggedIn()) {
+        this.syncExcelToDrive(true);
+      }
+    } else {
+      this.showToast('Auto-sincronización con Drive desactivada.');
+    }
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  async openDriveExcelFile(): Promise<void> {
+    const url =
+      this.driveExcelWebViewLink ||
+      (this.driveExcelFileId ? `https://drive.google.com/file/d/${this.driveExcelFileId}/view` : '');
+    if (!url) {
+      this.showToast('Aún no se ha subido el archivo a Google Drive');
+      return;
+    }
+    await this.electronService.openExternal(url);
+  }
+
+  async connectGoogleDrive(): Promise<void> {
+    try {
+      this.showToast('Iniciando autenticación con Google en tu navegador...');
+      await this.googleDrive.login();
+      this.showToast('Google Drive conectado exitosamente');
+      if (this.autoSyncExcelToDrive) {
+        this.syncExcelToDrive(true);
+      }
+    } catch (e: any) {
+      this.showToast(e.message || 'Error conectando a Google Drive');
+    }
+  }
+
+  // --- IMPORTACIÓN / SINCRONIZACIÓN BIDIRECCIONAL (EXCEL -> APP) ---
+
+  private slugify(text: string): string {
+    return (text || '')
+      .toString()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^\w\-]+/g, '')
+      .replace(/\-\-+/g, '-');
+  }
+
+  /**
+   * Lee un archivo Excel (.xlsx en ArrayBuffer), detecta filas nuevas o modificadas
+   * y las fusiona inteligentemente con el workspace de la aplicación.
+   * Diseñado con soporte de ID único y reconciliación de eliminaciones bidireccional.
+   */
+  async parseAndMergeExcelWorkbook(
+    buffer: ArrayBuffer
+  ): Promise<{ imported: number; updated: number; deleted: number; totalRows: number }> {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+
+    const getCellString = (cell: ExcelJS.Cell | undefined): string => {
+      if (!cell || cell.value === null || cell.value === undefined) return '';
+      const val = cell.value;
+      if (typeof val === 'string') return val.trim();
+      if (typeof val === 'number') return String(val);
+      if (typeof val === 'object') {
+        if ('text' in val) return String((val as any).text || (val as any).hyperlink || '').trim();
+        if ('richText' in val && Array.isArray((val as any).richText)) {
+          return (val as any).richText.map((r: any) => r.text || '').join('').trim();
+        }
+        if ('result' in val) return String((val as any).result || '').trim();
+      }
+      return String(val).trim();
     };
 
-    const localParts: Uint8Array[] = [];
-    const centralParts: Uint8Array[] = [];
-    let offset = 0;
-
-    for (const file of files) {
-      const nameBytes = encoder.encode(file.path);
-      const dataBytes = encoder.encode(file.content);
-      const crc = crc32(dataBytes);
-      const size = dataBytes.length;
-
-      // Local file header (30 bytes + name)
-      const localHeader = new Uint8Array(30 + nameBytes.length);
-      const lv = new DataView(localHeader.buffer);
-      lv.setUint32(0, 0x04034b50, true);
-      lv.setUint16(4, 20, true);
-      lv.setUint16(6, 0x0800, true); // UTF-8 flag
-      lv.setUint16(8, 0, true); // STORE (0)
-      lv.setUint16(10, 0, true);
-      lv.setUint16(12, 0, true);
-      lv.setUint32(14, crc, true);
-      lv.setUint32(18, size, true);
-      lv.setUint32(22, size, true);
-      lv.setUint16(26, nameBytes.length, true);
-      lv.setUint16(28, 0, true);
-      localHeader.set(nameBytes, 30);
-
-      localParts.push(localHeader, dataBytes);
-
-      // Central directory header (46 bytes + name)
-      const centralHeader = new Uint8Array(46 + nameBytes.length);
-      const cv = new DataView(centralHeader.buffer);
-      cv.setUint32(0, 0x02014b50, true);
-      cv.setUint16(4, 20, true);
-      cv.setUint16(6, 20, true);
-      cv.setUint16(8, 0x0800, true); // UTF-8 flag
-      cv.setUint16(10, 0, true); // STORE (0)
-      cv.setUint16(12, 0, true);
-      cv.setUint16(14, 0, true);
-      cv.setUint32(16, crc, true);
-      cv.setUint32(20, size, true);
-      cv.setUint32(24, size, true);
-      cv.setUint16(28, nameBytes.length, true);
-      cv.setUint16(30, 0, true);
-      cv.setUint16(32, 0, true);
-      cv.setUint16(34, 0, true);
-      cv.setUint16(36, 0, true);
-      cv.setUint32(38, 0, true);
-      cv.setUint32(42, offset, true);
-      centralHeader.set(nameBytes, 46);
-
-      centralParts.push(centralHeader);
-      offset += localHeader.length + dataBytes.length;
+    const ws1 = workbook.getWorksheet('Control de Ramas') || workbook.worksheets[0];
+    if (!ws1) {
+      throw new Error('El archivo Excel no contiene hojas válidas.');
     }
 
-    const centralSize = centralParts.reduce((acc, p) => acc + p.length, 0);
-    const eocd = new Uint8Array(22);
-    const ev = new DataView(eocd.buffer);
-    ev.setUint32(0, 0x06054b50, true);
-    ev.setUint16(4, 0, true);
-    ev.setUint16(6, 0, true);
-    ev.setUint16(8, files.length, true);
-    ev.setUint16(10, files.length, true);
-    ev.setUint32(12, centralSize, true);
-    ev.setUint32(16, offset, true);
-    ev.setUint16(20, 0, true);
+    // Detección dinámica de índices de columna por encabezado
+    let colId = -1;
+    let colBranch = 4;
+    let colFlow = 3;
+    let colTitle = 5;
+    let colState = 6;
+    let colVersions = 7;
+    let colDevs = 8;
+    let colObjectives = 9;
+    let colSubBranches = 10;
+    let colFolders = 11;
 
-    const allParts = [...localParts, ...centralParts, eocd];
-    const totalLength = allParts.reduce((acc, p) => acc + p.length, 0);
-    const merged = new Uint8Array(totalLength);
-    let pos = 0;
-    for (const part of allParts) {
-      merged.set(part, pos);
-      pos += part.length;
+    const headerRow = ws1.getRow(2);
+    if (headerRow && headerRow.cellCount > 0) {
+      headerRow.eachCell((cell, colNumber) => {
+        const h = getCellString(cell).toLowerCase();
+        if (h.includes('id') || h.includes('identificador')) colId = colNumber;
+        else if (h.includes('nombre') && h.includes('rama')) colBranch = colNumber;
+        else if (h.includes('categor') || h.includes('flujo') || h.includes('módulo')) colFlow = colNumber;
+        else if (h.includes('título') || h.includes('desarrollo')) colTitle = colNumber;
+        else if (h.includes('estado')) colState = colNumber;
+        else if (h.includes('versiones')) colVersions = colNumber;
+        else if (h.includes('devs') || h.includes('desarrollador')) colDevs = colNumber;
+        else if (h.includes('objetivo') || h.includes('descrip')) colObjectives = colNumber;
+        else if (h.includes('sub-rama') || h.includes('subrama')) colSubBranches = colNumber;
+        else if (h.includes('carpeta') || h.includes('enlace') || h.includes('cloud')) colFolders = colNumber;
+      });
     }
-    return merged;
+
+    let importedCount = 0;
+    let updatedCount = 0;
+    let deletedCount = 0;
+    let totalDataRows = 0;
+    const seenExcelBranchIds = new Set<string>();
+
+    ws1.eachRow((row, rowNumber) => {
+      if (rowNumber <= 2) return; // Omitir banner y cabecera
+
+      // Extraer todas las celdas de la fila (1 a 16)
+      const cellTexts: string[] = [];
+      let rowHasContent = false;
+      for (let c = 1; c <= 16; c++) {
+        const val = getCellString(row.getCell(c));
+        cellTexts[c] = val;
+        if (val && val !== '-' && !val.toLowerCase().includes('sin ramas registradas')) {
+          rowHasContent = true;
+        }
+      }
+
+      if (!rowHasContent) return; // Fila vacía o dummy
+
+      totalDataRows++;
+
+      // 0. Detectar ID explícito de la fila si existe
+      let rowId = '';
+      if (colId !== -1) {
+        if (cellTexts[colId]) {
+          const candidate = cellTexts[colId].trim();
+          const candLower = candidate.toLowerCase();
+          if (
+            candidate &&
+            candidate !== '-' &&
+            candLower !== 'sin id' &&
+            candLower !== 'nuevo' &&
+            candLower !== 'new' &&
+            candLower !== 'none' &&
+            candLower !== 'n/a'
+          ) {
+            rowId = candidate;
+          }
+        }
+      } else {
+        // Fallback solo para archivos legados antiguos que no tenían columna de ID:
+        const idCandidate = cellTexts.find(c => c && (c.startsWith('branch_') || c.startsWith('gbr_')));
+        if (idCandidate) {
+          rowId = idCandidate.trim();
+        }
+      }
+
+      // 1. Detectar nombre de la rama
+      let branchName = cellTexts[colBranch] || '';
+      // Buscar si alguna otra celda contiene una rama git explícita
+      const branchCandidate = cellTexts.find(
+        c => c && (c.includes('/') || /^feature|^bugfix|^hotfix|^release|^fix/i.test(c))
+      );
+      if (branchCandidate) {
+        branchName = branchCandidate;
+      }
+
+      // Si no hay branchName explícito, derivarlo del título, categoría o número de fila
+      if (!branchName || branchName === '-') {
+        const titleVal = cellTexts[colTitle] || cellTexts[5] || cellTexts[4] || '';
+        const flowVal = cellTexts[colFlow] || cellTexts[3] || cellTexts[2] || '';
+        const numVal = cellTexts[1] || '';
+        if (titleVal && titleVal !== '-') {
+          branchName = 'feature/' + this.slugify(titleVal);
+        } else if (flowVal && flowVal !== '-' && flowVal !== 'General') {
+          branchName = 'feature/' + this.slugify(flowVal) + (numVal ? '-' + numVal : '');
+        } else if (numVal && numVal !== '-') {
+          branchName = 'feature/item-' + numVal;
+        } else {
+          branchName = 'feature/item-fila-' + rowNumber;
+        }
+      }
+      branchName = branchName.trim();
+
+      // 2. Detectar título del desarrollo
+      let featureTitle = cellTexts[colTitle] || cellTexts[5] || cellTexts[4] || '';
+      if (!featureTitle || featureTitle === '-' || featureTitle === branchName) {
+        featureTitle = branchName.replace(/^feature\//i, '').replace(/[-_/]/g, ' ');
+        if (featureTitle.length > 0) {
+          featureTitle = featureTitle.charAt(0).toUpperCase() + featureTitle.slice(1);
+        }
+      }
+
+      // 3. Detectar categoría / flujo
+      let moduleFlow = cellTexts[colFlow] || cellTexts[3] || cellTexts[2] || 'General';
+      if (!moduleFlow || moduleFlow === '-' || moduleFlow === branchName) {
+        moduleFlow = 'General';
+      }
+
+      // 4. Detectar estado
+      let state: BranchLifecycleState = 'En desarrollo';
+      const stateCandidate =
+        cellTexts.find(c => c && /certif|qa|desarr|prueb|prod|list/i.test(c)) ||
+        cellTexts[colState] ||
+        '';
+      const stLower = stateCandidate.toLowerCase();
+      if (stLower.includes('cert') || stLower.includes('prod') || stLower.includes('list')) {
+        state = 'Certificada';
+      } else if (stLower.includes('qa') || stLower.includes('prueb')) {
+        state = 'QA';
+      }
+
+      // 5. Parsear versiones QA
+      const rawVersions = cellTexts[colVersions] || cellTexts[7] || cellTexts[6] || '';
+      const qaVersions: string[] = [];
+      if (rawVersions && rawVersions !== '-') {
+        const vTokens = rawVersions
+          .split(/[,;\n]+/)
+          .map(v => v.replace(/^v/i, '').trim())
+          .filter(Boolean);
+        qaVersions.push(...Array.from(new Set(vTokens)));
+      }
+      // Escaneo secundario de versiones en otras celdas
+      cellTexts.forEach(c => {
+        if (c && /v?\d+\.\d+(\.\d+)?/i.test(c)) {
+          const match = c.match(/v?(\d+\.\d+(?:\.\d+)?)/i);
+          if (match && match[1] && !qaVersions.includes(match[1])) {
+            qaVersions.push(match[1]);
+          }
+        }
+      });
+
+      // 6. Parsear desarrolladores
+      const rawDevs = cellTexts[colDevs] || cellTexts[8] || cellTexts[7] || '';
+      const devs: string[] = [];
+      if (rawDevs && rawDevs !== '-') {
+        const dTokens = rawDevs
+          .split(/[,;\n]+/)
+          .map(d => d.trim())
+          .filter(Boolean);
+        devs.push(...Array.from(new Set(dTokens)));
+      }
+
+      // 7. Parsear objetivos / observaciones
+      const rawObjectives = cellTexts[colObjectives] || cellTexts[9] || cellTexts[8] || '';
+      const objectivesSummary = rawObjectives === '-' ? '' : rawObjectives;
+
+      // 8. Parsear carpetas y enlaces
+      const rawFolders = cellTexts[colFolders] || cellTexts[11] || cellTexts[10] || '';
+      let buildFolderUrl = '';
+      const folderLinks: BranchFolderLink[] = [];
+      if (rawFolders && rawFolders !== '-') {
+        const lines = rawFolders.split('\n').map(l => l.trim()).filter(Boolean);
+        lines.forEach((line, idx) => {
+          let label = 'Cloud';
+          let url = line;
+          if (line.includes(': http')) {
+            const parts = line.split(': http');
+            label = parts[0].trim();
+            url = 'http' + parts[1].trim();
+          } else if (line.includes(': https')) {
+            const parts = line.split(': https');
+            label = parts[0].trim();
+            url = 'https' + parts[1].trim();
+          }
+          folderLinks.push({
+            id: 'fl_' + Date.now() + '_' + idx,
+            label,
+            url,
+            isPrimary: idx === 0
+          });
+        });
+        if (folderLinks.length > 0) {
+          buildFolderUrl = folderLinks[0].url;
+        }
+      }
+
+      // 9. Parsear sub-ramas
+      const rawSubBranches = cellTexts[colSubBranches] || cellTexts[10] || cellTexts[9] || '';
+      const subBranches: SubBranchContext[] = [];
+      if (rawSubBranches && rawSubBranches !== '-') {
+        const sLines = rawSubBranches
+          .split('\n')
+          .map(l => l.replace(/^[•\-\*]\s*/, '').trim())
+          .filter(Boolean);
+        sLines.forEach((sLine, sIdx) => {
+          let sName = sLine;
+          let sDev = '';
+          let sNotes = '';
+          const match = sLine.match(/^([^\(\:]+)(?:\((.*?)\))?(?:\:\s*(.*))?$/);
+          if (match) {
+            sName = (match[1] || '').trim();
+            sDev = (match[2] || '').trim();
+            sNotes = (match[3] || '').trim();
+          }
+          if (sName) {
+            subBranches.push({
+              id: 'sub_' + Date.now() + '_' + sIdx,
+              branchName: sName,
+              devName: sDev,
+              notesOrCommits: sNotes
+            });
+          }
+        });
+      }
+
+      // 10. Buscar si la rama ya existe en el espacio de trabajo
+      let existingBranch: TrackedBranch | undefined;
+      if (rowId) {
+        // Si la fila tiene ID único, buscar la rama exacta por ID
+        existingBranch = this.branches.find(b => b.id === rowId);
+      } else if (colId === -1 && branchName && branchName !== '-') {
+        // Solo para archivos antiguos sin columna de ID: buscar por nombre de rama
+        existingBranch = this.branches.find(
+          b => b.name.trim().toLowerCase() === branchName.toLowerCase()
+        );
+      }
+      // NOTA: Si el Excel tiene columna de ID y esta fila no tiene ID (está vacía o es nueva),
+      // existingBranch queda undefined y el sistema la toma automáticamente como un ITEM NUEVO.
+
+      if (existingBranch) {
+        seenExcelBranchIds.add(existingBranch.id);
+        let changed = false;
+
+        if (branchName && branchName !== '-' && existingBranch.name !== branchName) {
+          existingBranch.name = branchName;
+          changed = true;
+        }
+        if (moduleFlow && moduleFlow !== 'General' && existingBranch.moduleFlow !== moduleFlow) {
+          existingBranch.moduleFlow = moduleFlow;
+          changed = true;
+        }
+        if (featureTitle && featureTitle !== '-' && existingBranch.featureTitle !== featureTitle) {
+          existingBranch.featureTitle = featureTitle;
+          changed = true;
+        }
+        if (stateCandidate && existingBranch.state !== state) {
+          existingBranch.state = state;
+          changed = true;
+        }
+        if (qaVersions.length > 0) {
+          const merged = Array.from(new Set([...(existingBranch.qaVersions || []), ...qaVersions]));
+          if (merged.length !== (existingBranch.qaVersions || []).length) {
+            existingBranch.qaVersions = merged;
+            changed = true;
+          }
+        }
+        if (devs.length > 0) {
+          const mergedDevs = Array.from(new Set([...(existingBranch.devs || []), ...devs]));
+          if (mergedDevs.length !== (existingBranch.devs || []).length) {
+            existingBranch.devs = mergedDevs;
+            changed = true;
+          }
+        }
+        if (objectivesSummary && objectivesSummary !== '-' && existingBranch.objectivesSummary !== objectivesSummary) {
+          existingBranch.objectivesSummary = objectivesSummary;
+          changed = true;
+        }
+        if (folderLinks.length > 0 && (!existingBranch.folderLinks || existingBranch.folderLinks.length === 0)) {
+          existingBranch.folderLinks = folderLinks;
+          existingBranch.buildFolderUrl = buildFolderUrl;
+          changed = true;
+        }
+        if (subBranches.length > 0 && (!existingBranch.subBranches || existingBranch.subBranches.length === 0)) {
+          existingBranch.subBranches = subBranches;
+          changed = true;
+        }
+        if (changed) {
+          existingBranch.updatedAt = new Date().toISOString();
+          updatedCount++;
+        }
+      } else {
+        // NUEVA RAMA AGREGADA EN EXCEL
+        const finalId = rowId || ('branch_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
+        const newBranch: TrackedBranch = {
+          id: finalId,
+          name: branchName,
+          moduleFlow: moduleFlow || 'General',
+          featureTitle: featureTitle || branchName,
+          state: state,
+          qaVersions: qaVersions,
+          devs: devs,
+          objectivesSummary: objectivesSummary,
+          rawCommitsOrDiff: '',
+          subBranches: subBranches,
+          buildFolderUrl: buildFolderUrl,
+          folderLinks: folderLinks,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        this.branches.unshift(newBranch);
+        seenExcelBranchIds.add(finalId);
+        importedCount++;
+      }
+
+      // Auto-registro en catálogos disponibles para autocompletado
+      devs.forEach(d => {
+        if (d && !this.availableDevs.includes(d)) this.availableDevs.push(d);
+      });
+      if (moduleFlow && moduleFlow !== 'General' && !this.availableFlows.includes(moduleFlow)) {
+        this.availableFlows.push(moduleFlow);
+      }
+    });
+
+    // Reconciliación de eliminaciones:
+    // Si el Excel tiene columna de ID y al menos 1 fila de datos, cualquier rama que existía
+    // en la app pero ya NO existe en el Excel ha sido eliminada intencionalmente por el usuario en Excel.
+    if (colId !== -1 && totalDataRows > 0 && seenExcelBranchIds.size > 0) {
+      const initialCount = this.branches.length;
+      const branchesToKeep = this.branches.filter(b => seenExcelBranchIds.has(b.id));
+      deletedCount = initialCount - branchesToKeep.length;
+      if (deletedCount > 0) {
+        this.branches = branchesToKeep;
+      }
+    }
+
+    // Sincronizar también Sheet 2 (Diccionario Versiones QA) si existe
+    const ws2 = workbook.getWorksheet('Diccionario Versiones QA');
+    if (ws2) {
+      ws2.eachRow((row, rowNumber) => {
+        if (rowNumber <= 2) return;
+        const rawVer = getCellString(row.getCell(1)).replace(/^v/i, '').trim();
+        const rawBranch = getCellString(row.getCell(2)).trim();
+        if (rawVer && rawBranch) {
+          const target = this.branches.find(b => b.name.trim().toLowerCase() === rawBranch.toLowerCase());
+          if (target) {
+            if (!target.qaVersions) target.qaVersions = [];
+            if (!target.qaVersions.includes(rawVer)) {
+              target.qaVersions.push(rawVer);
+              target.updatedAt = new Date().toISOString();
+            }
+          }
+        }
+      });
+    }
+
+    if (importedCount > 0 || updatedCount > 0 || deletedCount > 0) {
+      await this.persistActiveProfileToDisk();
+      if (this.branches.length > 0) {
+        if (!this.selectedBranchId || !this.branches.find(b => b.id === this.selectedBranchId)) {
+          this.selectBranch(this.branches[0].id);
+        }
+      } else {
+        this.selectedBranchId = null;
+      }
+      this.syncDiskFolderCandidates();
+    }
+
+    return { imported: importedCount, updated: updatedCount, deleted: deletedCount, totalRows: totalDataRows };
+  }
+
+  /**
+   * Descarga el archivo Excel desde Google Drive y fusiona los cambios con la app.
+   */
+  async importExcelFromDrive(): Promise<void> {
+    if (!this.googleDrive.isLoggedIn()) {
+      this.showToast('Conecta primero tu cuenta de Google Drive');
+      return;
+    }
+
+    this.driveExcelImporting = true;
+    try {
+      let fileId = this.driveExcelFileId;
+      if (!fileId) {
+        const rootFolderId = await this.googleDrive.getOrCreateAppFolder();
+        const excelFolderId = await this.googleDrive.getOrCreateSubfolder(rootFolderId, 'Excel');
+        const found = await this.googleDrive.findFileInFolder(excelFolderId, this.driveExcelFileName);
+        if (found) {
+          fileId = found.id;
+          this.driveExcelFileId = found.id;
+        }
+      }
+
+      if (!fileId) {
+        this.showToast(`No se encontró el archivo ${this.driveExcelFileName} en Google Drive.`);
+        return;
+      }
+
+      const buffer = await this.googleDrive.readBinaryFile(fileId);
+      const res = await this.parseAndMergeExcelWorkbook(buffer);
+
+      if (res.imported > 0 || res.updated > 0 || res.deleted > 0) {
+        const parts: string[] = [];
+        if (res.imported > 0) parts.push(`${res.imported} nuevas`);
+        if (res.updated > 0) parts.push(`${res.updated} actualizadas`);
+        if (res.deleted > 0) parts.push(`${res.deleted} eliminadas`);
+        this.showToast(
+          `¡Sincronización exitosa! Se procesaron: ${parts.join(', ')} desde Google Drive.`
+        );
+      } else {
+        this.showToast(`El espacio de trabajo ya está al día con Google Drive (${res.totalRows} ramas analizadas).`);
+      }
+    } catch (e: any) {
+      this.showToast('Error al importar desde Google Drive: ' + (e.message || e));
+    } finally {
+      this.driveExcelImporting = false;
+      this.showToolsMenu = false;
+      setTimeout(() => this.lucide.refresh(), 50);
+    }
+  }
+
+  /**
+   * Carga un archivo Excel local seleccionado por el usuario y fusiona los cambios.
+   */
+  async onLocalExcelFileSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+
+    this.localExcelImporting = true;
+    try {
+      const buffer = await file.arrayBuffer();
+      const res = await this.parseAndMergeExcelWorkbook(buffer);
+
+      if (res.imported > 0 || res.updated > 0 || res.deleted > 0) {
+        const parts: string[] = [];
+        if (res.imported > 0) parts.push(`${res.imported} nuevas`);
+        if (res.updated > 0) parts.push(`${res.updated} actualizadas`);
+        if (res.deleted > 0) parts.push(`${res.deleted} eliminadas`);
+        this.showToast(
+          `¡Importación exitosa! Se procesaron: ${parts.join(', ')} desde "${file.name}".`
+        );
+      } else {
+        this.showToast(`No se encontraron cambios en "${file.name}" (${res.totalRows} ramas analizadas).`);
+      }
+    } catch (e: any) {
+      this.showToast('Error al leer el archivo Excel: ' + (e.message || e));
+    } finally {
+      this.localExcelImporting = false;
+      input.value = '';
+      this.showToolsMenu = false;
+      setTimeout(() => this.lucide.refresh(), 50);
+    }
+  }
+
+  getFormattedLastSyncTime(): string {
+    if (!this.driveExcelLastSyncTime) return 'Nunca sincronizado';
+    const diff = Date.now() - this.driveExcelLastSyncTime;
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Hace unos segundos';
+    if (mins === 1) return 'Hace 1 minuto';
+    if (mins < 60) return `Hace ${mins} minutos`;
+    return new Date(this.driveExcelLastSyncTime).toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   }
 
   private saveFileAndShowNotification(
@@ -2397,5 +3223,442 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
     this.toastTimer = setTimeout(() => {
       this.toastVisible = false;
     }, 2800);
+  }
+
+  // --- GENERADOR DE PLANTILLA DE CORREO DE LIBERACIÓN POR VERSIÓN ---
+
+  openEmailTemplateModal(branch?: TrackedBranch | null, targetVersion?: string): void {
+    const target = branch || this.selectedBranch || (this.branches.length > 0 ? this.branches[0] : null);
+    this.emailTargetBranch = target;
+
+    // 1. Saludo automático según la hora local actual (días < 12h, tardes < 19h, noches >= 19h)
+    const currentHour = new Date().getHours();
+    if (currentHour >= 5 && currentHour < 12) {
+      this.emailGreetingTime = 'dias';
+    } else if (currentHour >= 12 && currentHour < 19) {
+      this.emailGreetingTime = 'tardes';
+    } else {
+      this.emailGreetingTime = 'noches';
+    }
+    this.emailCustomGreeting = '';
+
+    // 2. Versión de compilación: por defecto la última vinculada a la rama
+    this.emailBranchVersions = target?.qaVersions ? [...target.qaVersions] : [];
+    if (targetVersion) {
+      this.emailVersion = targetVersion;
+    } else if (this.emailBranchVersions.length > 0) {
+      this.emailVersion = this.emailBranchVersions[this.emailBranchVersions.length - 1];
+    } else if (this.versionDictionary.length > 0) {
+      this.emailVersion = this.versionDictionary[0].version;
+    } else {
+      this.emailVersion = '';
+    }
+
+    // 3. Plataformas por defecto
+    this.emailPlatforms = 'IOS y Android';
+
+    // 4. Contenido del desarrollo (prellenar de forma amigable a partir del featureTitle)
+    const rawTitle = (target?.featureTitle || target?.name || '').trim();
+    if (rawTitle) {
+      const lower = rawTitle.toLowerCase();
+      if (lower.startsWith('el desarrollo de ') || lower.startsWith('desarrollo de ')) {
+        this.emailContent = rawTitle.charAt(0).toUpperCase() + rawTitle.slice(1);
+      } else if (lower.startsWith('el desarrollo ')) {
+        this.emailContent = rawTitle.charAt(0).toUpperCase() + rawTitle.slice(1);
+      } else {
+        this.emailContent = `El desarrollo de ${rawTitle}`;
+      }
+    } else {
+      this.emailContent = 'El desarrollo de ';
+    }
+
+    // 5. Carpeta de compilados (prioridad: carpeta guardada en la rama activa > última ingresada)
+    const branchFolder = target?.buildFolderUrl || (target?.folderLinks && target.folderLinks.length > 0 ? target.folderLinks[0].url : '');
+    this.emailBuildFolder = branchFolder || localStorage.getItem(EMAIL_LAST_BUILD_FOLDER_KEY) || '';
+
+    // 6. Asunto del correo
+    this.updateEmailSubject();
+
+    // 7. Cargar lista de contactos guardados
+    this.loadSavedEmailContacts();
+
+    this.emailModalTab = 'preview';
+    this.showEmailTemplateModal = true;
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  saveEmailBuildFolderToBranch(): void {
+    if (!this.emailTargetBranch) return;
+    const cleanUrl = (this.emailBuildFolder || '').trim();
+    if (!cleanUrl) return;
+
+    this.emailTargetBranch.buildFolderUrl = cleanUrl;
+    this.emailTargetBranch.folderLinks = this.emailTargetBranch.folderLinks || [];
+    const exists = this.emailTargetBranch.folderLinks.find(f => f.url.toLowerCase() === cleanUrl.toLowerCase());
+    if (!exists) {
+      this.emailTargetBranch.folderLinks.unshift({
+        id: 'fl_' + Date.now(),
+        label: this.inferFolderLabel(cleanUrl),
+        url: cleanUrl,
+        isPrimary: true
+      });
+    }
+    this.emailTargetBranch.updatedAt = new Date().toISOString();
+    this.saveWorkspace();
+    this.showToast('Dirección de carpeta guardada en esta rama');
+  }
+
+  // --- GESTIÓN DE ENLACES / CARPETAS EN LA NUBE POR RAMA (DRIVE, RED, ONEDRIVE) ---
+
+  inferFolderLabel(url: string): string {
+    if (!url) return 'Carpeta en la nube';
+    const lower = url.toLowerCase();
+    if (lower.includes('drive.google.com')) return 'Google Drive';
+    if (lower.includes('onedrive') || lower.includes('sharepoint')) return 'OneDrive / SharePoint';
+    if (lower.includes('dropbox.com')) return 'Dropbox';
+    if (lower.includes('icloud.com')) return 'iCloud';
+    if (lower.startsWith('\\\\') || /^[a-zA-Z]:\\/.test(url)) return 'Carpeta Red / Local';
+    return 'Carpeta en la nube';
+  }
+
+  addFolderLinkToBranch(branch: TrackedBranch): void {
+    const rawUrl = this.branchFolderUrlInput.trim();
+    if (!rawUrl) {
+      this.showToast('Ingresa el link o ruta de la carpeta');
+      return;
+    }
+
+    branch.folderLinks = branch.folderLinks || [];
+    const label = this.branchFolderLabelInput.trim() || this.inferFolderLabel(rawUrl);
+    const isFirst = branch.folderLinks.length === 0;
+
+    const newLink: BranchFolderLink = {
+      id: 'fl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      label,
+      url: rawUrl,
+      isPrimary: isFirst || !branch.buildFolderUrl
+    };
+
+    branch.folderLinks.push(newLink);
+    if (isFirst || !branch.buildFolderUrl) {
+      branch.buildFolderUrl = rawUrl;
+    }
+
+    this.branchFolderUrlInput = '';
+    this.branchFolderLabelInput = '';
+    this.showAddFolderLinkInput = false;
+    branch.updatedAt = new Date().toISOString();
+    this.saveWorkspace();
+    this.showToast(`Dirección de carpeta guardada: ${label}`);
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  removeFolderLinkFromBranch(branch: TrackedBranch, linkId: string, event?: Event): void {
+    if (event) event.stopPropagation();
+    branch.folderLinks = (branch.folderLinks || []).filter(fl => fl.id !== linkId);
+    if (branch.folderLinks.length > 0) {
+      if (!branch.folderLinks.some(fl => fl.isPrimary)) {
+        branch.folderLinks[0].isPrimary = true;
+        branch.buildFolderUrl = branch.folderLinks[0].url;
+      }
+    } else {
+      branch.buildFolderUrl = '';
+    }
+    branch.updatedAt = new Date().toISOString();
+    this.saveWorkspace();
+    this.showToast('Dirección de carpeta eliminada de la rama');
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  setPrimaryFolderLink(branch: TrackedBranch, linkId: string, event?: Event): void {
+    if (event) event.stopPropagation();
+    branch.folderLinks = branch.folderLinks || [];
+    for (const fl of branch.folderLinks) {
+      fl.isPrimary = fl.id === linkId;
+      if (fl.isPrimary) {
+        branch.buildFolderUrl = fl.url;
+      }
+    }
+    branch.updatedAt = new Date().toISOString();
+    this.saveWorkspace();
+    this.showToast('Carpeta establecida como principal para envíos');
+  }
+
+  openFolderLink(url: string, event?: Event): void {
+    if (event) event.stopPropagation();
+    if (!url) return;
+    const trimmed = url.trim();
+    if (/^https?:\/\//i.test(trimmed)) {
+      this.electronService.openExternal(trimmed);
+    } else {
+      this.copyText(trimmed);
+      this.showToast('Ruta de carpeta copiada al portapapeles');
+    }
+  }
+
+  async copyFolderLink(url: string, key?: string, event?: Event): Promise<void> {
+    if (event) event.stopPropagation();
+    if (!url) return;
+    await this.copyText(url);
+    if (key) {
+      this.copiedKey = key;
+      if (this.copiedTimer) clearTimeout(this.copiedTimer);
+      this.copiedTimer = setTimeout(() => (this.copiedKey = null), 2000);
+    }
+    this.showToast('Enlace copiado al portapapeles');
+  }
+
+  closeEmailTemplateModal(): void {
+    this.showEmailTemplateModal = false;
+  }
+
+  setEmailGreetingTime(time: 'tardes' | 'dias' | 'noches'): void {
+    this.emailGreetingTime = time;
+    this.emailCustomGreeting = '';
+  }
+
+  setEmailVersion(ver: string): void {
+    this.emailVersion = (ver || '').trim();
+    this.updateEmailSubject();
+  }
+
+  setEmailPlatforms(plat: string): void {
+    this.emailPlatforms = plat;
+    this.updateEmailSubject();
+  }
+
+  onEmailBuildFolderChange(): void {
+    try {
+      localStorage.setItem(EMAIL_LAST_BUILD_FOLDER_KEY, this.emailBuildFolder || '');
+    } catch {}
+  }
+
+  updateEmailSubject(): void {
+    const ver = this.emailVersion.trim() ? `v${this.emailVersion.trim()} ` : '';
+    const plat = this.emailPlatforms.trim() ? `${this.emailPlatforms.trim()} - ` : '';
+    let featureDesc = this.emailContent.trim();
+    if (featureDesc.toLowerCase().startsWith('el desarrollo de ')) {
+      featureDesc = featureDesc.substring(17);
+    }
+    const cleanFeature = featureDesc.slice(0, 50).trim();
+    this.emailSubject = `Compilado Liberado ${ver}${plat}${cleanFeature || 'Entrega QA'}`.trim();
+  }
+
+  get emailGreetingText(): string {
+    if (this.emailCustomGreeting && this.emailCustomGreeting.trim()) {
+      return this.emailCustomGreeting.trim();
+    }
+    if (this.emailGreetingTime === 'dias') {
+      return 'Buenos días, estimados un gusto saludarles,';
+    }
+    if (this.emailGreetingTime === 'noches') {
+      return 'Buenas noches, estimados un gusto saludarles,';
+    }
+    return 'Buenas tardes, estimados un gusto saludarles,';
+  }
+
+  get emailBuildPlatformHeader(): string {
+    const p = (this.emailPlatforms || '').toLowerCase();
+    if (p.includes('ios') && !p.includes('android')) {
+      return 'Compilados iOS';
+    }
+    return 'Compilados Android';
+  }
+
+  get formattedEmailBody(): string {
+    const greeting = this.emailGreetingText;
+    const version = this.emailVersion.trim() || '[versión]';
+    const platforms = this.emailPlatforms.trim();
+    const versionLine = platforms
+      ? `La versión es la ${version} ${platforms}`
+      : `La versión es la ${version}`;
+    const content = this.emailContent.trim() || '[desarrollo incluido]';
+    const folder = this.emailBuildFolder.trim() || '[carpeta de compilados]';
+    const headerCompilados = this.emailBuildPlatformHeader;
+
+    return `${greeting}
+
+Para comentar que ya se encuentra liberado el compilado con 
+
+ 
+${versionLine} 
+
+Contiene
+${content} 
+
+${headerCompilados} 
+En la siguiente carpeta encontraran los compilados correspondientes
+${folder}
+
+
+
+Cualquier inquietud quedo a la orden
+
+Saludos`;
+  }
+
+  // --- GESTIÓN DE CONTACTOS / CORREOS DESTINATARIOS GUARDADOS ---
+
+  loadSavedEmailContacts(): void {
+    try {
+      const raw = localStorage.getItem(EMAIL_CONTACTS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.savedEmailContacts = parsed
+            .map(c => ({
+              id: c.id || 'cnt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+              email: String(c.email || '').trim(),
+              name: c.name ? String(c.name).trim() : '',
+              type: (c.type === 'cc' ? 'cc' : 'to') as ('to' | 'cc'),
+              selected: c.selected !== false
+            }))
+            .filter(c => !!c.email);
+          return;
+        }
+      }
+    } catch {}
+
+    if (!this.savedEmailContacts) {
+      this.savedEmailContacts = [];
+    }
+  }
+
+  saveEmailContactsToStorage(): void {
+    try {
+      localStorage.setItem(EMAIL_CONTACTS_KEY, JSON.stringify(this.savedEmailContacts));
+      this.saveWorkspace();
+    } catch {}
+  }
+
+  addEmailContact(): void {
+    const email = this.newContactEmail.trim();
+    if (!email) {
+      this.showToast('Ingresa un correo electrónico');
+      return;
+    }
+    if (!email.includes('@')) {
+      this.showToast('El formato del correo debe contener @');
+      return;
+    }
+    const name = this.newContactName.trim();
+    const type = this.newContactType;
+
+    const exists = this.savedEmailContacts.some(
+      c => c.email.toLowerCase() === email.toLowerCase() && c.type === type
+    );
+    if (exists) {
+      this.showToast(`El correo ${email} ya existe en ${type.toUpperCase()}`);
+      return;
+    }
+
+    this.savedEmailContacts.push({
+      id: 'cnt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      email,
+      name,
+      type,
+      selected: true
+    });
+
+    this.newContactEmail = '';
+    this.newContactName = '';
+    this.saveEmailContactsToStorage();
+    this.showToast(`Correo ${email} guardado`);
+    setTimeout(() => this.lucide.refresh(), 40);
+  }
+
+  removeEmailContact(id: string): void {
+    this.savedEmailContacts = this.savedEmailContacts.filter(c => c.id !== id);
+    this.saveEmailContactsToStorage();
+    this.showToast('Correo eliminado');
+    setTimeout(() => this.lucide.refresh(), 40);
+  }
+
+  toggleContactSelection(contact: ReleaseEmailContact): void {
+    contact.selected = !contact.selected;
+    this.saveEmailContactsToStorage();
+  }
+
+  toggleContactType(contact: ReleaseEmailContact): void {
+    contact.type = contact.type === 'to' ? 'cc' : 'to';
+    this.saveEmailContactsToStorage();
+  }
+
+  selectAllContacts(selected: boolean): void {
+    for (const c of this.savedEmailContacts) {
+      c.selected = selected;
+    }
+    this.saveEmailContactsToStorage();
+  }
+
+  get toEmailsList(): string[] {
+    return this.savedEmailContacts
+      .filter(c => c.type === 'to' && c.selected && c.email)
+      .map(c => c.email.trim());
+  }
+
+  get ccEmailsList(): string[] {
+    return this.savedEmailContacts
+      .filter(c => c.type === 'cc' && c.selected && c.email)
+      .map(c => c.email.trim());
+  }
+
+  get toEmailsString(): string {
+    return this.toEmailsList.join(', ');
+  }
+
+  get ccEmailsString(): string {
+    return this.ccEmailsList.join(', ');
+  }
+
+  get allSelectedEmailsString(): string {
+    const list = [...this.toEmailsList, ...this.ccEmailsList];
+    return Array.from(new Set(list)).join(', ');
+  }
+
+  async copyEmailSubject(): Promise<void> {
+    await this.copyText(this.emailSubject);
+    this.showToast('Asunto copiado');
+  }
+
+  async copyEmailRecipients(mode: 'to' | 'cc' | 'all'): Promise<void> {
+    let text = '';
+    if (mode === 'to') text = this.toEmailsString;
+    else if (mode === 'cc') text = this.ccEmailsString;
+    else text = this.allSelectedEmailsString;
+
+    if (!text) {
+      this.showToast(`No hay correos seleccionados en ${mode.toUpperCase()}`);
+      return;
+    }
+    await this.copyText(text);
+    this.showToast(`Destinatarios (${mode.toUpperCase()}) copiados`);
+  }
+
+  async copyEmailBody(): Promise<void> {
+    await this.copyText(this.formattedEmailBody);
+    this.showToast('Cuerpo del correo copiado');
+  }
+
+  async copyEntireEmailBundle(): Promise<void> {
+    const to = this.toEmailsString ? `Para: ${this.toEmailsString}\n` : '';
+    const cc = this.ccEmailsString ? `CC: ${this.ccEmailsString}\n` : '';
+    const subject = this.emailSubject ? `Asunto: ${this.emailSubject}\n\n` : '';
+    const full = `${to}${cc}${subject}${this.formattedEmailBody}`;
+    await this.copyText(full);
+    this.showToast('Correo completo (Destinatarios + Asunto + Cuerpo) copiado');
+  }
+
+  openInEmailClient(): void {
+    const to = encodeURIComponent(this.toEmailsString);
+    const cc = encodeURIComponent(this.ccEmailsString);
+    const subject = encodeURIComponent(this.emailSubject);
+    const body = encodeURIComponent(this.formattedEmailBody);
+
+    let mailtoUrl = `mailto:${to}?subject=${subject}&body=${body}`;
+    if (cc) {
+      mailtoUrl += `&cc=${cc}`;
+    }
+    window.open(mailtoUrl, '_blank');
   }
 }

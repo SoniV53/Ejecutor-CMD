@@ -21,6 +21,7 @@ export class CmdGridComponent implements OnChanges, AfterViewInit {
   @Input() collapsedCategories: Record<string, boolean> = {};
   @Input() viewMode: 'list' | 'card' = 'card';
   @Input() searchTerm = '';
+  @Input() consolePosition: 'bottom' | 'right' = 'bottom';
 
   @Output() toggleCategory = new EventEmitter<string>();
   @Output() editCategory = new EventEmitter<string>();

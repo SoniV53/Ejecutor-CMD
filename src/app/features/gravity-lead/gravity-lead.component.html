@@ -13,7 +13,7 @@
         <i data-lucide="git-pull-request" class="w-4 h-4"></i>
       </div>
       <div class="min-w-0">
-        <h1 class="text-sm md:text-base font-bold text-white truncate">Gravity — Tech Lead Co-Pilot</h1>
+        <h1 class="text-sm md:text-base font-bold text-white truncate">Tech Lead Co-Pilot</h1>
         <p class="text-[11px] text-slate-400 truncate hidden sm:block">
           Trazabilidad de ramas, diccionario de versiones QA y generación estricta de MRs hacia develop
         </p>
@@ -57,36 +57,302 @@
         </button>
       </div>
 
-      <!-- Botón de Perfiles y Carpeta (json/gravity/) -->
+      <!-- 1. Selector de Perfil (Limpio, sin "Gravity") -->
       <button
         type="button"
         (click)="openProfileModal()"
-        class="px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 text-amber-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-        title="Gestionar perfiles en json/gravity/ y elegir qué archivos de la carpeta subir o importar"
+        class="px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+        title="Gestionar o cambiar perfil de ramas"
       >
-        <i data-lucide="folder-cog" class="w-3.5 h-3.5"></i>
-        <span class="hidden md:inline font-mono text-[11px]">{{ activeProfileDisplayName }}</span>
-        <span class="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-200 hidden lg:inline">
-          json/gravity
-        </span>
+        <i data-lucide="folder" class="w-4 h-4 text-amber-400 shrink-0"></i>
+        <span class="font-mono text-xs text-amber-300 font-bold max-w-[120px] truncate">{{ activeProfileDisplayName }}</span>
+        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
       </button>
 
-      <button
-        type="button"
-        (click)="exportAllBranchesExcel()"
-        class="px-3 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-        title="Exportar todas las ramas, estados y versiones QA a un archivo Excel (.xlsx) estilizado"
-      >
-        <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
-        <span class="hidden sm:inline">Exportar Excel</span>
-      </button>
+      <!-- 2. Menú Selector de Herramientas (Excel Drive, Exportar, Correo QA) -->
+      <div class="relative inline-block text-left">
+        <!-- Backdrop para cerrar al hacer clic afuera -->
+        <div
+          *ngIf="showToolsMenu"
+          class="fixed inset-0 z-40 bg-black/30"
+          (click)="showToolsMenu = false"
+        ></div>
 
+        <button
+          type="button"
+          (click)="toggleToolsMenu()"
+          class="relative z-40 px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+          [ngClass]="autoSyncExcelToDrive && googleDrive.isLoggedIn() ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25' : 'bg-slate-900/90 hover:bg-slate-800 text-slate-200 border-slate-800 hover:border-slate-700'"
+          title="Menú de Herramientas: Excel en Google Drive, Descargas y Correo QA"
+        >
+          <i data-lucide="sliders-horizontal" class="w-4 h-4 text-indigo-400 shrink-0"></i>
+          <span class="hidden sm:inline">Herramientas</span>
+          <!-- Indicador de auto-sincronización activa con Drive -->
+          <span *ngIf="autoSyncExcelToDrive && googleDrive.isLoggedIn()" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Sincronización con Drive activa"></span>
+          <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
+        </button>
+
+        <!-- Dropdown Flotante Selector de Herramientas -->
+        <div
+          *ngIf="showToolsMenu"
+          (click)="$event.stopPropagation()"
+          class="absolute right-0 mt-2 w-88 sm:w-96 rounded-2xl bg-[#090d1a] border border-slate-700/80 shadow-2xl p-4 z-50 text-slate-200 space-y-3.5 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150"
+        >
+          <!-- Encabezado del Menú -->
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+                <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+                  Herramientas & Nube
+                  <span *ngIf="autoSyncExcelToDrive && googleDrive.isLoggedIn()" class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Auto-sync ON
+                  </span>
+                </h4>
+                <p class="text-[10px] text-slate-400">Excel en Drive, plantillas y exportación</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              (click)="showToolsMenu = false"
+              class="w-6 h-6 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- BLOQUE 1: EXCEL EN GOOGLE DRIVE -->
+          <div class="space-y-2.5 bg-slate-900/60 p-3 rounded-xl border border-slate-800/80">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                <i data-lucide="cloud" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+                Excel en Google Drive
+              </span>
+              <span *ngIf="googleDrive.isLoggedIn()" class="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                Conectado
+              </span>
+            </div>
+
+            <!-- Si no está conectado a Google Drive -->
+            <div *ngIf="!googleDrive.isLoggedIn()" class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/25 space-y-2">
+              <p class="text-[11px] text-amber-200">
+                Conecta tu cuenta de Google para sincronizar y actualizar tu Excel en tiempo real en la nube.
+              </p>
+              <button
+                type="button"
+                (click)="connectGoogleDrive()"
+                class="w-full py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+              >
+                <i data-lucide="cloud" class="w-4 h-4 shrink-0"></i>
+                <span>Conectar Google Drive</span>
+              </button>
+            </div>
+
+            <!-- Si está conectado a Google Drive -->
+            <div *ngIf="googleDrive.isLoggedIn()" class="space-y-2.5 text-[11px]">
+              <!-- Input para cambiar / actualizar nombre del archivo -->
+              <div class="space-y-1">
+                <label class="text-[10px] text-slate-400 font-medium flex items-center justify-between">
+                  <span>Nombre del archivo en Drive:</span>
+                  <span class="text-slate-500 font-mono text-[9px]">.xlsx</span>
+                </label>
+                <div class="flex items-center gap-1.5">
+                  <div class="relative flex-1">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400 absolute left-2.5 top-2 pointer-events-none shrink-0"></i>
+                    <input
+                      type="text"
+                      [(ngModel)]="customExcelFileName"
+                      (keyup.enter)="updateExcelFileName()"
+                      placeholder="Nombre del archivo (ej. Control_de_Ramas.xlsx)"
+                      class="w-full bg-slate-950/80 border border-slate-700/80 rounded-lg pl-8 pr-2 py-1.5 text-xs text-slate-200 outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    (click)="updateExcelFileName()"
+                    class="px-2.5 py-1.5 rounded-lg bg-indigo-600/80 hover:bg-indigo-500 border border-indigo-500/40 text-white text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer shrink-0"
+                    title="Guardar y actualizar nombre del archivo"
+                  >
+                    <i data-lucide="save" class="w-3.5 h-3.5 shrink-0"></i>
+                    <span>Guardar</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Metadata de carpeta y fecha -->
+              <div class="flex items-center justify-between text-slate-400 text-[10px] pt-0.5">
+                <span class="flex items-center gap-1">
+                  <i data-lucide="folder" class="w-3.5 h-3.5 text-indigo-400 shrink-0"></i>
+                  <span>Carpeta:</span>
+                  <span class="font-mono text-indigo-300">Workspace-Hub / Excel /</span>
+                </span>
+                <span class="text-slate-400">
+                  Sinc: <span class="text-slate-300 font-medium">{{ getFormattedLastSyncTime() }}</span>
+                </span>
+              </div>
+
+              <!-- Switch Auto-Sincronización -->
+              <div class="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-950/60 border border-slate-800">
+                <div class="space-y-0.5">
+                  <label class="text-xs font-semibold text-slate-200 flex items-center gap-1.5 cursor-pointer" (click)="toggleAutoSyncExcel()">
+                    <span>Auto-sincronizar cambios</span>
+                    <span *ngIf="autoSyncExcelToDrive" class="text-[9px] text-emerald-400 font-bold bg-emerald-500/15 px-1 rounded border border-emerald-500/30">ACTIVO</span>
+                  </label>
+                  <p class="text-[10px] text-slate-400 leading-tight">
+                    Actualiza automáticamente al modificar ramas, estados o versiones.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  (click)="toggleAutoSyncExcel()"
+                  class="w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer shrink-0"
+                  [ngClass]="autoSyncExcelToDrive ? 'bg-emerald-600' : 'bg-slate-700'"
+                >
+                  <div
+                    class="w-4 h-4 rounded-full bg-white transition-transform"
+                    [ngClass]="autoSyncExcelToDrive ? 'translate-x-4' : 'translate-x-0'"
+                  ></div>
+                </button>
+              </div>
+
+              <!-- Botones de Acción de Drive (Subir, Traer/Importar, Navegador) -->
+              <div class="grid grid-cols-3 gap-1.5 pt-1">
+                <button
+                  type="button"
+                  (click)="syncExcelToDrive(true)"
+                  [disabled]="driveExcelSyncing || driveExcelImporting"
+                  class="py-2 px-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[11px] font-bold flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer shadow-sm text-center"
+                  title="Subir datos actuales de la app hacia el Excel en Google Drive"
+                >
+                  <i [attr.data-lucide]="driveExcelSyncing ? 'refresh-cw' : 'cloud-upload'" [class.animate-spin]="driveExcelSyncing" class="w-4 h-4 text-white"></i>
+                  <span>{{ driveExcelSyncing ? 'Subiendo...' : 'Subir Drive' }}</span>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="importExcelFromDrive()"
+                  [disabled]="driveExcelSyncing || driveExcelImporting"
+                  class="py-2 px-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-[11px] font-bold flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer shadow-sm text-center"
+                  title="Descargar el Excel de Drive y fusionar cualquier fila agregada manualmente"
+                >
+                  <i [attr.data-lucide]="driveExcelImporting ? 'refresh-cw' : 'cloud-download'" [class.animate-spin]="driveExcelImporting" class="w-4 h-4 text-white"></i>
+                  <span>{{ driveExcelImporting ? 'Leyendo...' : 'Traer Drive' }}</span>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="openDriveExcelFile()"
+                  [disabled]="!driveExcelFileId && !driveExcelWebViewLink"
+                  class="py-2 px-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 text-[11px] font-bold flex flex-col items-center justify-center gap-1 transition-colors border border-slate-700 cursor-pointer text-center"
+                  title="Abrir este archivo directamente en tu navegador (Chrome / Edge / Sheets)"
+                >
+                  <i data-lucide="external-link" class="w-4 h-4 text-cyan-400"></i>
+                  <span>Navegador</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- BLOQUE 2: ACCIONES RÁPIDAS (DISEÑO, DESCARGA LOCAL & CORREO QA) -->
+          <div class="space-y-2 pt-0.5">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">Diseño y Herramientas</span>
+
+            <!-- Botón Destacado: Personalizar Diseño & Colores de Excel -->
+            <button
+              type="button"
+              (click)="openExcelDesignModal()"
+              class="w-full p-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-500/50 text-slate-200 text-xs font-semibold flex items-center justify-between transition-all cursor-pointer shadow-sm group"
+              title="Personalizar colores del título, cabeceras y tema del Excel"
+            >
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 group-hover:scale-105 transition-transform">
+                  <i data-lucide="palette" class="w-4 h-4"></i>
+                </div>
+                <div class="min-w-0 text-left">
+                  <div class="font-bold text-white text-[11px] truncate flex items-center gap-1.5">
+                    <span>Diseño & Colores Excel</span>
+                    <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
+                      {{ excelDesign.presetId === 'custom' ? 'Custom' : (excelDesign.presetId | uppercase) }}
+                    </span>
+                  </div>
+                  <div class="text-[9px] text-slate-400 truncate">Título, cabeceras y estilo de tabla</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span class="w-4 h-4 rounded-md border border-white/20 shadow-xs" [style.background-color]="excelDesign.titleBgColor" title="Fondo Título"></span>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-colors"></i>
+              </div>
+            </button>
+
+            <!-- Input oculto para seleccionar archivo Excel de la computadora -->
+            <input
+              #excelFileInput
+              type="file"
+              accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              (change)="onLocalExcelFileSelected($event)"
+              class="hidden"
+            />
+
+            <div class="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                (click)="excelFileInput.click()"
+                [disabled]="localExcelImporting"
+                class="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold flex flex-col items-start gap-1 transition-all cursor-pointer text-left"
+                title="Cargar un archivo Excel (.xlsx) de tu computadora y fusionar las ramas agregadas"
+              >
+                <div class="w-6 h-6 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+                  <i [attr.data-lucide]="localExcelImporting ? 'refresh-cw' : 'file-up'" [class.animate-spin]="localExcelImporting" class="w-3.5 h-3.5"></i>
+                </div>
+                <div class="min-w-0">
+                  <div class="font-bold text-white text-[11px] truncate">{{ localExcelImporting ? 'Leyendo...' : 'Importar PC' }}</div>
+                  <div class="text-[9px] text-slate-400 truncate">Archivo .xlsx</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                (click)="exportAllBranchesExcel(); showToolsMenu = false"
+                class="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold flex flex-col items-start gap-1 transition-all cursor-pointer text-left"
+                title="Descargar copia física del archivo Excel (.xlsx) a tu computadora"
+              >
+                <div class="w-6 h-6 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                  <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                </div>
+                <div class="min-w-0">
+                  <div class="font-bold text-white text-[11px] truncate">Bajar Excel</div>
+                  <div class="text-[9px] text-slate-400 truncate">Descargar local</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                (click)="openEmailTemplateModal(); showToolsMenu = false"
+                class="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold flex flex-col items-start gap-1 transition-all cursor-pointer text-left"
+                title="Generar plantilla de correo de liberación de compilados para QA y Negocio"
+              >
+                <div class="w-6 h-6 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+                  <i data-lucide="mail" class="w-3.5 h-3.5"></i>
+                </div>
+                <div class="min-w-0">
+                  <div class="font-bold text-white text-[11px] truncate">Correo QA</div>
+                  <div class="text-[9px] text-slate-400 truncate">Plantilla entrega</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Botón Principal: Nueva Rama -->
       <button
         type="button"
         (click)="openNewBranchModal()"
-        class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+        class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-indigo-600/20"
       >
-        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+        <i data-lucide="plus" class="w-4 h-4 shrink-0"></i>
         <span>Nueva Rama</span>
       </button>
     </div>
@@ -346,9 +612,19 @@
 
               <div class="flex items-center justify-between gap-2 text-[10px] text-slate-500">
                 <span class="truncate">{{ b.featureTitle }}</span>
-                <div *ngIf="b.qaVersions?.length" class="flex items-center gap-1 shrink-0">
+                <div class="flex items-center gap-1 shrink-0">
+                  <button
+                    *ngIf="b.buildFolderUrl || (b.folderLinks && b.folderLinks.length > 0)"
+                    type="button"
+                    (click)="openFolderLink(b.buildFolderUrl || b.folderLinks![0].url, $event)"
+                    class="px-1.5 py-0.2 rounded bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 font-mono text-[9px] flex items-center gap-0.5 cursor-pointer"
+                    [title]="'Abrir carpeta en la nube: ' + (b.buildFolderUrl || b.folderLinks![0].url)"
+                  >
+                    <i data-lucide="cloud" class="w-2.5 h-2.5"></i>
+                    <span>Link</span>
+                  </button>
                   <span
-                    *ngFor="let v of b.qaVersions.slice(0, 2)"
+                    *ngFor="let v of (b.qaVersions || []).slice(0, 2)"
                     class="px-1.5 py-0.2 rounded bg-slate-800 text-amber-300 font-mono"
                   >
                     v{{ v }}
@@ -430,6 +706,15 @@
                 >
                   <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
                   <span>PDF</span>
+                </button>
+                <button
+                  type="button"
+                  (click)="openEmailTemplateModal(branch)"
+                  class="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                  title="Generar plantilla de correo de liberación para QA"
+                >
+                  <i data-lucide="mail" class="w-3.5 h-3.5"></i>
+                  <span>Correo QA</span>
                 </button>
               </div>
 
@@ -683,6 +968,133 @@
                   title="Eliminar tag del catálogo global"
                 >
                   ×
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Carpeta de Compilados & Enlaces en la Nube (Google Drive, OneDrive, Servidor de Red) -->
+        <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 space-y-3">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0">
+                <i data-lucide="cloud" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <span class="text-xs font-bold text-slate-200">
+                  Direcciones de Carpetas & Enlaces en la Nube
+                </span>
+                <span class="text-[10px] text-slate-400 block">
+                  Guarda enlaces de Google Drive, OneDrive o rutas de red para esta rama y úsalos al enviar correos.
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              (click)="showAddFolderLinkInput = !showAddFolderLinkInput"
+              class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-cyan-300 border border-slate-700 transition-colors cursor-pointer flex items-center gap-1"
+            >
+              <i [attr.data-lucide]="showAddFolderLinkInput ? 'x' : 'plus'" class="w-3 h-3"></i>
+              <span>{{ showAddFolderLinkInput ? 'Cerrar' : '+ Guardar Link / Carpeta' }}</span>
+            </button>
+          </div>
+
+          <!-- Input para registrar una nueva dirección de carpeta o link de la nube -->
+          <div *ngIf="showAddFolderLinkInput || (!branch.folderLinks || branch.folderLinks.length === 0)" class="p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-2">
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+              <input
+                type="text"
+                [(ngModel)]="branchFolderUrlInput"
+                (keydown.enter)="addFolderLinkToBranch(branch)"
+                placeholder="Pega el link de Google Drive, OneDrive o ruta de red (ej. https://drive.google.com/...)..."
+                class="sm:col-span-8 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-mono text-cyan-300 outline-none focus:border-cyan-500/60"
+              />
+              <input
+                type="text"
+                [(ngModel)]="branchFolderLabelInput"
+                (keydown.enter)="addFolderLinkToBranch(branch)"
+                placeholder="Etiqueta (ej. Drive, QA Android)"
+                class="sm:col-span-3 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-indigo-500"
+              />
+              <button
+                type="button"
+                (click)="addFolderLinkToBranch(branch)"
+                class="sm:col-span-1 py-1.5 px-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold cursor-pointer transition-colors"
+                title="Guardar dirección de carpeta en esta rama"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          <!-- Listado de enlaces o carpetas guardadas en la rama -->
+          <div *ngIf="branch.folderLinks && branch.folderLinks.length > 0" class="space-y-1.5 pt-0.5">
+            <div
+              *ngFor="let link of branch.folderLinks"
+              class="p-2.5 rounded-xl border flex items-center justify-between gap-3 text-xs transition-colors"
+              [ngClass]="
+                link.isPrimary
+                  ? 'bg-slate-950/90 border-cyan-500/40 text-slate-100 shadow-sm'
+                  : 'bg-slate-950/40 border-slate-800/80 text-slate-300 hover:border-slate-700'
+              "
+            >
+              <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                <span
+                  class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider shrink-0 flex items-center gap-1"
+                  [ngClass]="
+                    link.isPrimary
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                      : 'bg-slate-800 text-slate-400'
+                  "
+                >
+                  <i data-lucide="folder" class="w-3 h-3"></i>
+                  <span>{{ link.label || inferFolderLabel(link.url) }}</span>
+                  <span *ngIf="link.isPrimary" class="text-amber-300 ml-0.5" title="Carpeta principal para envíos de correo">★</span>
+                </span>
+                <span class="font-mono text-[11px] truncate text-slate-200" [title]="link.url">
+                  {{ link.url }}
+                </span>
+              </div>
+
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  (click)="setPrimaryFolderLink(branch, link.id, $event)"
+                  class="px-2 py-0.5 rounded text-[10px] font-semibold transition-colors cursor-pointer"
+                  [ngClass]="
+                    link.isPrimary
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+                  "
+                  [title]="link.isPrimary ? 'Carpeta principal seleccionada' : 'Marcar como carpeta principal para correos'"
+                >
+                  {{ link.isPrimary ? 'Principal' : 'Hacer principal' }}
+                </button>
+                <button
+                  type="button"
+                  (click)="openFolderLink(link.url, $event)"
+                  class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 hover:text-white cursor-pointer transition-colors"
+                  title="Abrir link en el navegador"
+                >
+                  <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                </button>
+                <button
+                  type="button"
+                  (click)="copyFolderLink(link.url, 'fl_' + link.id, $event)"
+                  class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white cursor-pointer transition-colors"
+                  title="Copiar link"
+                >
+                  <i [attr.data-lucide]="copiedKey === 'fl_' + link.id ? 'check' : 'copy'" class="w-3.5 h-3.5"></i>
+                </button>
+                <button
+                  type="button"
+                  (click)="removeFolderLinkFromBranch(branch, link.id, $event)"
+                  class="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 cursor-pointer transition-colors"
+                  title="Eliminar link de esta rama"
+                >
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                 </button>
               </div>
             </div>
@@ -1095,12 +1507,23 @@
             <p class="text-[11px] text-slate-400 truncate">{{ item.branch.featureTitle }}</p>
           </div>
 
-          <span
-            class="text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0"
-            [ngClass]="getStateBadgeClass(item.branch.state)"
-          >
-            {{ item.branch.state }}
-          </span>
+          <div class="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              (click)="openEmailTemplateModal(item.branch, item.version); $event.stopPropagation()"
+              class="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Generar correo de liberación para esta versión"
+            >
+              <i data-lucide="mail" class="w-3.5 h-3.5"></i>
+              <span>Correo</span>
+            </button>
+            <span
+              class="text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0"
+              [ngClass]="getStateBadgeClass(item.branch.state)"
+            >
+              {{ item.branch.state }}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -1730,7 +2153,7 @@
             </span>
           </h3>
           <p class="text-[11px] text-slate-400 mt-0.5">
-            Cada perfil de Gravity se guarda en <code class="text-amber-300">json/gravity/</code> (separado de <code class="text-emerald-400">api_docs/</code> que es exclusivo para Notas).
+            Cada perfil se guarda en <code class="text-amber-300">json/gravity/</code> (separado de <code class="text-emerald-400">api_docs/</code> que es exclusivo para Notas).
           </p>
         </div>
 
@@ -1969,6 +2392,801 @@
               <span>Subir seleccionados a Google Drive ({{ selectedCandidatesCount }})</span>
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- MODAL: GENERADOR DE PLANTILLA DE CORREO DE LIBERACIÓN POR VERSIÓN       -->
+  <!-- ======================================================================= -->
+  <div
+    *ngIf="showEmailTemplateModal"
+    class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-sm"
+    (click)="closeEmailTemplateModal()"
+  >
+    <div
+      class="w-full max-w-4xl max-h-[92vh] bg-[#070d1e] border border-slate-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-slate-100"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- Cabecera del modal -->
+      <div class="px-5 py-4 bg-slate-900/90 border-b border-slate-800/80 flex items-center justify-between gap-3 shrink-0">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+            <i data-lucide="mail" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <h3 class="text-sm md:text-base font-bold text-white truncate">Plantilla de Correo de Liberación</h3>
+              <span
+                *ngIf="emailVersion"
+                class="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono text-[11px] font-bold"
+              >
+                v{{ emailVersion }}
+              </span>
+            </div>
+            <p class="text-[11px] text-slate-400 truncate">
+              Genera el correo para QA/Negocio con versión, contenido, carpeta de compilados y destinatarios guardados.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <!-- Pestañas internas del modal: Plantilla vs Destinatarios -->
+          <div class="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-800 text-xs">
+            <button
+              type="button"
+              (click)="emailModalTab = 'preview'"
+              class="px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+              [ngClass]="emailModalTab === 'preview' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'"
+            >
+              <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+              <span>Correo</span>
+            </button>
+            <button
+              type="button"
+              (click)="emailModalTab = 'contacts'"
+              class="px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+              [ngClass]="emailModalTab === 'contacts' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'"
+            >
+              <i data-lucide="users" class="w-3.5 h-3.5"></i>
+              <span>Destinatarios</span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 font-mono">
+                {{ savedEmailContacts.length }}
+              </span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            (click)="closeEmailTemplateModal()"
+            class="w-8 h-8 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer text-lg leading-none"
+            title="Cerrar modal"
+          >
+            &times;
+          </button>
+        </div>
+      </div>
+
+      <!-- Contenido del modal según pestaña -->
+      <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+        <!-- PESTAÑA 1: EDICIÓN DE CAMPOS + VISTA PREVIA DEL CORREO -->
+        <div *ngIf="emailModalTab === 'preview'" class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <!-- Columna izquierda: Parámetros del correo -->
+          <div class="lg:col-span-6 space-y-4">
+            <!-- 1. Saludo (Tardes / Días / Noches) -->
+            <div class="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+              <label class="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
+                1. Saludo inicial
+              </label>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  (click)="setEmailGreetingTime('dias')"
+                  class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5"
+                  [ngClass]="
+                    emailGreetingTime === 'dias' && !emailCustomGreeting
+                      ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 font-bold'
+                      : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                  "
+                >
+                  <span>☀️ Buenos días</span>
+                </button>
+                <button
+                  type="button"
+                  (click)="setEmailGreetingTime('tardes')"
+                  class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5"
+                  [ngClass]="
+                    emailGreetingTime === 'tardes' && !emailCustomGreeting
+                      ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300 font-bold'
+                      : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                  "
+                >
+                  <span>🌤️ Buenas tardes</span>
+                </button>
+                <button
+                  type="button"
+                  (click)="setEmailGreetingTime('noches')"
+                  class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5"
+                  [ngClass]="
+                    emailGreetingTime === 'noches' && !emailCustomGreeting
+                      ? 'bg-violet-500/20 border-violet-500/50 text-violet-300 font-bold'
+                      : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                  "
+                >
+                  <span>🌙 Buenas noches</span>
+                </button>
+              </div>
+              <input
+                type="text"
+                [(ngModel)]="emailCustomGreeting"
+                placeholder="Personalizar saludo (ej. Buenas tardes, estimados un gusto saludarles,)..."
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            <!-- 2. Versión de Compilación y Plataformas -->
+            <div class="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2.5">
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
+                  2. Número de versión y plataformas
+                </label>
+                <!-- Selector rápido de versiones asignadas a la rama activa -->
+                <div *ngIf="emailBranchVersions.length > 0" class="flex items-center gap-1 flex-wrap">
+                  <span class="text-[10px] text-slate-400">De la rama:</span>
+                  <button
+                    *ngFor="let ver of emailBranchVersions"
+                    type="button"
+                    (click)="setEmailVersion(ver)"
+                    class="px-2 py-0.5 rounded-md text-[10px] font-mono border transition-colors cursor-pointer"
+                    [ngClass]="
+                      emailVersion === ver
+                        ? 'bg-amber-500/25 border-amber-500/60 text-amber-200 font-bold'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                    "
+                  >
+                    v{{ ver }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <span class="text-[10px] text-slate-400 block mb-1">Versión:</span>
+                  <input
+                    type="text"
+                    [(ngModel)]="emailVersion"
+                    (ngModelChange)="updateEmailSubject()"
+                    placeholder="Ej. 6.9.28"
+                    class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-mono text-amber-300 font-bold outline-none focus:border-amber-500/60"
+                  />
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-400 block mb-1">Plataformas:</span>
+                  <input
+                    type="text"
+                    [(ngModel)]="emailPlatforms"
+                    (ngModelChange)="updateEmailSubject()"
+                    placeholder="Ej. IOS y Android"
+                    class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-[10px] text-slate-500">Rápido:</span>
+                <button
+                  type="button"
+                  (click)="setEmailPlatforms('IOS y Android')"
+                  class="px-2 py-0.5 rounded-md text-[10px] bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 cursor-pointer"
+                >
+                  IOS y Android
+                </button>
+                <button
+                  type="button"
+                  (click)="setEmailPlatforms('Android')"
+                  class="px-2 py-0.5 rounded-md text-[10px] bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 cursor-pointer"
+                >
+                  Solo Android
+                </button>
+                <button
+                  type="button"
+                  (click)="setEmailPlatforms('IOS')"
+                  class="px-2 py-0.5 rounded-md text-[10px] bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 cursor-pointer"
+                >
+                  Solo iOS
+                </button>
+              </div>
+            </div>
+
+            <!-- 3. Contenido del Desarrollo -->
+            <div class="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
+                  3. Contenido del desarrollo
+                </label>
+                <span class="text-[10px] text-slate-500">¿Qué contiene el compilado?</span>
+              </div>
+              <textarea
+                [(ngModel)]="emailContent"
+                (ngModelChange)="updateEmailSubject()"
+                rows="3"
+                placeholder="Ej. El desarrollo de antecedentes penales"
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 leading-relaxed outline-none focus:border-indigo-500 resize-y"
+              ></textarea>
+            </div>
+
+            <!-- 4. Carpeta de Compilados -->
+            <div class="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <label class="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
+                  4. Carpeta de compilados
+                </label>
+                <div class="flex items-center gap-1.5">
+                  <button
+                    *ngIf="emailTargetBranch && emailBuildFolder"
+                    type="button"
+                    (click)="saveEmailBuildFolderToBranch()"
+                    class="px-2 py-0.5 rounded-md bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/35 text-cyan-300 text-[10px] font-semibold cursor-pointer"
+                    title="Guardar esta dirección en la rama activa para futuros envíos"
+                  >
+                    💾 Guardar en esta rama
+                  </button>
+                  <span class="text-[10px] text-emerald-400">Se recuerda automáticamente</span>
+                </div>
+              </div>
+
+              <!-- Enlaces guardados en la rama para elegir de 1 clic -->
+              <div
+                *ngIf="emailTargetBranch?.folderLinks && emailTargetBranch!.folderLinks!.length > 0"
+                class="flex items-center gap-1.5 flex-wrap pb-1"
+              >
+                <span class="text-[10px] text-slate-400">Guardadas en esta rama:</span>
+                <button
+                  *ngFor="let fl of emailTargetBranch!.folderLinks"
+                  type="button"
+                  (click)="emailBuildFolder = fl.url; onEmailBuildFolderChange()"
+                  class="px-2 py-0.5 rounded-md text-[10px] font-medium border transition-colors cursor-pointer flex items-center gap-1"
+                  [ngClass]="
+                    emailBuildFolder === fl.url
+                      ? 'bg-cyan-500/25 border-cyan-500/60 text-cyan-200 font-bold'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                  "
+                >
+                  <i data-lucide="cloud" class="w-3 h-3"></i>
+                  <span>{{ fl.label || 'Carpeta' }}</span>
+                </button>
+              </div>
+
+              <textarea
+                [(ngModel)]="emailBuildFolder"
+                (ngModelChange)="onEmailBuildFolderChange()"
+                rows="2"
+                placeholder="Pega la ruta de red o carpeta (ej. https://drive.google.com/... o \\servidor\compilados\v6.9.28)..."
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs font-mono text-cyan-300 outline-none focus:border-cyan-500/60 resize-y"
+              ></textarea>
+            </div>
+
+            <!-- 5. Asunto del Correo -->
+            <div class="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
+                  5. Asunto del correo
+                </label>
+                <button
+                  type="button"
+                  (click)="copyEmailSubject()"
+                  class="px-2 py-0.5 rounded-md bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 text-[10px] font-semibold flex items-center gap-1 cursor-pointer"
+                >
+                  <i data-lucide="copy" class="w-3 h-3"></i>
+                  <span>Copiar Asunto</span>
+                </button>
+              </div>
+              <input
+                type="text"
+                [(ngModel)]="emailSubject"
+                placeholder="Asunto para el correo..."
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-semibold text-white outline-none focus:border-indigo-500"
+              />
+            </div>
+          </div>
+
+          <!-- Columna derecha: Destinatarios rápidos + Vista Previa tal cual se envía -->
+          <div class="lg:col-span-6 flex flex-col space-y-3">
+            <!-- Barra de destinatarios seleccionados -->
+            <div class="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5">
+                  <i data-lucide="users" class="w-3.5 h-3.5 text-indigo-400"></i>
+                  <span class="text-xs font-bold text-slate-200">Destinatarios para este correo</span>
+                </div>
+                <button
+                  type="button"
+                  (click)="emailModalTab = 'contacts'"
+                  class="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
+                >
+                  + Gestionar correos
+                </button>
+              </div>
+
+              <!-- Chips de correos "Para" -->
+              <div class="flex flex-wrap items-center gap-1.5 text-xs">
+                <span class="text-[10px] font-bold text-blue-400 uppercase">Para:</span>
+                <span *ngIf="toEmailsList.length === 0" class="text-[10px] text-slate-500 italic">
+                  Sin correos "Para" seleccionados
+                </span>
+                <span
+                  *ngFor="let m of toEmailsList"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/15 border border-blue-500/30 text-blue-300 text-[10px] font-mono"
+                >
+                  {{ m }}
+                </span>
+                <button
+                  *ngIf="toEmailsList.length > 0"
+                  type="button"
+                  (click)="copyEmailRecipients('to')"
+                  class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] cursor-pointer ml-auto"
+                  title="Copiar lista de correos 'Para'"
+                >
+                  Copiar "Para"
+                </button>
+              </div>
+
+              <!-- Chips de correos "CC" -->
+              <div *ngIf="ccEmailsList.length > 0" class="flex flex-wrap items-center gap-1.5 text-xs pt-1 border-t border-slate-800/60">
+                <span class="text-[10px] font-bold text-purple-400 uppercase">CC:</span>
+                <span
+                  *ngFor="let m of ccEmailsList"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[10px] font-mono"
+                >
+                  {{ m }}
+                </span>
+                <button
+                  type="button"
+                  (click)="copyEmailRecipients('cc')"
+                  class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] cursor-pointer ml-auto"
+                  title="Copiar lista de correos 'CC'"
+                >
+                  Copiar "CC"
+                </button>
+              </div>
+            </div>
+
+            <!-- Vista Previa del Correo formateado -->
+            <div class="flex-1 flex flex-col p-4 rounded-2xl bg-slate-950 border border-slate-800 shadow-inner min-h-[320px]">
+              <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800/80">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Vista previa del correo
+                </span>
+                <span class="text-[10px] text-slate-500 font-mono">Texto plano listo para enviar</span>
+              </div>
+
+              <pre class="flex-1 font-sans text-xs md:text-[13px] leading-relaxed whitespace-pre-wrap text-slate-200 select-text outline-none m-0 overflow-y-auto max-h-[380px] custom-scrollbar">{{ formattedEmailBody }}</pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 2: GESTIÓN DE DESTINATARIOS / CORREOS GUARDADOS -->
+        <div *ngIf="emailModalTab === 'contacts'" class="max-w-3xl mx-auto space-y-4">
+          <!-- Formulario para agregar un nuevo contacto -->
+          <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-3">
+            <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider">
+              Agregar correo a la agenda de entrega
+            </h4>
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+              <input
+                type="email"
+                [(ngModel)]="newContactEmail"
+                placeholder="correo@empresa.com"
+                class="sm:col-span-5 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+              />
+              <input
+                type="text"
+                [(ngModel)]="newContactName"
+                placeholder="Nombre o Rol (ej. QA Lead, Product Owner)"
+                class="sm:col-span-4 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+              />
+              <select
+                [(ngModel)]="newContactType"
+                class="sm:col-span-2 bg-slate-950 border border-slate-800 rounded-xl px-2 py-2 text-xs text-slate-300 outline-none"
+              >
+                <option value="to">Para (To)</option>
+                <option value="cc">CC (Copia)</option>
+              </select>
+              <button
+                type="button"
+                (click)="addEmailContact()"
+                class="sm:col-span-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer transition-colors"
+                title="Guardar correo"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          <!-- Listado de correos guardados -->
+          <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-3">
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                  Correos Guardados ({{ savedEmailContacts.length }})
+                </h4>
+                <p class="text-[11px] text-slate-400">
+                  Marca los correos que deseas incluir para que se copien automáticamente.
+                </p>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  (click)="selectAllContacts(true)"
+                  class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 cursor-pointer"
+                >
+                  Marcar todos
+                </button>
+                <button
+                  type="button"
+                  (click)="selectAllContacts(false)"
+                  class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 cursor-pointer"
+                >
+                  Desmarcar
+                </button>
+              </div>
+            </div>
+
+            <div *ngIf="savedEmailContacts.length === 0" class="text-center py-6 text-xs text-slate-500">
+              No hay correos guardados aún. Agrega el correo de tu equipo de QA o líderes arriba para tenerlos listos.
+            </div>
+
+            <div *ngIf="savedEmailContacts.length > 0" class="space-y-1.5 max-h-[400px] overflow-y-auto pr-1">
+              <div
+                *ngFor="let contact of savedEmailContacts"
+                class="p-2.5 rounded-xl border flex items-center justify-between gap-3 text-xs transition-colors"
+                [ngClass]="
+                  contact.selected
+                    ? 'bg-slate-950/90 border-slate-700 text-slate-200'
+                    : 'bg-slate-950/40 border-slate-900 text-slate-500'
+                "
+              >
+                <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                  <input
+                    type="checkbox"
+                    [checked]="contact.selected"
+                    (change)="toggleContactSelection(contact)"
+                    class="rounded border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer"
+                  />
+                  <button
+                    type="button"
+                    (click)="toggleContactType(contact)"
+                    class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase transition-colors cursor-pointer"
+                    [ngClass]="
+                      contact.type === 'to'
+                        ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                        : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                    "
+                    [title]="'Clic para alternar entre Para y CC (actual: ' + contact.type.toUpperCase() + ')'"
+                  >
+                    {{ contact.type.toUpperCase() }}
+                  </button>
+                  <span class="font-mono truncate font-semibold">{{ contact.email }}</span>
+                  <span *ngIf="contact.name" class="text-slate-400 text-[11px] truncate hidden sm:inline">
+                    — {{ contact.name }}
+                  </span>
+                </div>
+
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    (click)="copyText(contact.email)"
+                    class="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer"
+                    title="Copiar correo"
+                  >
+                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <button
+                    type="button"
+                    (click)="removeEmailContact(contact.id)"
+                    class="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-rose-400 cursor-pointer"
+                    title="Eliminar correo de la agenda"
+                  >
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pie del modal con botones principales de copiado y mailto -->
+      <div class="px-5 py-3 bg-slate-900/90 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            (click)="copyEmailRecipients('all')"
+            class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center gap-1.5 cursor-pointer transition-colors"
+            title="Copiar todos los correos destinatarios (Para y CC)"
+          >
+            <i data-lucide="users" class="w-3.5 h-3.5"></i>
+            <span>Copiar Destinatarios</span>
+          </button>
+          <button
+            type="button"
+            (click)="copyEmailSubject()"
+            class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center gap-1.5 cursor-pointer transition-colors"
+            title="Copiar asunto del correo"
+          >
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            <span>Copiar Asunto</span>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            (click)="openInEmailClient()"
+            class="px-3 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+            title="Abrir directamente en tu cliente de correo (Outlook, Thunderbird, etc.) con asunto y cuerpo listos"
+          >
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Abrir en</span><span>Mail</span>
+          </button>
+
+          <button
+            type="button"
+            (click)="copyEmailBody()"
+            class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-950/40 transition-all"
+            title="Copiar el cuerpo del correo listo para pegar"
+          >
+            <i data-lucide="clipboard" class="w-4 h-4"></i>
+            <span>Copiar Cuerpo del Correo</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PERSONALIZACIÓN DE DISEÑO DE EXCEL (COLORES & ESTILOS) -->
+  <div
+    *ngIf="showExcelDesignModal"
+    class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+  >
+    <div
+      (click)="$event.stopPropagation()"
+      class="bg-[#0b1120] border border-slate-700/80 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+    >
+      <!-- HEADER DEL MODAL -->
+      <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60 shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+            <i data-lucide="palette" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+              Diseño y Colores de Excel
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                exceljs
+              </span>
+            </h3>
+            <p class="text-[11px] text-slate-400">
+              Personaliza el banner de título, temas de tabla y colores para exportar y sincronizar con Drive
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          (click)="closeExcelDesignModal()"
+          class="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center transition-colors cursor-pointer"
+        >
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- CONTENIDO DEL MODAL -->
+      <div class="p-5 overflow-y-auto space-y-5 text-slate-200">
+        <!-- SECCIÓN 1: PALETAS RÁPIDAS (PRESETS) -->
+        <div class="space-y-2">
+          <label class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i>
+            <span>Paletas Temáticas Predefinidas (1 Clic)</span>
+          </label>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <button
+              *ngFor="let preset of excelDesignPresets"
+              type="button"
+              (click)="applyExcelDesignPreset(preset)"
+              class="p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 relative"
+              [ngClass]="excelDesign.presetId === preset.id ? 'bg-indigo-950/40 border-indigo-500 ring-1 ring-indigo-500/50' : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'"
+            >
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-white truncate">{{ preset.name }}</span>
+                <span *ngIf="excelDesign.presetId === preset.id" class="w-2 h-2 rounded-full bg-indigo-400"></span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span
+                  class="w-5 h-5 rounded-md border border-white/20 shadow-xs shrink-0"
+                  [style.background-color]="preset.titleBgColor"
+                  title="Color Título"
+                ></span>
+                <span
+                  class="w-5 h-5 rounded-md border border-white/20 shadow-xs shrink-0"
+                  [style.background-color]="preset.headerBgPreview"
+                  title="Color Cabecera"
+                ></span>
+                <span class="text-[9px] font-mono text-slate-400 truncate">{{ preset.titleBgColor }}</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- SECCIÓN 2: PERSONALIZACIÓN MANUAL LIBRE -->
+        <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800/80 space-y-4">
+          <label class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+            <i data-lucide="sliders" class="w-3.5 h-3.5 text-indigo-400"></i>
+            <span>Ajustes Personalizados de Colores</span>
+          </label>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <!-- 1. Color de Fondo del Título -->
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-semibold text-slate-300 flex items-center justify-between">
+                <span>Fondo del Título:</span>
+                <span class="font-mono text-[10px] text-indigo-300">{{ excelDesign.titleBgColor }}</span>
+              </label>
+              <div class="flex items-center gap-2 bg-slate-950/80 border border-slate-800 rounded-lg p-1.5">
+                <input
+                  type="color"
+                  [(ngModel)]="excelDesign.titleBgColor"
+                  (ngModelChange)="onCustomColorChange()"
+                  class="w-7 h-7 rounded border-0 cursor-pointer bg-transparent"
+                />
+                <input
+                  type="text"
+                  [(ngModel)]="excelDesign.titleBgColor"
+                  (ngModelChange)="onCustomColorChange()"
+                  class="w-full bg-transparent text-xs font-mono text-white outline-none"
+                  placeholder="#1e1b4b"
+                />
+              </div>
+            </div>
+
+            <!-- 2. Color del Texto del Título -->
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-semibold text-slate-300 flex items-center justify-between">
+                <span>Texto del Título:</span>
+                <span class="font-mono text-[10px] text-indigo-300">{{ excelDesign.titleTextColor }}</span>
+              </label>
+              <div class="flex items-center gap-2 bg-slate-950/80 border border-slate-800 rounded-lg p-1.5">
+                <input
+                  type="color"
+                  [(ngModel)]="excelDesign.titleTextColor"
+                  (ngModelChange)="onCustomColorChange()"
+                  class="w-7 h-7 rounded border-0 cursor-pointer bg-transparent"
+                />
+                <input
+                  type="text"
+                  [(ngModel)]="excelDesign.titleTextColor"
+                  (ngModelChange)="onCustomColorChange()"
+                  class="w-full bg-transparent text-xs font-mono text-white outline-none"
+                  placeholder="#ffffff"
+                />
+              </div>
+            </div>
+
+            <!-- 3. Tema de la Tabla de Excel -->
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-semibold text-slate-300">
+                Tema de Tabla Excel:
+              </label>
+              <select
+                [(ngModel)]="excelDesign.tableTheme"
+                (ngModelChange)="onCustomColorChange()"
+                class="w-full bg-slate-950/80 border border-slate-800 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
+              >
+                <option *ngFor="let th of excelTableThemes" [value]="th.id">
+                  {{ th.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECCIÓN 3: VISTA PREVIA INTERACTIVA EN TIEMPO REAL -->
+        <div class="space-y-2">
+          <label class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+            <i data-lucide="eye" class="w-3.5 h-3.5 text-emerald-400"></i>
+            <span>Vista Previa en Tiempo Real de la Hoja Excel</span>
+          </label>
+
+          <div class="rounded-xl border border-slate-800 bg-[#060b19] p-3 overflow-hidden shadow-inner space-y-1.5">
+            <!-- Simulación Fila 1: Título Arriba -->
+            <div
+              class="w-full py-2.5 px-4 rounded-lg text-center font-bold text-xs tracking-wider uppercase transition-colors shadow-sm flex items-center justify-center gap-2"
+              [style.background-color]="excelDesign.titleBgColor"
+              [style.color]="excelDesign.titleTextColor"
+            >
+              <span>CONTROL DE RAMAS, CATEGORÍAS Y VERSIONES QA - {{ activeProfileDisplayName.toUpperCase() }}</span>
+            </div>
+
+            <!-- Simulación Fila 2: Cabecera de Tabla con Filtros -->
+            <div class="grid grid-cols-7 gap-1 text-[10px] font-bold text-slate-200 select-none">
+              <div class="bg-slate-800/90 py-1.5 px-2 rounded flex items-center justify-between border border-slate-700/60">
+                <span>#</span>
+                <span class="text-[9px] text-slate-400">▼</span>
+              </div>
+              <div class="bg-slate-800/90 py-1.5 px-2 rounded flex items-center justify-between border border-slate-700/60">
+                <span class="truncate">ID Rama</span>
+                <span class="text-[9px] text-slate-400">▼</span>
+              </div>
+              <div class="bg-slate-800/90 py-1.5 px-2 rounded flex items-center justify-between border border-slate-700/60">
+                <span class="truncate">Categoría</span>
+                <span class="text-[9px] text-slate-400">▼</span>
+              </div>
+              <div class="bg-slate-800/90 py-1.5 px-2 rounded flex items-center justify-between border border-slate-700/60 col-span-2">
+                <span class="truncate">Nombre de Rama</span>
+                <span class="text-[9px] text-slate-400">▼</span>
+              </div>
+              <div class="bg-slate-800/90 py-1.5 px-2 rounded flex items-center justify-between border border-slate-700/60">
+                <span class="truncate">Estado</span>
+                <span class="text-[9px] text-slate-400">▼</span>
+              </div>
+              <div class="bg-slate-800/90 py-1.5 px-2 rounded flex items-center justify-between border border-slate-700/60">
+                <span class="truncate">Versión QA</span>
+                <span class="text-[9px] text-slate-400">▼</span>
+              </div>
+            </div>
+
+            <!-- Simulación Fila 3 y 4: Datos Zebra -->
+            <div class="space-y-1 text-[9px] font-mono">
+              <div class="grid grid-cols-7 gap-1 bg-slate-900/50 py-1 px-2 rounded text-slate-300">
+                <span>1</span>
+                <span class="text-slate-400 truncate">branch_1793...</span>
+                <span class="text-indigo-300 truncate">Transferencias</span>
+                <span class="col-span-2 text-white truncate">feature/26102026/mejora-selector</span>
+                <span class="text-emerald-400 font-bold truncate">Certificada</span>
+                <span class="text-amber-300 truncate">v6.10.14</span>
+              </div>
+              <div class="grid grid-cols-7 gap-1 bg-slate-950/40 py-1 px-2 rounded text-slate-400">
+                <span>2</span>
+                <span class="text-slate-400 truncate">branch_1794...</span>
+                <span class="text-indigo-300 truncate">Pagos</span>
+                <span class="col-span-2 text-white truncate">feature/26102026/pago-servicios</span>
+                <span class="text-cyan-400 font-bold truncate">QA</span>
+                <span class="text-amber-300 truncate">v6.10.15</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FOOTER CON BOTONES DE ACCIÓN -->
+      <div class="px-5 py-3.5 border-t border-slate-800 flex items-center justify-between bg-slate-900/60 shrink-0">
+        <button
+          type="button"
+          (click)="resetExcelDesign()"
+          class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+        >
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          <span>Restablecer por defecto</span>
+        </button>
+
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            (click)="saveExcelDesign(); closeExcelDesignModal()"
+            class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+          >
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>Guardar Diseño</span>
+          </button>
+
+          <button
+            type="button"
+            (click)="saveExcelDesign(); exportAllBranchesExcel(); closeExcelDesignModal()"
+            class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+          >
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span>Guardar y Descargar</span>
+          </button>
         </div>
       </div>
     </div>

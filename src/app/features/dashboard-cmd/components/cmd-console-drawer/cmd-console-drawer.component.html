@@ -1,16 +1,29 @@
-<div class="bg-[#020617] border-t border-slate-800 flex flex-col font-mono z-30 relative transition-all">
+<div
+  class="bg-[#020617] font-mono z-30 relative transition-all"
+  [ngClass]="
+    consolePosition === 'right'
+      ? (consoleMin
+          ? 'border-l border-slate-800 w-auto h-full flex flex-col shrink-0'
+          : (consoleMax
+              ? 'border-l border-slate-800 w-full md:w-[650px] lg:w-[780px] xl:w-[900px] h-full flex flex-col shrink-0'
+              : 'border-l border-slate-800 w-full md:w-[420px] lg:w-[480px] xl:w-[560px] h-full flex flex-col shrink-0'
+            )
+        )
+      : 'border-t border-slate-800 flex flex-col w-full shrink-0'
+  "
+>
   <!-- Barra superior de la Consola CMD Interna -->
   <div
-    class="px-4 md:px-8 py-2 bg-slate-900/60 border-b border-slate-800 flex flex-wrap justify-between items-center gap-2 cursor-pointer select-none"
+    class="px-3 md:px-5 py-2 bg-slate-900/60 border-b border-slate-800 flex flex-wrap justify-between items-center gap-2 cursor-pointer select-none shrink-0"
     (click)="toggleConsole.emit()"
   >
-    <div class="flex items-center gap-3 min-w-0">
+    <div class="flex items-center gap-2.5 min-w-0">
       <div class="flex gap-1.5 shrink-0">
         <div class="w-2.5 h-2.5 rounded-full bg-red-500/60"></div>
         <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/60"></div>
         <div class="w-2.5 h-2.5 rounded-full bg-green-500/60"></div>
       </div>
-      <span class="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-1 md:ml-2 shrink-0">
+      <span class="text-[10px] font-black text-slate-300 uppercase tracking-widest shrink-0">
         CMD Interno
       </span>
       <span
@@ -24,21 +37,39 @@
         class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0"
       >
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-        {{ runningCount }} en ejecución
+        {{ runningCount }}
       </span>
-      <span class="hidden lg:inline-block text-[10px] text-slate-500 truncate max-w-[340px]">
+      <span class="hidden xl:inline-block text-[10px] text-slate-500 truncate max-w-[220px]">
         ({{ activeCwd }})
       </span>
     </div>
 
-    <div class="flex items-center gap-2 md:gap-3 shrink-0">
+    <div class="flex items-center gap-1.5 md:gap-2 shrink-0">
+      <!-- Botón Cambiar Posición: Lateral derecho vs Abajo -->
+      <button
+        type="button"
+        (click)="onTogglePosition($event)"
+        class="text-[10px] text-slate-400 hover:text-cyan-400 transition-colors uppercase font-bold px-2 py-0.5 rounded hover:bg-slate-800/60 flex items-center gap-1"
+        [title]="consolePosition === 'bottom' ? 'Mover terminal al lateral derecho' : 'Mover terminal a la parte inferior'"
+      >
+        <svg *ngIf="consolePosition === 'bottom'" class="w-3.5 h-3.5 text-cyan-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="15" y1="3" x2="15" y2="21"></line>
+        </svg>
+        <svg *ngIf="consolePosition === 'right'" class="w-3.5 h-3.5 text-indigo-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="3" y1="15" x2="21" y2="15"></line>
+        </svg>
+        <span class="hidden sm:inline">{{ consolePosition === 'bottom' ? 'Lateral' : 'Abajo' }}</span>
+      </button>
+
       <button
         type="button"
         (click)="onNewTab($event)"
-        class="text-[10px] text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 transition-colors uppercase font-black px-2.5 py-0.5 rounded"
+        class="text-[10px] text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 transition-colors uppercase font-black px-2 py-0.5 rounded"
         title="Abrir nueva pestaña de terminal"
       >
-        + Pestaña
+        + Tab
       </button>
       <button
         type="button"
@@ -55,12 +86,16 @@
         class="text-[10px] text-slate-400 hover:text-rose-400 transition-colors uppercase font-bold px-2 py-0.5 rounded hover:bg-slate-800/60"
         title="Cerrar todas las pestañas y detener procesos"
       >
-        Cerrar todas
+        Cerrar
       </button>
       <i
         data-lucide="chevron-down"
         class="w-4 h-4 text-slate-400 transition-transform duration-200"
-        [ngClass]="consoleMin ? 'rotate-180' : 'rotate-0'"
+        [ngClass]="
+          consolePosition === 'right'
+            ? (consoleMin ? '-rotate-90' : 'rotate-90')
+            : (consoleMin ? 'rotate-180' : 'rotate-0')
+        "
       ></i>
     </div>
   </div>
@@ -69,7 +104,11 @@
   <div
     *ngIf="!consoleMin"
     class="flex flex-col transition-all bg-[#01040d]"
-    [ngClass]="consoleMax ? 'h-[60vh]' : 'h-60 md:h-72'"
+    [ngClass]="
+      consolePosition === 'right'
+        ? 'flex-1 min-h-0 h-full'
+        : (consoleMax ? 'h-[60vh]' : 'h-60 md:h-72')
+    "
   >
     <!-- Barra de Pestañas (Tabs) -->
     <div
@@ -184,6 +223,21 @@
             Re-ejecutar
           </button>
 
+          <!-- Botón Auto-scroll / Ir al final -->
+          <button
+            type="button"
+            (click)="scrollToBottom(true)"
+            class="px-2 py-0.5 rounded text-[9px] font-bold uppercase transition-colors border flex items-center gap-1"
+            [ngClass]="
+              autoScroll
+                ? 'bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border-cyan-500/30'
+                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700'
+            "
+            title="Hacer scroll hasta el final de la consola y activar auto-scroll"
+          >
+            <span>&#8595; Ir al final</span>
+          </button>
+
           <!-- Botón Limpiar salida de esta pestaña -->
           <button
             type="button"
@@ -209,11 +263,26 @@
         </div>
       </div>
 
-      <!-- Salida de terminal a pantalla completa dentro de la pestaña con colores -->
-      <pre
-        class="flex-1 p-3 md:p-4 text-[11px] leading-relaxed font-mono whitespace-pre-wrap break-words text-slate-200 overflow-y-auto custom-scrollbar m-0 select-text"
-        [innerHTML]="activeLogHtml"
-      ></pre>
+      <!-- Contenedor relativo de la salida de terminal con botón flotante para bajar -->
+      <div class="relative flex-1 flex flex-col min-h-0 overflow-hidden">
+        <pre
+          #terminalOutputEl
+          (scroll)="onTerminalScroll()"
+          class="flex-1 p-3 md:p-4 text-[11px] leading-relaxed font-mono whitespace-pre-wrap break-words text-slate-200 overflow-y-auto custom-scrollbar m-0 select-text"
+          [innerHTML]="activeLogHtml"
+        ></pre>
+
+        <!-- Botón flotante rápido cuando el usuario subió el scroll manualmente -->
+        <button
+          *ngIf="showScrollToBottomBtn"
+          type="button"
+          (click)="scrollToBottom(true)"
+          class="absolute bottom-3 right-5 z-20 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-600/95 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider shadow-lg shadow-indigo-950/60 border border-indigo-400/40 transition-all cursor-pointer"
+          title="Bajar al final de la salida"
+        >
+          <span>&#8595; Ir al final</span>
+        </button>
+      </div>
 
       <!-- Barra STDIN si el proceso de la pestaña activa está en ejecución -->
       <div
