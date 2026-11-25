@@ -1,67 +1,144 @@
-<main #workspaceRef id="workspace" class="bg-[#020617]">
-  <div #deviceWrapperRef id="deviceWrapper" class="animate-slide-up">
-    <div
-      #deviceContainerRef
-      id="deviceContainer"
-      class="device-mockup border-slate-900 rounded-[3rem] flex flex-col overflow-hidden w-[393px] h-[852px] border-[12px]"
-      [class.mode-responsive]="currentDeviceKey === 'responsive'"
-    >
+<div class="flex-1 flex w-full h-full overflow-hidden relative" [ngClass]="devToolsSide === 'left' ? 'flex-row-reverse' : 'flex-row'">
+  <!-- WORKSPACE PRINCIPAL (MOCKUP DEL CELULAR) -->
+  <main #workspaceRef id="workspace" class="flex-1 bg-[#020617] relative overflow-auto">
+    <div #deviceWrapperRef id="deviceWrapper" class="animate-slide-up">
       <div
-        id="notch"
-        [class.hidden]="!showNotch"
-        [style.transform]="'scale(' + currentZoom + ')'"
-        style="transform-origin: top center"
-        class="absolute top-0 inset-x-0 h-6 bg-slate-900 rounded-b-2xl w-28 mx-auto z-20 flex justify-center items-end pb-1 gap-1.5"
+        #deviceContainerRef
+        id="deviceContainer"
+        class="device-mockup border-slate-900 rounded-[3rem] flex flex-col overflow-hidden w-[393px] h-[852px] border-[12px]"
+        [class.mode-responsive]="currentDeviceKey === 'responsive'"
       >
-        <div class="w-10 h-1 bg-black rounded-full opacity-40"></div>
-        <div class="w-1 h-1 bg-black rounded-full opacity-40"></div>
-      </div>
-
-      <div
-        id="statusBar"
-        [class.hidden]="currentDeviceKey === 'responsive'"
-        [style.height.px]="24 * currentZoom"
-        [style.paddingLeft.px]="20 * currentZoom"
-        [style.paddingRight.px]="20 * currentZoom"
-        [style.fontSize.px]="Math.max(7, 9 * currentZoom)"
-        class="w-full bg-black text-white font-bold flex justify-between items-center shrink-0 select-none"
-      >
-        <span id="clock">{{ clockTime }}</span>
         <div
-          class="flex gap-1.5 items-center"
+          id="notch"
+          [class.hidden]="!showNotch"
           [style.transform]="'scale(' + currentZoom + ')'"
-          style="transform-origin: right center"
+          style="transform-origin: top center"
+          class="absolute top-0 inset-x-0 h-6 bg-slate-900 rounded-b-2xl w-28 mx-auto z-20 flex justify-center items-end pb-1 gap-1.5"
         >
-          <i data-lucide="signal" class="w-2.5 h-2.5"></i>
-          <i data-lucide="wifi" class="w-2.5 h-2.5"></i>
-          <i data-lucide="battery-full" class="w-3 h-3"></i>
+          <div class="w-10 h-1 bg-black rounded-full opacity-40"></div>
+          <div class="w-1 h-1 bg-black rounded-full opacity-40"></div>
         </div>
-      </div>
 
-      <div #frameContainerRef class="flex-1 w-full bg-white relative" id="frameContainer">
         <div
-          id="loadingOverlay"
-          [class.hidden]="!isLoading"
-          class="absolute inset-0 bg-slate-50 flex flex-col items-center justify-center z-20"
+          id="statusBar"
+          [class.hidden]="currentDeviceKey === 'responsive'"
+          [style.height.px]="24 * currentZoom"
+          [style.paddingLeft.px]="20 * currentZoom"
+          [style.paddingRight.px]="20 * currentZoom"
+          [style.fontSize.px]="Math.max(7, 9 * currentZoom)"
+          class="w-full bg-black text-white font-bold flex justify-between items-center shrink-0 select-none"
         >
-          <i data-lucide="loader-2" class="w-6 h-6 text-indigo-500 animate-spin mb-3"></i>
-          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-            Cargando aplicación...
-          </p>
+          <span id="clock">{{ clockTime }}</span>
+          <div
+            class="flex gap-1.5 items-center"
+            [style.transform]="'scale(' + currentZoom + ')'"
+            style="transform-origin: right center"
+          >
+            <i data-lucide="signal" class="w-2.5 h-2.5"></i>
+            <i data-lucide="wifi" class="w-2.5 h-2.5"></i>
+            <i data-lucide="battery-full" class="w-3 h-3"></i>
+          </div>
         </div>
-      </div>
 
-      <div
-        id="homeIndicator"
-        [class.hidden]="currentDeviceKey === 'responsive'"
-        [style.height.px]="20 * currentZoom"
-        class="w-full bg-black shrink-0 flex justify-center items-center"
-      >
+        <div #frameContainerRef class="flex-1 w-full bg-white relative" id="frameContainer">
+          <div
+            id="loadingOverlay"
+            [class.hidden]="!isLoading"
+            class="absolute inset-0 bg-slate-50 flex flex-col items-center justify-center z-20"
+          >
+            <i data-lucide="loader-2" class="w-6 h-6 text-indigo-500 animate-spin mb-3"></i>
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              Cargando aplicación...
+            </p>
+          </div>
+        </div>
+
         <div
-          class="w-1/4 bg-white/20 rounded-full"
-          [style.height.px]="Math.max(2, 4 * currentZoom)"
-        ></div>
+          id="homeIndicator"
+          [class.hidden]="currentDeviceKey === 'responsive'"
+          [style.height.px]="20 * currentZoom"
+          class="w-full bg-black shrink-0 flex justify-center items-center"
+        >
+          <div
+            class="w-1/4 bg-white/20 rounded-full"
+            [style.height.px]="Math.max(2, 4 * currentZoom)"
+          ></div>
+        </div>
       </div>
     </div>
+  </main>
+
+  <!-- DIVISOR DESLIZABLE RESIZER (ENTRE EL CELULAR Y DEVTOOLS) -->
+  <div
+    *ngIf="isDevToolsOpen"
+    (mousedown)="onStartResize($event)"
+    class="w-2 hover:w-2.5 bg-slate-800 hover:bg-indigo-500 cursor-col-resize transition-all z-30 shrink-0 relative flex items-center justify-center select-none group border-y border-slate-700/50"
+    title="Arrastra de izquierda a derecha para ajustar el ancho de DevTools"
+  >
+    <div class="w-0.5 h-10 bg-slate-600 group-hover:bg-white rounded-full"></div>
   </div>
-</main>
+
+  <!-- PANEL DE DEVTOOLS INTEGRADO -->
+  <aside
+    *ngIf="isDevToolsOpen"
+    [style.width.px]="devToolsWidth"
+    class="h-full bg-[#181a1f] flex flex-col shrink-0 z-30 relative shadow-2xl overflow-hidden border-slate-800"
+    [ngClass]="devToolsSide === 'left' ? 'border-r' : 'border-l'"
+  >
+    <!-- BARRA SUPERIOR DE DEVTOOLS -->
+    <div class="h-10 px-3 bg-[#1e222b] border-b border-slate-700/80 flex items-center justify-between shrink-0 select-none text-xs text-slate-300">
+      <div class="flex items-center gap-2 min-w-0">
+        <div class="w-6 h-6 rounded-md bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+          <i data-lucide="terminal-square" class="w-3.5 h-3.5"></i>
+        </div>
+        <div class="min-w-0 flex items-center gap-1.5">
+          <span class="font-bold text-white text-xs truncate">DevTools Móvil</span>
+          <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-medium hidden sm:inline">Nativo</span>
+        </div>
+      </div>
+
+      <!-- BOTONES DE CONTROL DE DEVTOOLS -->
+      <div class="flex items-center gap-1.5">
+        <!-- BOTÓN CAMBIAR LADO (IZQUIERDA / DERECHA) -->
+        <button
+          type="button"
+          (click)="toggleDevToolsSide()"
+          class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+          [title]="devToolsSide === 'left' ? 'Mover panel DevTools a la Derecha' : 'Mover panel DevTools a la Izquierda'"
+        >
+          <i [attr.data-lucide]="devToolsSide === 'left' ? 'arrow-right-to-line' : 'arrow-left-to-line'" class="w-3.5 h-3.5 text-indigo-400"></i>
+          <span>{{ devToolsSide === 'left' ? 'Mover a Derecha' : 'Mover a Izquierda' }}</span>
+        </button>
+
+        <!-- BOTÓN DESACOPLAR (VENTANA INDEPENDIENTE) -->
+        <button
+          type="button"
+          (click)="detachDevTools()"
+          class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+          title="Desacoplar a ventana independiente externa"
+        >
+          <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+        </button>
+
+        <!-- BOTÓN CERRAR DEVTOOLS -->
+        <button
+          type="button"
+          (click)="closeEmbeddedDevTools()"
+          class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer ml-0.5"
+          title="Cerrar panel de DevTools"
+        >
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- CONTENEDOR DEL WEBVIEW DE DEVTOOLS -->
+    <div #devToolsContainerRef class="flex-1 w-full h-full relative bg-[#202124] overflow-hidden">
+      <!-- Si está redimensionando, colocamos un overlay transparente para que el webview no absorba los eventos del ratón -->
+      <div *ngIf="isResizingDevTools" class="absolute inset-0 z-50 cursor-col-resize bg-transparent"></div>
+    </div>
+  </aside>
+
+  <!-- OVERLAY GLOBAL DE ARRASTRE -->
+  <div *ngIf="isResizingDevTools" class="fixed inset-0 z-[100] cursor-col-resize select-none bg-transparent"></div>
+</div>

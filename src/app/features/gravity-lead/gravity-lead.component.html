@@ -384,40 +384,108 @@
           </button>
         </div>
 
-        <!-- Filtros rápidos de estado -->
-        <div class="grid grid-cols-4 gap-1 text-[10px] font-semibold">
-          <button
-            type="button"
-            (click)="stateFilter = 'ALL'"
-            class="py-1 rounded-lg border transition-colors cursor-pointer"
-            [ngClass]="stateFilter === 'ALL' ? 'bg-slate-800 text-white border-slate-700' : 'border-transparent text-slate-400 hover:text-slate-200'"
-          >
-            Todas
-          </button>
-          <button
-            type="button"
-            (click)="stateFilter = 'En desarrollo'"
-            class="py-1 rounded-lg border transition-colors cursor-pointer truncate px-1"
-            [ngClass]="stateFilter === 'En desarrollo' ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' : 'border-transparent text-slate-400 hover:text-slate-200'"
-          >
-            Desarrollo
-          </button>
-          <button
-            type="button"
-            (click)="stateFilter = 'QA'"
-            class="py-1 rounded-lg border transition-colors cursor-pointer"
-            [ngClass]="stateFilter === 'QA' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'border-transparent text-slate-400 hover:text-slate-200'"
-          >
-            QA
-          </button>
-          <button
-            type="button"
-            (click)="stateFilter = 'Certificada'"
-            class="py-1 rounded-lg border transition-colors cursor-pointer"
-            [ngClass]="stateFilter === 'Certificada' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'border-transparent text-slate-400 hover:text-slate-200'"
-          >
-            Certificada
-          </button>
+        <!-- Filtros dinámicos de estado y gestión -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Estados del Ciclo
+            </span>
+            <button
+              type="button"
+              (click)="openManageStatusesModal()"
+              class="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer transition-colors"
+              title="Crear o administrar estados personalizados"
+            >
+              <i data-lucide="settings" class="w-3 h-3"></i>
+              <span>Gestionar</span>
+            </button>
+          </div>
+
+          <div class="flex flex-wrap gap-1 text-[10px] font-semibold">
+            <button
+              type="button"
+              (click)="stateFilter = 'ALL'"
+              class="px-2 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1"
+              [ngClass]="stateFilter === 'ALL' ? 'bg-slate-800 text-white border-slate-700' : 'bg-slate-950/60 border-slate-900 text-slate-400 hover:text-slate-200'"
+            >
+              <span>Todas</span>
+              <span class="text-[9px] px-1 py-0.2 rounded bg-slate-900/80 text-slate-400">{{ branches.length }}</span>
+            </button>
+            <button
+              *ngFor="let st of availableStatuses"
+              type="button"
+              (click)="stateFilter = st.name"
+              class="px-2 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 truncate"
+              [ngClass]="stateFilter === st.name ? getStateBadgeClass(st.name) : 'bg-slate-950/60 border-slate-900 text-slate-400 hover:text-slate-200'"
+            >
+              <span class="w-1.5 h-1.5 rounded-full shrink-0" [ngClass]="getStateDotClass(st.name)"></span>
+              <span class="truncate">{{ st.name }}</span>
+              <span class="text-[9px] px-1 py-0.2 rounded bg-black/30 font-mono">{{ getStatusBranchCount(st.name) }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filtro por Release si existen releases registrados -->
+        <div *ngIf="availableReleaseTags.length > 0" class="pt-1.5 border-t border-slate-800/60 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+              <i data-lucide="tag" class="w-3 h-3 text-purple-400"></i>
+              <span>Releases de Entrega</span>
+            </span>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                (click)="openManageReleasesModal()"
+                class="text-[10px] font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1 cursor-pointer transition-colors"
+                title="Administrar, editar nombres o eliminar releases"
+              >
+                <i data-lucide="settings" class="w-3 h-3"></i>
+                <span>Gestionar</span>
+              </button>
+              <button
+                *ngIf="releaseFilter !== 'ALL'"
+                type="button"
+                (click)="releaseFilter = 'ALL'"
+                class="text-[9px] text-slate-400 hover:text-slate-200 cursor-pointer"
+              >
+                Ver todos
+              </button>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1 text-[10px]">
+            <button
+              type="button"
+              (click)="releaseFilter = 'ALL'"
+              class="px-2 py-0.5 rounded-md border font-mono transition-all cursor-pointer"
+              [ngClass]="releaseFilter === 'ALL' ? 'bg-purple-600/20 text-purple-200 border-purple-500/50' : 'bg-slate-950/60 border-slate-900 text-slate-400 hover:text-slate-200'"
+            >
+              Todos
+            </button>
+            <div
+              *ngFor="let rtag of availableReleaseTags"
+              class="group/rtag inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-mono transition-all select-none"
+              [ngClass]="releaseFilter === rtag ? 'bg-purple-600/25 border-purple-500 text-purple-200 font-semibold' : 'bg-slate-950/60 border-slate-900 text-slate-400 hover:text-slate-200'"
+            >
+              <span (click)="releaseFilter = rtag" class="cursor-pointer">{{ rtag }}</span>
+              <span class="text-[9px] opacity-75">({{ getReleaseTagBranchCount(rtag) }})</span>
+              <button
+                type="button"
+                (click)="startEditRelease(rtag, $event)"
+                class="opacity-0 group-hover/rtag:opacity-100 hover:text-amber-300 ml-0.5 cursor-pointer transition-opacity"
+                title="Editar este release"
+              >
+                <i data-lucide="pencil" class="w-2.5 h-2.5"></i>
+              </button>
+              <button
+                type="button"
+                (click)="deleteGlobalReleaseTag(rtag, $event)"
+                class="opacity-0 group-hover/rtag:opacity-100 hover:text-rose-400 ml-0.5 text-xs transition-opacity cursor-pointer"
+                title="Eliminar este release y desasociarlo de todas las ramas"
+              >
+                ×
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Filtro y creación rápida de Categorías (Módulo / Flujo) -->
@@ -613,6 +681,14 @@
               <div class="flex items-center justify-between gap-2 text-[10px] text-slate-500">
                 <span class="truncate">{{ b.featureTitle }}</span>
                 <div class="flex items-center gap-1 shrink-0">
+                  <span
+                    *ngIf="b.releaseTag"
+                    class="px-1.5 py-0.2 rounded bg-purple-500/15 border border-purple-500/30 text-purple-300 font-mono text-[9px] flex items-center gap-0.5 truncate max-w-[110px]"
+                    [title]="'Release de entrega: ' + b.releaseTag"
+                  >
+                    <i data-lucide="tag" class="w-2.5 h-2.5 shrink-0"></i>
+                    <span class="truncate">{{ b.releaseTag }}</span>
+                  </span>
                   <button
                     *ngIf="b.buildFolderUrl || (b.folderLinks && b.folderLinks.length > 0)"
                     type="button"
@@ -674,98 +750,112 @@
       <!-- Detalle de la rama seleccionada -->
       <div *ngIf="selectedBranch as branch" class="max-w-4xl mx-auto space-y-5 pb-12">
         <!-- 1. Cabecera y Control Estricto de Estados (En desarrollo -> QA -> Certificada) -->
-        <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 space-y-4">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div class="min-w-0 flex-1">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-400 block mb-1">
-                Rama Activa
-              </span>
-              <div class="flex items-center gap-2">
-                <input
-                  type="text"
-                  [(ngModel)]="branch.name"
-                  (ngModelChange)="onBranchFieldChange(branch)"
-                  class="flex-1 min-w-0 bg-transparent text-sm md:text-base font-mono font-bold text-white border-b border-transparent focus:border-indigo-500 outline-none pb-0.5"
-                  placeholder="feature/DDMMYYYY/flujo/desarrollo"
-                />
-                <button
-                  type="button"
-                  (click)="copyBranchName(branch.name, 'detail_' + branch.id)"
-                  class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
-                  [ngClass]="copiedKey === 'detail_' + branch.id ? 'text-emerald-400 border-emerald-500/40' : 'text-slate-200'"
-                  title="Copiar nombre de la rama"
-                >
-                  <i [attr.data-lucide]="copiedKey === 'detail_' + branch.id ? 'check' : 'copy'" class="w-3.5 h-3.5"></i>
-                  <span>{{ copiedKey === 'detail_' + branch.id ? 'Copiada' : 'Copiar' }}</span>
-                </button>
-                <button
-                  type="button"
-                  (click)="exportBranchPdf(branch)"
-                  class="px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
-                  title="Generar reporte PDF de esta rama"
-                >
-                  <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
-                  <span>PDF</span>
-                </button>
-                <button
-                  type="button"
-                  (click)="openEmailTemplateModal(branch)"
-                  class="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
-                  title="Generar plantilla de correo de liberación para QA"
-                >
-                  <i data-lucide="mail" class="w-3.5 h-3.5"></i>
-                  <span>Correo QA</span>
-                </button>
-              </div>
-
-              <!-- Aviso claro de trazabilidad si esta rama pertenece a otra rama Padre (rama1 -> padre ramaUnion) -->
-              <div
-                *ngIf="getParentBranches(branch) as parentBranches"
-                class="mt-2.5 flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/30"
-                [hidden]="parentBranches.length === 0"
+        <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 space-y-3">
+          <!-- Fila superior: Rama Activa y botón Copiar a la par -->
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-400 block mb-1">
+              Rama Activa
+            </span>
+            <div class="flex items-center gap-2">
+              <input
+                type="text"
+                [(ngModel)]="branch.name"
+                (ngModelChange)="onBranchFieldChange(branch)"
+                class="flex-1 min-w-0 bg-transparent text-sm md:text-base font-mono font-bold text-white border-b border-transparent focus:border-indigo-500 outline-none pb-0.5"
+                placeholder="feature/DDMMYYYY/flujo/desarrollo"
+              />
+              <button
+                type="button"
+                (click)="copyBranchName(branch.name, 'detail_' + branch.id)"
+                class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                [ngClass]="copiedKey === 'detail_' + branch.id ? 'text-emerald-400 border-emerald-500/40' : 'text-slate-200'"
+                title="Copiar nombre de la rama"
               >
-                <span class="text-[11px] font-bold text-violet-300 flex items-center gap-1.5">
-                  <span>↳ Rama Padre (Unificada en):</span>
-                </span>
-                <div
-                  *ngFor="let pBranch of parentBranches"
-                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/90 border border-violet-500/40 text-xs font-mono text-violet-200"
-                >
-                  <button
-                    type="button"
-                    (click)="selectBranch(pBranch.id)"
-                    class="hover:text-white hover:underline cursor-pointer truncate max-w-xs"
-                    title="Ir a la rama padre"
-                  >
-                    {{ pBranch.name }}
-                  </button>
-                  <button
-                    type="button"
-                    (click)="copyBranchName(pBranch.name, 'parent_' + pBranch.id, $event)"
-                    class="text-slate-400 hover:text-violet-300 text-[10px] font-sans font-semibold px-1 cursor-pointer"
-                    title="Copiar nombre de la rama padre"
-                  >
-                    {{ copiedKey === 'parent_' + pBranch.id ? '✓' : 'Copiar' }}
-                  </button>
-                </div>
-              </div>
+                <i [attr.data-lucide]="copiedKey === 'detail_' + branch.id ? 'check' : 'copy'" class="w-3.5 h-3.5"></i>
+                <span>{{ copiedKey === 'detail_' + branch.id ? 'Copiada' : 'Copiar' }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Fila inferior: Acciones (PDF, Correo QA) a la izquierda y Selector de Estados a la derecha -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                (click)="exportBranchPdf(branch)"
+                class="px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                title="Generar reporte PDF de esta rama"
+              >
+                <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
+                <span>PDF</span>
+              </button>
+              <button
+                type="button"
+                (click)="openEmailTemplateModal(branch)"
+                class="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                title="Generar plantilla de correo de liberación para QA"
+              >
+                <i data-lucide="mail" class="w-3.5 h-3.5"></i>
+                <span>Correo QA</span>
+              </button>
             </div>
 
             <!-- Selector de transición estricta -->
-            <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 gap-1">
+            <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 gap-1 flex-wrap">
               <button
-                *ngFor="let st of lifecycleStates"
+                *ngFor="let st of availableStatuses"
                 type="button"
-                (click)="setBranchState(branch, st)"
+                (click)="setBranchState(branch, st.name)"
                 class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
                 [ngClass]="
-                  branch.state === st
-                    ? getStateBadgeClass(st) + ' border'
+                  branch.state === st.name
+                    ? getStateBadgeClass(st.name) + ' border'
                     : 'text-slate-500 hover:text-slate-300 border border-transparent'
                 "
               >
-                <span class="w-1.5 h-1.5 rounded-full" [ngClass]="getStateDotClass(st)"></span>
-                <span>{{ st }}</span>
+                <span class="w-1.5 h-1.5 rounded-full" [ngClass]="getStateDotClass(st.name)"></span>
+                <span>{{ st.name }}</span>
+              </button>
+              <button
+                type="button"
+                (click)="openManageStatusesModal()"
+                class="px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-indigo-300 hover:bg-slate-900 border border-slate-800/80 transition-colors flex items-center gap-1 cursor-pointer"
+                title="Crear o administrar más estados personalizados"
+              >
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                <span class="text-[10px]">Nuevo</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Aviso claro de trazabilidad si esta rama pertenece a otra rama Padre (rama1 -> padre ramaUnion) -->
+          <div
+            *ngIf="getParentBranches(branch) as parentBranches"
+            class="mt-2.5 flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/30"
+            [hidden]="parentBranches.length === 0"
+          >
+            <span class="text-[11px] font-bold text-violet-300 flex items-center gap-1.5">
+              <span>↳ Rama Padre (Unificada en):</span>
+            </span>
+            <div
+              *ngFor="let pBranch of parentBranches"
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/90 border border-violet-500/40 text-xs font-mono text-violet-200"
+            >
+              <button
+                type="button"
+                (click)="selectBranch(pBranch.id)"
+                class="hover:text-white hover:underline cursor-pointer truncate max-w-xs"
+                title="Ir a la rama padre"
+              >
+                {{ pBranch.name }}
+              </button>
+              <button
+                type="button"
+                (click)="copyBranchName(pBranch.name, 'parent_' + pBranch.id, $event)"
+                class="text-slate-400 hover:text-violet-300 text-[10px] font-sans font-semibold px-1 cursor-pointer"
+                title="Copiar nombre de la rama padre"
+              >
+                {{ copiedKey === 'parent_' + pBranch.id ? '✓' : 'Copiar' }}
               </button>
             </div>
           </div>
@@ -850,16 +940,16 @@
           </div>
         </div>
 
-        <!-- 2. Mapeo de Versiones QA y Desarrolladores Involucrados (COMO TAGS DE 1 CLIC) -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- 2. Mapeo de Versiones QA, Release de Entrega y Desarrolladores Involucrados -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <!-- Versiones de compilación QA -->
           <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 space-y-3">
             <div class="flex items-center justify-between">
               <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                 <i data-lucide="tag" class="w-3.5 h-3.5 text-amber-400"></i>
-                Versiones de Compilación QA
+                Versiones QA
               </span>
-              <span class="text-[10px] text-slate-500">Version Mapping</span>
+              <span class="text-[10px] text-slate-500 font-mono">Version Mapping</span>
             </div>
 
             <div class="flex gap-2">
@@ -899,6 +989,110 @@
                   ×
                 </button>
               </span>
+            </div>
+          </div>
+
+          <!-- Release / Tag de Entrega Destino -->
+          <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <i data-lucide="rocket" class="w-3.5 h-3.5 text-purple-400"></i>
+                Release / Entrega Destino
+              </span>
+              <button
+                type="button"
+                (click)="openManageReleasesModal()"
+                class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-purple-300 border border-slate-700 transition-colors flex items-center gap-1 cursor-pointer"
+                title="Administrar catálogo de releases, editar nombres o eliminarlos"
+              >
+                <i data-lucide="settings" class="w-3 h-3"></i>
+                <span>Gestionar</span>
+              </button>
+            </div>
+
+            <!-- Input para asignar o crear nuevo release tag -->
+            <div class="flex gap-2">
+              <input
+                type="text"
+                [(ngModel)]="branchReleaseInput"
+                (keydown.enter)="setBranchReleaseTag(branch, branchReleaseInput)"
+                placeholder="Ej. release/v7.3.0"
+                class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-mono text-slate-200 outline-none focus:border-purple-500/60"
+              />
+              <button
+                type="button"
+                (click)="setBranchReleaseTag(branch, branchReleaseInput)"
+                class="px-3 py-1.5 rounded-xl bg-purple-600/80 hover:bg-purple-600 text-xs font-semibold text-white transition-colors cursor-pointer"
+              >
+                Asignar
+              </button>
+            </div>
+
+            <!-- Tag de Release asignado actualmente -->
+            <div class="space-y-2 pt-1">
+              <div *ngIf="branch.releaseTag" class="flex items-center gap-2">
+                <span class="text-[10px] uppercase font-bold text-slate-400">Asignada a:</span>
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/15 border border-purple-500/40 text-purple-200 text-xs font-mono font-semibold">
+                  <i data-lucide="tag" class="w-3 h-3 text-purple-400"></i>
+                  <span>{{ branch.releaseTag }}</span>
+                  <button
+                    type="button"
+                    (click)="startEditRelease(branch.releaseTag!, $event)"
+                    class="text-purple-300 hover:text-amber-300 ml-1 cursor-pointer"
+                    title="Editar nombre de este release"
+                  >
+                    <i data-lucide="pencil" class="w-2.5 h-2.5"></i>
+                  </button>
+                  <button
+                    type="button"
+                    (click)="removeBranchReleaseTag(branch)"
+                    class="text-purple-300 hover:text-rose-300 ml-0.5 cursor-pointer text-sm"
+                    title="Desasociar este release de la rama"
+                  >
+                    ×
+                  </button>
+                </span>
+              </div>
+              <div *ngIf="!branch.releaseTag" class="text-[11px] text-slate-500 italic">
+                Sin release asignado
+              </div>
+
+              <!-- Tags de release existentes como botones de 1 clic -->
+              <div *ngIf="availableReleaseTags.length > 0" class="pt-1.5 border-t border-slate-800/60">
+                <span class="text-[10px] text-slate-500 font-semibold block mb-1.5">Releases disponibles (1 clic para asignar):</span>
+                <div class="flex flex-wrap gap-1">
+                  <div
+                    *ngFor="let rtag of availableReleaseTags"
+                    class="group/chip inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono border transition-all select-none"
+                    [ngClass]="branch.releaseTag === rtag ? 'bg-purple-500/25 border-purple-500 text-purple-200 font-bold' : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'"
+                  >
+                    <span
+                      (click)="setBranchReleaseTag(branch, rtag)"
+                      class="cursor-pointer"
+                      [title]="'Asignar rama al release ' + rtag"
+                    >
+                      {{ rtag }}
+                    </span>
+                    <span class="text-[9px] opacity-60">({{ getReleaseTagBranchCount(rtag) }})</span>
+                    <button
+                      type="button"
+                      (click)="startEditRelease(rtag, $event)"
+                      class="opacity-0 group-hover/chip:opacity-100 hover:text-amber-300 ml-0.5 cursor-pointer transition-opacity"
+                      title="Editar nombre de este release"
+                    >
+                      <i data-lucide="pencil" class="w-2.5 h-2.5"></i>
+                    </button>
+                    <button
+                      type="button"
+                      (click)="deleteGlobalReleaseTag(rtag, $event)"
+                      class="opacity-0 group-hover/chip:opacity-100 hover:text-rose-400 ml-0.5 text-xs transition-opacity cursor-pointer"
+                      title="Eliminar este release del catálogo y desasociarlo de todas las ramas"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1558,6 +1752,23 @@
           </button>
         </div>
 
+        <!-- Selección rápida por Release Tag -->
+        <div *ngIf="availableReleaseTags.length > 0" class="flex items-center gap-1.5 flex-wrap pt-1 pb-1 border-y border-slate-800/60">
+          <span class="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+            <i data-lucide="tag" class="w-3 h-3 text-purple-400"></i>
+            <span>Selección rápida por Release:</span>
+          </span>
+          <button
+            *ngFor="let rtag of availableReleaseTags"
+            type="button"
+            (click)="selectBranchesByReleaseTag(rtag)"
+            class="px-2 py-0.5 rounded-md text-[10px] font-mono border bg-purple-500/10 border-purple-500/25 text-purple-300 hover:bg-purple-500/25 transition-colors cursor-pointer"
+            [title]="'Seleccionar todas las ramas asignadas a ' + rtag"
+          >
+            + {{ rtag }} ({{ getReleaseTagBranchCount(rtag) }})
+          </button>
+        </div>
+
         <div *ngIf="branches.length === 0" class="text-xs text-slate-500 py-4 text-center">
           No hay ramas registradas todavía.
         </div>
@@ -1587,6 +1798,13 @@
             </div>
 
             <div class="flex items-center gap-1.5 shrink-0">
+              <span
+                *ngIf="b.releaseTag"
+                class="px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-300 font-mono text-[9px] flex items-center gap-1 shrink-0"
+              >
+                <i data-lucide="tag" class="w-2.5 h-2.5"></i>
+                <span>{{ b.releaseTag }}</span>
+              </span>
               <button
                 type="button"
                 (click)="copyBranchName(b.name, 'blk_' + b.id, $event)"
@@ -1749,11 +1967,9 @@
             </label>
             <select
               [(ngModel)]="newBranchState"
-              class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none"
+              class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
             >
-              <option value="En desarrollo">En desarrollo</option>
-              <option value="QA">QA</option>
-              <option value="Certificada">Certificada</option>
+              <option *ngFor="let st of availableStatuses" [value]="st.name">{{ st.name }}</option>
             </select>
           </div>
         </div>
@@ -1768,6 +1984,28 @@
             placeholder="Ej. Mejora en selector de cuenta destino"
             class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
           />
+        </div>
+
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+            Release / Tag de Entrega (opcional)
+          </label>
+          <input
+            type="text"
+            [(ngModel)]="newBranchReleaseTag"
+            placeholder="Ej. release/v7.3.0"
+            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-white outline-none focus:border-purple-500"
+          />
+          <div *ngIf="availableReleaseTags.length > 0" class="flex flex-wrap gap-1 mt-1.5">
+            <button
+              *ngFor="let rtag of availableReleaseTags.slice(0, 5)"
+              type="button"
+              (click)="newBranchReleaseTag = rtag"
+              class="px-2 py-0.5 rounded-md text-[10px] font-mono border bg-purple-500/10 border-purple-500/20 text-purple-300 hover:bg-purple-500/20 transition-colors cursor-pointer"
+            >
+              {{ rtag }}
+            </button>
+          </div>
         </div>
 
         <div>
@@ -3188,6 +3426,476 @@
             <span>Guardar y Descargar</span>
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: GESTIÓN DE ESTADOS DEL CICLO DE VIDA (CREACIÓN, EDICIÓN & COLORES) -->
+  <div
+    *ngIf="showManageStatusesModal"
+    class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+    (click)="closeManageStatusesModal()"
+  >
+    <div
+      class="w-full max-w-xl bg-[#090d1a] border border-slate-700/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- HEADER -->
+      <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60 shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              Estados del Ciclo de Vida
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                {{ availableStatuses.length }} estados
+              </span>
+            </h3>
+            <p class="text-[11px] text-slate-400">
+              Crea, edita nombres y personaliza los colores de cada estado
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          (click)="closeManageStatusesModal()"
+          class="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center transition-colors cursor-pointer"
+        >
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- CONTENIDO -->
+      <div class="p-5 overflow-y-auto space-y-5 text-slate-200 max-h-[75vh]">
+
+        <!-- CASO 1: MODO EDICIÓN DE ESTADO ACTIVO -->
+        <div
+          *ngIf="editingStatusId"
+          class="p-4 rounded-xl bg-indigo-950/30 border border-indigo-500/50 space-y-3 shadow-lg"
+        >
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-white flex items-center gap-1.5">
+              <i data-lucide="pencil" class="w-4 h-4 text-amber-400"></i>
+              <span>Editando Estado: <strong class="text-indigo-300">{{ editStatusName }}</strong></span>
+            </span>
+            <!-- Previsualización en vivo -->
+            <span
+              class="text-xs font-semibold px-2 py-0.5 rounded-md border"
+              [ngClass]="getStatusBadgeColorClass(editStatusColor)"
+            >
+              <span class="w-2 h-2 rounded-full inline-block mr-1" [ngClass]="getStatusDotColorClass(editStatusColor)"></span>
+              {{ editStatusName || 'Vista previa' }}
+            </span>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                Nombre del Estado
+              </label>
+              <input
+                *ngIf="!editStatusIsDefault"
+                type="text"
+                [(ngModel)]="editStatusName"
+                (keydown.enter)="saveEditedStatus()"
+                placeholder="Nombre del estado..."
+                class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-indigo-500"
+              />
+              <div *ngIf="editStatusIsDefault" class="space-y-1">
+                <input
+                  type="text"
+                  [value]="editStatusName"
+                  disabled
+                  class="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-400 cursor-not-allowed opacity-80"
+                />
+                <p class="text-[10px] text-amber-400/90 flex items-center gap-1">
+                  <i data-lucide="info" class="w-3 h-3 shrink-0"></i>
+                  <span>Los 3 estados base del sistema conservan su nombre estructural, pero puedes personalizar libremente su color.</span>
+                </p>
+              </div>
+            </div>
+
+            <!-- Selector de Color en modo edición -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  Elige un Color (19 opciones)
+                </label>
+                <span class="text-[10px] text-indigo-400 font-mono capitalize">Color: {{ editStatusColor }}</span>
+              </div>
+              <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5 max-h-40 overflow-y-auto p-1.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                <button
+                  *ngFor="let opt of statusColorOptions"
+                  type="button"
+                  (click)="editStatusColor = opt.id"
+                  class="px-2 py-1 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer text-left truncate"
+                  [ngClass]="editStatusColor === opt.id ? opt.badgeClass + ' ring-2 ring-indigo-400 font-bold shadow-sm' : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200'"
+                >
+                  <span class="w-2 h-2 rounded-full shrink-0" [ngClass]="opt.dotClass"></span>
+                  <span class="truncate text-[10px]">{{ opt.label }}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Botones de Acción para Edición -->
+            <div class="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                (click)="saveEditedStatus()"
+                class="flex-1 py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
+              >
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                <span>Guardar Cambios</span>
+              </button>
+              <button
+                type="button"
+                (click)="cancelEditStatus()"
+                class="py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- CASO 2: FORMULARIO CREAR NUEVO ESTADO (CUANDO NO ESTÁ EN EDICIÓN) -->
+        <div
+          *ngIf="!editingStatusId"
+          class="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-3"
+        >
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-white flex items-center gap-1.5">
+              <i data-lucide="plus-circle" class="w-4 h-4 text-indigo-400"></i>
+              Crear Nuevo Estado
+            </span>
+            <!-- Previsualización -->
+            <span
+              *ngIf="newStatusName.trim()"
+              class="text-xs font-semibold px-2 py-0.5 rounded-md border"
+              [ngClass]="getStatusBadgeColorClass(newStatusColor)"
+            >
+              <span class="w-2 h-2 rounded-full inline-block mr-1" [ngClass]="getStatusDotColorClass(newStatusColor)"></span>
+              {{ newStatusName }}
+            </span>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                Nombre del Estado
+              </label>
+              <div class="flex gap-2">
+                <input
+                  type="text"
+                  [(ngModel)]="newStatusName"
+                  (keydown.enter)="createCustomStatus()"
+                  placeholder="Ej. Code Review, Bloqueada, En Producción, Testing..."
+                  class="flex-1 bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-indigo-500"
+                />
+                <button
+                  type="button"
+                  (click)="createCustomStatus()"
+                  class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer shrink-0"
+                >
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                  <span>Crear</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Selector de Color ampliado (19 opciones) -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  Color de Identificación (19 colores disponibles)
+                </label>
+                <span class="text-[10px] text-indigo-400 font-mono capitalize">Seleccionado: {{ newStatusColor }}</span>
+              </div>
+              <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5 max-h-40 overflow-y-auto p-1.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                <button
+                  *ngFor="let opt of statusColorOptions"
+                  type="button"
+                  (click)="newStatusColor = opt.id"
+                  class="px-2 py-1 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer text-left truncate"
+                  [ngClass]="newStatusColor === opt.id ? opt.badgeClass + ' ring-2 ring-indigo-400 font-bold shadow-sm' : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200'"
+                >
+                  <span class="w-2 h-2 rounded-full shrink-0" [ngClass]="opt.dotClass"></span>
+                  <span class="truncate text-[10px]">{{ opt.label }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LISTA DE ESTADOS REGISTRADOS (CON ACCIONES EDITAR Y ELIMINAR) -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-300">
+              Estados Actuales en el Perfil
+            </span>
+            <span class="text-[10px] text-slate-500">
+              Clic en el lápiz para editar nombre o color
+            </span>
+          </div>
+
+          <div class="space-y-1.5">
+            <div
+              *ngFor="let st of availableStatuses"
+              class="p-2.5 rounded-xl bg-slate-950/70 border transition-all flex items-center justify-between gap-3"
+              [ngClass]="editingStatusId === st.id ? 'border-amber-500/60 bg-amber-500/5' : 'border-slate-800/80 hover:border-slate-700'"
+            >
+              <div class="flex items-center gap-2.5 min-w-0">
+                <span class="w-2.5 h-2.5 rounded-full shrink-0" [ngClass]="getStateDotClass(st.name)"></span>
+                <span
+                  class="text-xs font-semibold px-2 py-0.5 rounded-md border"
+                  [ngClass]="getStateBadgeClass(st.name)"
+                >
+                  {{ st.name }}
+                </span>
+                <span *ngIf="st.isDefault" class="text-[10px] font-mono text-slate-500">
+                  (Sistema)
+                </span>
+              </div>
+
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span class="text-[10px] text-slate-400 font-mono px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800">
+                  {{ getStatusBranchCount(st.name) }} rama(s)
+                </span>
+
+                <!-- Botón Editar -->
+                <button
+                  type="button"
+                  (click)="startEditStatus(st)"
+                  class="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-800 transition-colors cursor-pointer"
+                  [title]="st.isDefault ? 'Editar color del estado base' : 'Editar nombre y color de este estado'"
+                >
+                  <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                </button>
+
+                <!-- Botón Eliminar (solo para custom no default) -->
+                <button
+                  *ngIf="!st.isDefault"
+                  type="button"
+                  (click)="deleteCustomStatus(st.id)"
+                  class="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer"
+                  [title]="getStatusBranchCount(st.name) > 0 ? 'En uso por ' + getStatusBranchCount(st.name) + ' rama(s). Cámbialas antes de eliminar.' : 'Eliminar estado'"
+                >
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="px-5 py-3 border-t border-slate-800 bg-slate-900/80 flex items-center justify-end shrink-0">
+        <button
+          type="button"
+          (click)="closeManageStatusesModal()"
+          class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all cursor-pointer"
+        >
+          Listo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: GESTIÓN DE RELEASES DE ENTREGA (CREACIÓN, EDICIÓN & ELIMINACIÓN) -->
+  <div
+    *ngIf="showManageReleasesModal"
+    class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+    (click)="closeManageReleasesModal()"
+  >
+    <div
+      class="w-full max-w-lg bg-[#090d1a] border border-slate-700/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- HEADER -->
+      <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60 shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
+            <i data-lucide="rocket" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              Gestión de Releases
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                {{ availableReleaseTags.length }} releases
+              </span>
+            </h3>
+            <p class="text-[11px] text-slate-400">
+              Crea, edita nombres y elimina tags de release asociados a las ramas
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          (click)="closeManageReleasesModal()"
+          class="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center transition-colors cursor-pointer"
+        >
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- CONTENIDO -->
+      <div class="p-5 overflow-y-auto space-y-5 text-slate-200 max-h-[75vh]">
+
+        <!-- MODO EDICIÓN DE RELEASE -->
+        <div
+          *ngIf="editingReleaseTag"
+          class="p-4 rounded-xl bg-purple-950/30 border border-purple-500/50 space-y-3 shadow-lg"
+        >
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-white flex items-center gap-1.5">
+              <i data-lucide="pencil" class="w-4 h-4 text-amber-400"></i>
+              <span>Editando Release: <strong class="text-purple-300 font-mono">{{ editingReleaseTag }}</strong></span>
+            </span>
+            <span class="text-[10px] text-slate-400">
+              {{ getReleaseTagBranchCount(editingReleaseTag) }} rama(s) vinculadas
+            </span>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+              Nuevo Nombre de Release
+            </label>
+            <div class="flex gap-2">
+              <input
+                type="text"
+                [(ngModel)]="editReleaseTagInput"
+                (keydown.enter)="saveEditedRelease()"
+                placeholder="Ej. release/v7.3.1"
+                class="flex-1 bg-slate-950 border border-purple-500/50 rounded-xl px-3 py-1.5 text-xs font-mono text-white outline-none focus:border-purple-400"
+              />
+              <button
+                type="button"
+                (click)="saveEditedRelease()"
+                class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1 transition-all shadow-sm cursor-pointer shrink-0"
+              >
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                <span>Guardar</span>
+              </button>
+              <button
+                type="button"
+                (click)="cancelEditRelease()"
+                class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all cursor-pointer shrink-0"
+              >
+                Cancelar
+              </button>
+            </div>
+            <p class="text-[10px] text-slate-400">
+              Al guardar, se actualizarán automáticamente todas las ramas que tenían este release asignado.
+            </p>
+          </div>
+        </div>
+
+        <!-- FORMULARIO CREAR NUEVO RELEASE (CUANDO NO SE ESTÁ EDITANDO) -->
+        <div
+          *ngIf="!editingReleaseTag"
+          class="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-3"
+        >
+          <span class="text-xs font-bold text-white flex items-center gap-1.5">
+            <i data-lucide="plus-circle" class="w-4 h-4 text-purple-400"></i>
+            Crear Nuevo Release
+          </span>
+
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+              Nombre / Tag de Release
+            </label>
+            <div class="flex gap-2">
+              <input
+                type="text"
+                [(ngModel)]="newReleaseTagInput"
+                (keydown.enter)="createGlobalReleaseTag()"
+                placeholder="Ej. release/v7.3.0, release/v8.0.0..."
+                class="flex-1 bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs font-mono text-white outline-none focus:border-purple-500"
+              />
+              <button
+                type="button"
+                (click)="createGlobalReleaseTag()"
+                class="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer shrink-0"
+              >
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                <span>Crear</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- LISTA DE RELEASES REGISTRADOS -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-300">
+              Releases Registrados en el Perfil
+            </span>
+            <span class="text-[10px] text-slate-500">
+              {{ availableReleaseTags.length === 0 ? 'Sin releases' : availableReleaseTags.length + ' en catálogo' }}
+            </span>
+          </div>
+
+          <div *ngIf="availableReleaseTags.length === 0" class="p-6 rounded-xl bg-slate-950/40 border border-slate-900 text-center text-slate-500 text-xs">
+            No hay releases creados todavía. Escribe uno arriba para comenzar.
+          </div>
+
+          <div *ngIf="availableReleaseTags.length > 0" class="space-y-1.5">
+            <div
+              *ngFor="let rtag of availableReleaseTags"
+              class="p-2.5 rounded-xl bg-slate-950/70 border transition-all flex items-center justify-between gap-3"
+              [ngClass]="editingReleaseTag === rtag ? 'border-purple-500/60 bg-purple-500/5' : 'border-slate-800/80 hover:border-slate-700'"
+            >
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/25 flex items-center justify-center text-purple-400 shrink-0">
+                  <i data-lucide="tag" class="w-3.5 h-3.5"></i>
+                </div>
+                <div class="min-w-0">
+                  <span class="text-xs font-mono font-semibold text-purple-200 truncate block">
+                    {{ rtag }}
+                  </span>
+                  <span class="text-[10px] text-slate-500 font-sans">
+                    {{ getReleaseTagBranchCount(rtag) }} rama(s) asignadas
+                  </span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-1.5 shrink-0">
+                <!-- Botón Editar -->
+                <button
+                  type="button"
+                  (click)="startEditRelease(rtag, $event)"
+                  class="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-800 transition-colors cursor-pointer"
+                  title="Editar nombre de este release"
+                >
+                  <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                </button>
+
+                <!-- Botón Eliminar -->
+                <button
+                  type="button"
+                  (click)="deleteGlobalReleaseTag(rtag, $event)"
+                  class="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer"
+                  title="Eliminar este release y desasociarlo de todas las ramas"
+                >
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="px-5 py-3 border-t border-slate-800 bg-slate-900/80 flex items-center justify-end shrink-0">
+        <button
+          type="button"
+          (click)="closeManageReleasesModal()"
+          class="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all cursor-pointer"
+        >
+          Listo
+        </button>
       </div>
     </div>
   </div>

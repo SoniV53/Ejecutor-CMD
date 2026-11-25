@@ -10,11 +10,13 @@ import * as ExcelJS from 'exceljs';
 import {
   BranchFolderLink,
   BranchLifecycleState,
+  CustomStatusConfig,
   ExcelDesignConfig,
   ExcelDesignPreset,
   GravityLeadWorkspace,
   ReleaseBlockRecord,
   ReleaseEmailContact,
+  StatusColorType,
   SubBranchContext,
   TrackedBranch
 } from './models/gravity-lead.models';
@@ -47,10 +49,60 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
   availableDevs: string[] = [];
   availableFlows: string[] = [];
 
+  // Estados configurables del ciclo de vida
+  readonly defaultStatuses: CustomStatusConfig[] = [
+    { id: 'st_dev', name: 'En desarrollo', color: 'indigo', isDefault: true },
+    { id: 'st_qa', name: 'QA', color: 'amber', isDefault: true },
+    { id: 'st_cert', name: 'Certificada', color: 'emerald', isDefault: true }
+  ];
+  availableStatuses: CustomStatusConfig[] = [...this.defaultStatuses];
+
+  // Catálogo global de tags de Release (ej. release/v7.3.0) y filtros
+  availableReleaseTags: string[] = [];
+  releaseFilter = 'ALL';
+  branchReleaseInput = '';
+
+  // Gestión de Releases (Modal & Edición)
+  showManageReleasesModal = false;
+  newReleaseTagInput = '';
+  editingReleaseTag: string | null = null;
+  editReleaseTagInput = '';
+
+  // Gestión de estados personalizados (Modal & Edición)
+  showManageStatusesModal = false;
+  newStatusName = '';
+  newStatusColor: StatusColorType = 'purple';
+  editingStatusId: string | null = null;
+  editStatusName = '';
+  editStatusColor: StatusColorType = 'purple';
+  editStatusIsDefault = false;
+
+  statusColorOptions: { id: StatusColorType; label: string; badgeClass: string; dotClass: string }[] = [
+    { id: 'indigo', label: 'Índigo', badgeClass: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40', dotClass: 'bg-indigo-400' },
+    { id: 'blue', label: 'Azul', badgeClass: 'bg-blue-500/20 text-blue-300 border-blue-500/40', dotClass: 'bg-blue-400' },
+    { id: 'sky', label: 'Cielo', badgeClass: 'bg-sky-500/20 text-sky-300 border-sky-500/40', dotClass: 'bg-sky-400' },
+    { id: 'cyan', label: 'Cian', badgeClass: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40', dotClass: 'bg-cyan-400' },
+    { id: 'teal', label: 'Teal', badgeClass: 'bg-teal-500/20 text-teal-300 border-teal-500/40', dotClass: 'bg-teal-400' },
+    { id: 'emerald', label: 'Esmeralda', badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40', dotClass: 'bg-emerald-400' },
+    { id: 'green', label: 'Verde', badgeClass: 'bg-green-500/20 text-green-300 border-green-500/40', dotClass: 'bg-green-400' },
+    { id: 'lime', label: 'Lima', badgeClass: 'bg-lime-500/20 text-lime-300 border-lime-500/40', dotClass: 'bg-lime-400' },
+    { id: 'yellow', label: 'Amarillo', badgeClass: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40', dotClass: 'bg-yellow-400' },
+    { id: 'amber', label: 'Ámbar', badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/40', dotClass: 'bg-amber-400' },
+    { id: 'orange', label: 'Naranja', badgeClass: 'bg-orange-500/20 text-orange-300 border-orange-500/40', dotClass: 'bg-orange-400' },
+    { id: 'red', label: 'Rojo', badgeClass: 'bg-red-500/20 text-red-300 border-red-500/40', dotClass: 'bg-red-400' },
+    { id: 'rose', label: 'Rosa', badgeClass: 'bg-rose-500/20 text-rose-300 border-rose-500/40', dotClass: 'bg-rose-400' },
+    { id: 'pink', label: 'Pink', badgeClass: 'bg-pink-500/20 text-pink-300 border-pink-500/40', dotClass: 'bg-pink-400' },
+    { id: 'fuchsia', label: 'Fucsia', badgeClass: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/40', dotClass: 'bg-fuchsia-400' },
+    { id: 'purple', label: 'Púrpura', badgeClass: 'bg-purple-500/20 text-purple-300 border-purple-500/40', dotClass: 'bg-purple-400' },
+    { id: 'violet', label: 'Violeta', badgeClass: 'bg-violet-500/20 text-violet-300 border-violet-500/40', dotClass: 'bg-violet-400' },
+    { id: 'zinc', label: 'Zinc', badgeClass: 'bg-zinc-500/20 text-zinc-300 border-zinc-500/40', dotClass: 'bg-zinc-400' },
+    { id: 'slate', label: 'Slate', badgeClass: 'bg-slate-500/20 text-slate-300 border-slate-500/40', dotClass: 'bg-slate-400' }
+  ];
+
   // Selección activa
   selectedBranchId: string | null = null;
 
-  // Búsqueda rápida (ramas, flujos o versión QA ej. 6.10.13)
+  // Búsqueda rápida (ramas, flujos, versión QA o release tag)
   searchQuery = '';
   stateFilter: 'ALL' | BranchLifecycleState = 'ALL';
   categoryFilter = 'ALL';
@@ -68,6 +120,7 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
   newBranchFlow = '';
   newBranchTitle = '';
   newBranchState: BranchLifecycleState = 'En desarrollo';
+  newBranchReleaseTag = '';
   newBranchVersionInput = '';
   newBranchSelectedDevs: string[] = [];
   newBranchCustomDevInput = '';
@@ -148,7 +201,9 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
   pdfSelectableObjectives: { text: string; selected: boolean }[] = [];
   pdfSelectableSubBranches: { sub: SubBranchContext; selected: boolean }[] = [];
 
-  readonly lifecycleStates: BranchLifecycleState[] = ['En desarrollo', 'QA', 'Certificada'];
+  get lifecycleStates(): BranchLifecycleState[] {
+    return this.availableStatuses.map(s => s.name);
+  }
   readonly BASE_FOLDER = 'json/gravity';
   appBaseDir = '';
 
@@ -705,6 +760,36 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
         this.ensureGlobalDev(d);
       }
 
+      // 2.1 Cargar o restaurar catálogo de estados personalizados del perfil
+      if (Array.isArray(parsed.customStatuses) && parsed.customStatuses.length > 0) {
+        const statusesMap = new Map<string, CustomStatusConfig>();
+        for (const def of this.defaultStatuses) {
+          statusesMap.set(def.name.toLowerCase(), { ...def });
+        }
+        for (const st of parsed.customStatuses) {
+          if (st && st.name) {
+            const key = String(st.name).trim().toLowerCase();
+            const existing = statusesMap.get(key);
+            statusesMap.set(key, {
+              id: st.id || (existing ? existing.id : 'st_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6)),
+              name: String(st.name).trim(),
+              color: st.color || (existing ? existing.color : 'purple'),
+              isDefault: existing ? existing.isDefault : !!st.isDefault
+            });
+          }
+        }
+        this.availableStatuses = Array.from(statusesMap.values());
+      } else {
+        this.availableStatuses = [...this.defaultStatuses];
+      }
+
+      // 2.2 Cargar catálogo de tags de Release (ej. release/v7.3.0)
+      const rawReleaseTags: string[] = Array.isArray(parsed.availableReleaseTags) ? parsed.availableReleaseTags : [];
+      this.availableReleaseTags = [];
+      for (const rt of rawReleaseTags) {
+        this.ensureGlobalReleaseTag(String(rt));
+      }
+
       // Mapa de sub-ramas por parentId (en caso de pegar un JSON de Repo Docs)
       const childrenByParentId = new Map<string, any[]>();
       for (const item of rawBranches) {
@@ -739,8 +824,9 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
 
         // Determinar estado válido
         let state: BranchLifecycleState = 'En desarrollo';
-        if (item.state === 'QA' || item.state === 'Certificada' || item.state === 'En desarrollo') {
-          state = item.state;
+        if (item.state && typeof item.state === 'string' && item.state.trim()) {
+          state = item.state.trim();
+          this.ensureCustomStatus(state);
         } else if (Array.isArray(item.tags)) {
           const tagsUpper = item.tags.map((t: any) => String(t).toUpperCase());
           if (tagsUpper.some((t: string) => t.includes('PROD') || t.includes('CERT'))) {
@@ -815,6 +901,11 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
           });
         }
 
+        const cleanReleaseTag = item.releaseTag ? String(item.releaseTag).trim() : undefined;
+        if (cleanReleaseTag) {
+          this.ensureGlobalReleaseTag(cleanReleaseTag);
+        }
+
         const normalizedBranch: TrackedBranch = {
           id: String(item.id || 'br-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
           name: cleanName,
@@ -826,6 +917,12 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
           subBranches,
           buildFolderUrl,
           folderLinks,
+          releaseTag: cleanReleaseTag,
+          releaseTags: Array.isArray(item.releaseTags)
+            ? item.releaseTags.map((t: any) => String(t).trim()).filter(Boolean)
+            : cleanReleaseTag
+            ? [cleanReleaseTag]
+            : undefined,
           objectivesSummary: String(item.objectivesSummary ?? item.desc ?? ''),
           rawCommitsOrDiff: String(item.rawCommitsOrDiff ?? ''),
           createdAt: String(item.createdAt || new Date().toISOString().slice(0, 10)),
@@ -837,6 +934,9 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
         } else {
           // Si había una rama duplicada con el mismo nombre, fusionar su información sin perder nada
           const existing = branchByName.get(nameKey)!;
+          if (!existing.releaseTag && normalizedBranch.releaseTag) {
+            existing.releaseTag = normalizedBranch.releaseTag;
+          }
           if (!existing.buildFolderUrl && normalizedBranch.buildFolderUrl) {
             existing.buildFolderUrl = normalizedBranch.buildFolderUrl;
           }
@@ -883,7 +983,10 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
           releaseBlocks: this.releaseBlocks,
           availableDevs: this.availableDevs,
           availableFlows: this.availableFlows,
-          savedEmailContacts: this.savedEmailContacts
+          savedEmailContacts: this.savedEmailContacts,
+          customStatuses: this.availableStatuses,
+          availableReleaseTags: this.availableReleaseTags,
+          excelDesign: this.excelDesign
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       } catch {
@@ -904,7 +1007,10 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
         releaseBlocks: this.releaseBlocks,
         availableDevs: this.availableDevs,
         availableFlows: this.availableFlows,
-        savedEmailContacts: this.savedEmailContacts
+        savedEmailContacts: this.savedEmailContacts,
+        customStatuses: this.availableStatuses,
+        availableReleaseTags: this.availableReleaseTags,
+        excelDesign: this.excelDesign
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       this.persistActiveProfileToDisk();
@@ -925,7 +1031,10 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
         releaseBlocks: this.releaseBlocks,
         availableDevs: this.availableDevs,
         availableFlows: this.availableFlows,
-        savedEmailContacts: this.savedEmailContacts
+        savedEmailContacts: this.savedEmailContacts,
+        customStatuses: this.availableStatuses,
+        availableReleaseTags: this.availableReleaseTags,
+        excelDesign: this.excelDesign
       };
       await this.docApi.saveJsonDoc(
         this.activeProfileFile,
@@ -966,8 +1075,15 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
   get filteredBranches(): TrackedBranch[] {
     const q = this.searchQuery.trim().toLowerCase();
     return this.branches.filter(b => {
-      if (this.stateFilter !== 'ALL' && b.state !== this.stateFilter) {
+      if (this.stateFilter !== 'ALL' && b.state.toLowerCase() !== this.stateFilter.toLowerCase()) {
         return false;
+      }
+      if (this.releaseFilter !== 'ALL') {
+        if (this.releaseFilter === 'NONE') {
+          if (b.releaseTag) return false;
+        } else if ((b.releaseTag || '').toLowerCase() !== this.releaseFilter.toLowerCase()) {
+          return false;
+        }
       }
       if (
         this.categoryFilter !== 'ALL' &&
@@ -981,7 +1097,8 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
       const matchTitle = (b.featureTitle || '').toLowerCase().includes(q);
       const matchVersion = (b.qaVersions || []).some(v => v.toLowerCase().includes(q));
       const matchDev = (b.devs || []).some(d => d.toLowerCase().includes(q));
-      return matchName || matchFlow || matchTitle || matchVersion || matchDev;
+      const matchRelease = !!(b.releaseTag && b.releaseTag.toLowerCase().includes(q));
+      return matchName || matchFlow || matchTitle || matchVersion || matchDev || matchRelease;
     });
   }
 
@@ -1231,7 +1348,8 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
     this.newBranchName = '';
     this.newBranchFlow = '';
     this.newBranchTitle = '';
-    this.newBranchState = 'En desarrollo';
+    this.newBranchState = this.availableStatuses.length > 0 ? this.availableStatuses[0].name : 'En desarrollo';
+    this.newBranchReleaseTag = '';
     this.newBranchVersionInput = '';
     this.newBranchSelectedDevs = [];
     this.newBranchCustomDevInput = '';
@@ -1336,6 +1454,11 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
       }
     }
 
+    const cleanRelease = this.newBranchReleaseTag.trim();
+    if (cleanRelease) {
+      this.ensureGlobalReleaseTag(cleanRelease);
+    }
+
     const branch: TrackedBranch = {
       id: 'gbr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
       name: cleanName,
@@ -1347,6 +1470,8 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
       objectivesSummary: '',
       rawCommitsOrDiff: '',
       subBranches: initialSubBranches,
+      releaseTag: cleanRelease || undefined,
+      releaseTags: cleanRelease ? [cleanRelease] : [],
       createdAt: now,
       updatedAt: now
     };
@@ -1493,10 +1618,373 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
   }
 
   advanceBranchState(branch: TrackedBranch): void {
-    const idx = this.lifecycleStates.indexOf(branch.state);
-    if (idx < this.lifecycleStates.length - 1) {
-      this.setBranchState(branch, this.lifecycleStates[idx + 1]);
+    const states = this.lifecycleStates;
+    const idx = states.indexOf(branch.state);
+    if (idx >= 0 && idx < states.length - 1) {
+      this.setBranchState(branch, states[idx + 1]);
     }
+  }
+
+  // --- GESTIÓN DE TAGS DE RELEASE (ej. release/v7.3.0) ---
+
+  setBranchReleaseTag(branch: TrackedBranch, tag: string): void {
+    const clean = (tag || '').trim();
+    if (!clean) return;
+    branch.releaseTag = clean;
+    if (!branch.releaseTags) branch.releaseTags = [];
+    if (!branch.releaseTags.includes(clean)) {
+      branch.releaseTags.push(clean);
+    }
+    this.ensureGlobalReleaseTag(clean);
+    branch.updatedAt = new Date().toISOString();
+    this.branchReleaseInput = '';
+    this.saveWorkspace();
+    this.showToast(`Rama asignada al release: ${clean}`);
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  removeBranchReleaseTag(branch: TrackedBranch): void {
+    branch.releaseTag = undefined;
+    branch.updatedAt = new Date().toISOString();
+    this.saveWorkspace();
+    this.showToast('Release desasociado de la rama');
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  ensureGlobalReleaseTag(tag: string): string {
+    const clean = (tag || '').trim();
+    if (!clean) return '';
+    const existing = this.availableReleaseTags.find(t => t.toLowerCase() === clean.toLowerCase());
+    if (existing) return existing;
+    this.availableReleaseTags.push(clean);
+    return clean;
+  }
+
+  openManageReleasesModal(): void {
+    this.showManageReleasesModal = true;
+    this.newReleaseTagInput = '';
+    this.editingReleaseTag = null;
+    this.editReleaseTagInput = '';
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  closeManageReleasesModal(): void {
+    this.showManageReleasesModal = false;
+    this.editingReleaseTag = null;
+    this.editReleaseTagInput = '';
+    this.saveWorkspace();
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  createGlobalReleaseTag(): void {
+    const clean = this.newReleaseTagInput.trim();
+    if (!clean) {
+      this.showToast('Ingresa un nombre para el release (ej. release/v7.3.0)');
+      return;
+    }
+    if (this.availableReleaseTags.some(t => t.toLowerCase() === clean.toLowerCase())) {
+      this.showToast('Ya existe este release en el catálogo');
+      return;
+    }
+    this.ensureGlobalReleaseTag(clean);
+    this.newReleaseTagInput = '';
+    this.saveWorkspace();
+    this.showToast(`Release "${clean}" creado`);
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  startEditRelease(tag: string, event?: Event): void {
+    if (event) event.stopPropagation();
+    this.editingReleaseTag = tag;
+    this.editReleaseTagInput = tag;
+    this.showManageReleasesModal = true;
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  cancelEditRelease(): void {
+    this.editingReleaseTag = null;
+    this.editReleaseTagInput = '';
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  saveEditedRelease(): void {
+    if (!this.editingReleaseTag) return;
+    const oldTag = this.editingReleaseTag.trim();
+    const newTag = (this.editReleaseTagInput || '').trim();
+
+    if (!newTag) {
+      this.showToast('El nombre del release no puede estar vacío');
+      return;
+    }
+
+    if (newTag.toLowerCase() === oldTag.toLowerCase()) {
+      this.editingReleaseTag = null;
+      return;
+    }
+
+    if (
+      this.availableReleaseTags.some(
+        t => t.toLowerCase() !== oldTag.toLowerCase() && t.toLowerCase() === newTag.toLowerCase()
+      )
+    ) {
+      this.showToast(`Ya existe un release con el nombre "${newTag}"`);
+      return;
+    }
+
+    // Actualizar catálogo global
+    const idx = this.availableReleaseTags.findIndex(t => t.toLowerCase() === oldTag.toLowerCase());
+    if (idx >= 0) {
+      this.availableReleaseTags[idx] = newTag;
+    } else {
+      this.availableReleaseTags.push(newTag);
+    }
+
+    // Actualizar todas las ramas que tenían el release anterior
+    let updatedCount = 0;
+    for (const b of this.branches) {
+      if ((b.releaseTag || '').toLowerCase() === oldTag.toLowerCase()) {
+        b.releaseTag = newTag;
+        b.updatedAt = new Date().toISOString();
+        updatedCount++;
+      }
+      if (b.releaseTags) {
+        const rIdx = b.releaseTags.findIndex(t => t.toLowerCase() === oldTag.toLowerCase());
+        if (rIdx >= 0) {
+          b.releaseTags[rIdx] = newTag;
+        }
+      }
+    }
+
+    // Si el filtro activo era este release, actualizarlo
+    if (this.releaseFilter.toLowerCase() === oldTag.toLowerCase()) {
+      this.releaseFilter = newTag;
+    }
+
+    this.showToast(
+      updatedCount > 0
+        ? `Release actualizado a "${newTag}" (${updatedCount} ramas actualizadas)`
+        : `Release actualizado a "${newTag}"`
+    );
+
+    this.editingReleaseTag = null;
+    this.editReleaseTagInput = '';
+    this.saveWorkspace();
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  deleteGlobalReleaseTag(tag: string, event?: Event): void {
+    if (event) event.stopPropagation();
+    const clean = (tag || '').trim();
+    if (!clean) return;
+    const cleanLower = clean.toLowerCase();
+
+    // Desasociar el release de todas las ramas que lo tenían
+    let unlinkedBranches = 0;
+    for (const b of this.branches) {
+      if ((b.releaseTag || '').toLowerCase() === cleanLower) {
+        b.releaseTag = undefined;
+        b.updatedAt = new Date().toISOString();
+        unlinkedBranches++;
+      }
+      if (b.releaseTags) {
+        b.releaseTags = b.releaseTags.filter(t => t.toLowerCase() !== cleanLower);
+      }
+    }
+
+    // Eliminar del catálogo global
+    this.availableReleaseTags = this.availableReleaseTags.filter(
+      t => t.toLowerCase() !== cleanLower
+    );
+
+    if (this.releaseFilter.toLowerCase() === cleanLower) {
+      this.releaseFilter = 'ALL';
+    }
+
+    if (this.editingReleaseTag && this.editingReleaseTag.toLowerCase() === cleanLower) {
+      this.editingReleaseTag = null;
+      this.editReleaseTagInput = '';
+    }
+
+    this.saveWorkspace();
+    this.showToast(
+      unlinkedBranches > 0
+        ? `Release "${clean}" eliminado y desasociado de ${unlinkedBranches} rama(s)`
+        : `Release "${clean}" eliminado`
+    );
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  getReleaseTagBranchCount(tag: string): number {
+    const clean = (tag || '').toLowerCase();
+    return this.branches.filter(b => (b.releaseTag || '').toLowerCase() === clean).length;
+  }
+
+  // --- GESTIÓN DE ESTADOS PERSONALIZADOS DEL CICLO DE VIDA ---
+
+  openManageStatusesModal(): void {
+    this.showManageStatusesModal = true;
+    this.newStatusName = '';
+    this.newStatusColor = 'purple';
+    this.editingStatusId = null;
+    this.editStatusName = '';
+    this.editStatusColor = 'purple';
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  closeManageStatusesModal(): void {
+    this.showManageStatusesModal = false;
+    this.editingStatusId = null;
+    this.saveWorkspace();
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  createCustomStatus(): void {
+    const name = this.newStatusName.trim();
+    if (!name) {
+      this.showToast('Ingresa un nombre para el nuevo estado');
+      return;
+    }
+    if (this.availableStatuses.some(s => s.name.toLowerCase() === name.toLowerCase())) {
+      this.showToast('Ya existe un estado con ese nombre');
+      return;
+    }
+    const created = this.ensureCustomStatus(name, this.newStatusColor);
+    this.newStatusName = '';
+    this.saveWorkspace();
+    this.showToast(`Estado "${created.name}" creado`);
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  startEditStatus(st: CustomStatusConfig): void {
+    this.editingStatusId = st.id;
+    this.editStatusName = st.name;
+    this.editStatusColor = st.color;
+    this.editStatusIsDefault = !!st.isDefault;
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  cancelEditStatus(): void {
+    this.editingStatusId = null;
+    this.editStatusName = '';
+    this.editStatusColor = 'purple';
+    this.editStatusIsDefault = false;
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  saveEditedStatus(): void {
+    if (!this.editingStatusId) return;
+    const target = this.availableStatuses.find(s => s.id === this.editingStatusId);
+    if (!target) return;
+
+    const newName = (this.editStatusName || '').trim();
+    if (!newName) {
+      this.showToast('El nombre del estado no puede estar vacío');
+      return;
+    }
+
+    const oldName = target.name;
+    // Si cambió de nombre, verificar colisiones
+    if (newName.toLowerCase() !== oldName.toLowerCase()) {
+      if (target.isDefault) {
+        this.showToast('Los estados base del sistema conservan su nombre estructural');
+        return;
+      }
+      if (
+        this.availableStatuses.some(
+          s => s.id !== target.id && s.name.toLowerCase() === newName.toLowerCase()
+        )
+      ) {
+        this.showToast('Ya existe otro estado con ese nombre');
+        return;
+      }
+    }
+
+    const nameChanged = target.name !== newName && !target.isDefault;
+    const colorChanged = target.color !== this.editStatusColor;
+
+    target.color = this.editStatusColor;
+
+    if (nameChanged) {
+      target.name = newName;
+      // Actualizar automáticamente todas las ramas que tenían el nombre antiguo
+      let affectedCount = 0;
+      for (const b of this.branches) {
+        if (b.state.toLowerCase() === oldName.toLowerCase()) {
+          b.state = newName;
+          b.updatedAt = new Date().toISOString();
+          affectedCount++;
+        }
+      }
+      if (this.stateFilter.toLowerCase() === oldName.toLowerCase()) {
+        this.stateFilter = newName;
+      }
+      this.showToast(
+        affectedCount > 0
+          ? `Estado actualizado a "${newName}" (${affectedCount} ramas actualizadas)`
+          : `Estado actualizado a "${newName}"`
+      );
+    } else if (colorChanged) {
+      this.showToast(`Color de "${target.name}" actualizado`);
+    } else {
+      this.showToast('Sin cambios');
+    }
+
+    this.editingStatusId = null;
+    this.saveWorkspace();
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  deleteCustomStatus(id: string): void {
+    const target = this.availableStatuses.find(s => s.id === id);
+    if (!target) return;
+    if (target.isDefault) {
+      this.showToast('No se pueden eliminar los 3 estados fundamentales del sistema');
+      return;
+    }
+    const inUse = this.branches.filter(b => b.state.toLowerCase() === target.name.toLowerCase()).length;
+    if (inUse > 0) {
+      this.showToast(`No puedes eliminar "${target.name}": está en uso por ${inUse} rama(s). Cámbialas antes.`);
+      return;
+    }
+    this.availableStatuses = this.availableStatuses.filter(s => s.id !== id);
+    if (this.stateFilter === target.name) {
+      this.stateFilter = 'ALL';
+    }
+    this.saveWorkspace();
+    this.showToast(`Estado "${target.name}" eliminado`);
+    setTimeout(() => this.lucide.refresh(), 50);
+  }
+
+  ensureCustomStatus(name: string, preferredColor?: StatusColorType): CustomStatusConfig {
+    const clean = (name || '').trim();
+    if (!clean) return this.availableStatuses[0];
+    const existing = this.availableStatuses.find(s => s.name.toLowerCase() === clean.toLowerCase());
+    if (existing) return existing;
+
+    let chosenColor: StatusColorType = preferredColor || 'purple';
+    const lower = clean.toLowerCase();
+    if (lower.includes('dev') || lower.includes('desarr')) chosenColor = 'indigo';
+    else if (lower.includes('qa') || lower.includes('prueb')) chosenColor = 'amber';
+    else if (lower.includes('cert') || lower.includes('prod') || lower.includes('list')) chosenColor = 'emerald';
+    else if (lower.includes('block') || lower.includes('bloq') || lower.includes('deten')) chosenColor = 'red';
+    else if (lower.includes('review') || lower.includes('revis')) chosenColor = 'cyan';
+    else if (lower.includes('test') || lower.includes('verif')) chosenColor = 'teal';
+    else if (lower.includes('merge') || lower.includes('unif')) chosenColor = 'blue';
+    else if (lower.includes('hotfix') || lower.includes('urg')) chosenColor = 'rose';
+    else if (lower.includes('design') || lower.includes('ui') || lower.includes('ux')) chosenColor = 'pink';
+
+    const newStatus: CustomStatusConfig = {
+      id: 'st_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      name: clean,
+      color: chosenColor,
+      isDefault: false
+    };
+    this.availableStatuses.push(newStatus);
+    return newStatus;
+  }
+
+  getStatusBranchCount(statusName: string): number {
+    return this.branches.filter(b => b.state.toLowerCase() === statusName.toLowerCase()).length;
   }
 
   addQaVersion(branch: TrackedBranch): void {
@@ -1743,6 +2231,22 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
     }
     this.generatedBlockMr = '';
     this.autoFillBlockMetadata();
+    this.lucide.refresh();
+  }
+
+  selectBranchesByReleaseTag(tag: string): void {
+    const clean = (tag || '').trim().toLowerCase();
+    const matches = this.branches.filter(b => (b.releaseTag || '').toLowerCase() === clean);
+    if (matches.length === 0) {
+      this.showToast(`No hay ramas asignadas al release ${tag}`);
+      return;
+    }
+    for (const b of matches) {
+      this.selectedBlockBranchIds.add(b.id);
+    }
+    this.generatedBlockMr = '';
+    this.autoFillBlockMetadata();
+    this.showToast(`Se seleccionaron ${matches.length} rama(s) del release ${tag}`);
     this.lucide.refresh();
   }
 
@@ -2159,8 +2663,8 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
       views: [{ state: 'frozen', ySplit: 2 }]
     });
 
-    // Fila 1: Título unificado (12 columnas: A a L)
-    ws1.mergeCells('A1:L1');
+    // Fila 1: Título unificado (13 columnas: A a M)
+    ws1.mergeCells('A1:M1');
     const title1 = ws1.getCell('A1');
     title1.value = `CONTROL DE RAMAS, CATEGORÍAS Y VERSIONES QA - ${profileName}`;
     title1.font = { name: 'Calibri', size: 13, bold: true, color: { argb: titleTextArgb } };
@@ -2168,7 +2672,7 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
     title1.alignment = { vertical: 'middle', horizontal: 'center' };
     ws1.getRow(1).height = 32;
 
-    // Ancho de columnas (12 columnas)
+    // Ancho de columnas (13 columnas)
     ws1.columns = [
       { key: 'num', width: 6 },
       { key: 'id', width: 28 },
@@ -2176,6 +2680,7 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
       { key: 'name', width: 48 },
       { key: 'title', width: 36 },
       { key: 'state', width: 18 },
+      { key: 'release', width: 22 },
       { key: 'versions', width: 18 },
       { key: 'devs', width: 26 },
       { key: 'objectives', width: 54 },
@@ -2191,6 +2696,7 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
       'Nombre de Rama',
       'Título / Desarrollo',
       'Estado',
+      'Release / Tag',
       'Versiones QA',
       'Devs Involucrados',
       'Objetivos y Descripción',
@@ -2202,7 +2708,7 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
     const rows1: any[][] = [];
     if (this.branches.length === 0) {
       rows1.push([
-        '-', '-', 'Sin ramas registradas', '-', '-', '-', '-', '-', '-', '-', '-', '-'
+        '-', '-', 'Sin ramas registradas', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-'
       ]);
     } else {
       this.branches.forEach((b, idx) => {
@@ -2231,6 +2737,7 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
           b.name,
           b.featureTitle || '-',
           b.state,
+          b.releaseTag || '-',
           versionsText,
           devsText,
           objectivesText,
@@ -2605,11 +3112,12 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
     let colFlow = 3;
     let colTitle = 5;
     let colState = 6;
-    let colVersions = 7;
-    let colDevs = 8;
-    let colObjectives = 9;
-    let colSubBranches = 10;
-    let colFolders = 11;
+    let colRelease = -1;
+    let colVersions = 8;
+    let colDevs = 9;
+    let colObjectives = 10;
+    let colSubBranches = 11;
+    let colFolders = 12;
 
     const headerRow = ws1.getRow(2);
     if (headerRow && headerRow.cellCount > 0) {
@@ -2620,6 +3128,7 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
         else if (h.includes('categor') || h.includes('flujo') || h.includes('módulo')) colFlow = colNumber;
         else if (h.includes('título') || h.includes('desarrollo')) colTitle = colNumber;
         else if (h.includes('estado')) colState = colNumber;
+        else if (h.includes('release') || (h.includes('tag') && !h.includes('dev'))) colRelease = colNumber;
         else if (h.includes('versiones')) colVersions = colNumber;
         else if (h.includes('devs') || h.includes('desarrollador')) colDevs = colNumber;
         else if (h.includes('objetivo') || h.includes('descrip')) colObjectives = colNumber;
@@ -2723,14 +3232,40 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
       // 4. Detectar estado
       let state: BranchLifecycleState = 'En desarrollo';
       const stateCandidate =
-        cellTexts.find(c => c && /certif|qa|desarr|prueb|prod|list/i.test(c)) ||
         cellTexts[colState] ||
+        cellTexts.find(c => c && /certif|qa|desarr|prueb|prod|list/i.test(c)) ||
         '';
-      const stLower = stateCandidate.toLowerCase();
-      if (stLower.includes('cert') || stLower.includes('prod') || stLower.includes('list')) {
-        state = 'Certificada';
-      } else if (stLower.includes('qa') || stLower.includes('prueb')) {
-        state = 'QA';
+      if (stateCandidate && stateCandidate !== '-') {
+        const matched = this.availableStatuses.find(
+          s => s.name.toLowerCase() === stateCandidate.trim().toLowerCase()
+        );
+        if (matched) {
+          state = matched.name;
+        } else {
+          const stLower = stateCandidate.toLowerCase();
+          if (stLower.includes('cert') || stLower.includes('prod') || stLower.includes('list')) {
+            state = 'Certificada';
+          } else if (stLower.includes('qa') || stLower.includes('prueb')) {
+            state = 'QA';
+          } else {
+            const ensured = this.ensureCustomStatus(stateCandidate.trim());
+            state = ensured.name;
+          }
+        }
+      }
+
+      // 4.1 Detectar Release / Tag de Entrega
+      let releaseTag = '';
+      if (colRelease !== -1 && cellTexts[colRelease] && cellTexts[colRelease] !== '-') {
+        releaseTag = cellTexts[colRelease].trim();
+      } else {
+        const rCand = cellTexts.find(c => c && /^release[\/-]/i.test(c));
+        if (rCand) {
+          releaseTag = rCand.trim();
+        }
+      }
+      if (releaseTag) {
+        this.ensureGlobalReleaseTag(releaseTag);
       }
 
       // 5. Parsear versiones QA
@@ -2857,6 +3392,14 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
           existingBranch.featureTitle = featureTitle;
           changed = true;
         }
+        if (releaseTag && releaseTag !== '-' && existingBranch.releaseTag !== releaseTag) {
+          existingBranch.releaseTag = releaseTag;
+          if (!existingBranch.releaseTags) existingBranch.releaseTags = [];
+          if (!existingBranch.releaseTags.includes(releaseTag)) {
+            existingBranch.releaseTags.push(releaseTag);
+          }
+          changed = true;
+        }
         if (stateCandidate && existingBranch.state !== state) {
           existingBranch.state = state;
           changed = true;
@@ -2901,6 +3444,8 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
           moduleFlow: moduleFlow || 'General',
           featureTitle: featureTitle || branchName,
           state: state,
+          releaseTag: releaseTag || undefined,
+          releaseTags: releaseTag ? [releaseTag] : [],
           qaVersions: qaVersions,
           devs: devs,
           objectivesSummary: objectivesSummary,
@@ -2917,6 +3462,9 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
       }
 
       // Auto-registro en catálogos disponibles para autocompletado
+      if (releaseTag) {
+        this.ensureGlobalReleaseTag(releaseTag);
+      }
       devs.forEach(d => {
         if (d && !this.availableDevs.includes(d)) this.availableDevs.push(d);
       });
@@ -3194,25 +3742,103 @@ export class GravityLeadComponent implements OnInit, AfterViewInit {
     }
   }
 
-  getStateBadgeClass(state: BranchLifecycleState): string {
-    switch (state) {
-      case 'Certificada':
+  getStateBadgeClass(state: BranchLifecycleState | string): string {
+    const clean = (state || '').trim().toLowerCase();
+    const custom = this.availableStatuses.find(s => s.name.toLowerCase() === clean);
+    if (custom) {
+      return this.getStatusBadgeColorClass(custom.color);
+    }
+    if (clean.includes('cert') || clean.includes('prod') || clean.includes('list')) {
+      return this.getStatusBadgeColorClass('emerald');
+    }
+    if (clean.includes('qa') || clean.includes('prueb')) {
+      return this.getStatusBadgeColorClass('amber');
+    }
+    return this.getStatusBadgeColorClass('indigo');
+  }
+
+  getStateDotClass(state: BranchLifecycleState | string): string {
+    const clean = (state || '').trim().toLowerCase();
+    const custom = this.availableStatuses.find(s => s.name.toLowerCase() === clean);
+    if (custom) {
+      return this.getStatusDotColorClass(custom.color);
+    }
+    if (clean.includes('cert') || clean.includes('prod') || clean.includes('list')) {
+      return this.getStatusDotColorClass('emerald');
+    }
+    if (clean.includes('qa') || clean.includes('prueb')) {
+      return this.getStatusDotColorClass('amber');
+    }
+    return this.getStatusDotColorClass('indigo');
+  }
+
+  getStatusBadgeColorClass(color: string): string {
+    switch (color) {
+      case 'emerald':
         return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
-      case 'QA':
-        return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
-      default:
+      case 'green':
+        return 'bg-green-500/15 text-green-300 border-green-500/30';
+      case 'lime':
+        return 'bg-lime-500/15 text-lime-300 border-lime-500/30';
+      case 'teal':
+        return 'bg-teal-500/15 text-teal-300 border-teal-500/30';
+      case 'cyan':
+        return 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30';
+      case 'sky':
+        return 'bg-sky-500/15 text-sky-300 border-sky-500/30';
+      case 'blue':
+        return 'bg-blue-500/15 text-blue-300 border-blue-500/30';
+      case 'indigo':
         return 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30';
+      case 'violet':
+        return 'bg-violet-500/15 text-violet-300 border-violet-500/30';
+      case 'purple':
+        return 'bg-purple-500/15 text-purple-300 border-purple-500/30';
+      case 'fuchsia':
+        return 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30';
+      case 'pink':
+        return 'bg-pink-500/15 text-pink-300 border-pink-500/30';
+      case 'rose':
+        return 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+      case 'red':
+        return 'bg-red-500/15 text-red-300 border-red-500/30';
+      case 'orange':
+        return 'bg-orange-500/15 text-orange-300 border-orange-500/30';
+      case 'amber':
+        return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+      case 'yellow':
+        return 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30';
+      case 'zinc':
+        return 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30';
+      case 'slate':
+      default:
+        return 'bg-slate-500/15 text-slate-300 border-slate-500/30';
     }
   }
 
-  getStateDotClass(state: BranchLifecycleState): string {
-    switch (state) {
-      case 'Certificada':
-        return 'bg-emerald-400';
-      case 'QA':
-        return 'bg-amber-400';
+  getStatusDotColorClass(color: string): string {
+    switch (color) {
+      case 'emerald': return 'bg-emerald-400';
+      case 'green': return 'bg-green-400';
+      case 'lime': return 'bg-lime-400';
+      case 'teal': return 'bg-teal-400';
+      case 'cyan': return 'bg-cyan-400';
+      case 'sky': return 'bg-sky-400';
+      case 'blue': return 'bg-blue-400';
+      case 'indigo': return 'bg-indigo-400';
+      case 'violet': return 'bg-violet-400';
+      case 'purple': return 'bg-purple-400';
+      case 'fuchsia': return 'bg-fuchsia-400';
+      case 'pink': return 'bg-pink-400';
+      case 'rose': return 'bg-rose-400';
+      case 'red': return 'bg-red-400';
+      case 'orange': return 'bg-orange-400';
+      case 'amber': return 'bg-amber-400';
+      case 'yellow': return 'bg-yellow-400';
+      case 'zinc': return 'bg-zinc-400';
+      case 'slate':
       default:
-        return 'bg-indigo-400';
+        return 'bg-slate-400';
     }
   }
 

@@ -181,6 +181,49 @@ ipcMain.handle('open-external-url', async (_event, url) => {
   return false;
 });
 
+// --- MANEJO DE DEVTOOLS INTEGRADO PARA EL EMULADOR ---
+ipcMain.handle('attach-emulator-devtools', (_event, { inspectId, devToolsId }) => {
+  try {
+    const contentsToInspect = webContents.fromId(inspectId);
+    const devToolsContents = webContents.fromId(devToolsId);
+    if (contentsToInspect && devToolsContents) {
+      contentsToInspect.setDevToolsWebContents(devToolsContents);
+      contentsToInspect.openDevTools();
+      return true;
+    }
+  } catch (err) {
+    console.error('Error al acoplar DevTools de emulador:', err);
+  }
+  return false;
+});
+
+ipcMain.handle('detach-emulator-devtools', (_event, { inspectId }) => {
+  try {
+    const contentsToInspect = webContents.fromId(inspectId);
+    if (contentsToInspect) {
+      contentsToInspect.closeDevTools();
+      contentsToInspect.openDevTools({ mode: 'detach' });
+      return true;
+    }
+  } catch (err) {
+    console.error('Error al desacoplar DevTools de emulador:', err);
+  }
+  return false;
+});
+
+ipcMain.handle('close-emulator-devtools', (_event, { inspectId }) => {
+  try {
+    const contentsToInspect = webContents.fromId(inspectId);
+    if (contentsToInspect) {
+      contentsToInspect.closeDevTools();
+      return true;
+    }
+  } catch (err) {
+    console.error('Error al cerrar DevTools de emulador:', err);
+  }
+  return false;
+});
+
 ipcMain.on('set-run-in-background', (_event, enabled) => {
   runInBackground = !!enabled;
   saveWindowState();

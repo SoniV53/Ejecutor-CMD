@@ -40,6 +40,7 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
   @ViewChild('deviceWrapperRef') deviceWrapperRef!: ElementRef<HTMLElement>;
   @ViewChild('deviceContainerRef') deviceContainerRef!: ElementRef<HTMLElement>;
   @ViewChild('frameContainerRef') frameContainerRef!: ElementRef<HTMLElement>;
+  @ViewChild('devToolsContainerRef') devToolsContainerRef?: ElementRef<HTMLElement>;
 
   @Input() currentDeviceKey = 'iphone14';
   @Input() isLandscape = false;
@@ -47,6 +48,23 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
   @Input() appZoom = 1.0;
   @Input() isTouchEnabled = true;
 
+  @Input()
+  set isConsoleOpen(val: boolean) {
+    if (this._isConsoleOpen !== val) {
+      this._isConsoleOpen = val;
+      if (val && !this.isDevToolsOpen) {
+        this.openEmbeddedDevTools();
+      } else if (!val && this.isDevToolsOpen) {
+        this.closeEmbeddedDevTools();
+      }
+    }
+  }
+  get isConsoleOpen(): boolean {
+    return this._isConsoleOpen;
+  }
+  private _isConsoleOpen = false;
+
+  @Output() consoleChange = new EventEmitter<boolean>();
   @Output() zoomChange = new EventEmitter<number>();
   @Output() urlUpdated = new EventEmitter<string>();
   @Output() toastError = new EventEmitter<string>();
@@ -55,7 +73,17 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
   isLoading = false;
   clockTime = '9:41';
 
+  // --- ESTADO DE DEVTOOLS EMBEBIDO Y REDIMENSIONABLE ---
+  isDevToolsOpen = false;
+  devToolsSide: 'left' | 'right' = 'right';
+  devToolsWidth = 520;
+  isResizingDevTools = false;
+  private resizeStartX = 0;
+  private resizeStartWidth = 520;
+
   private appFrame: any = null;
+  private devToolsFrame: any = null;
+  private isDevToolsAttaching = false;
   private clockInterval: any = null;
 
   readonly devices: Record<string, DeviceConfig> = {
@@ -120,7 +148,25 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
     private electronService: ElectronService,
     private lucideService: LucideIconService,
     private ngZone: NgZone
-  ) {}
+  ) {
+    this.loadDevToolsPreferences();
+  }
+
+  private loadDevToolsPreferences(): void {
+    try {
+      const savedSide = localStorage.getItem('consoleflow_emu_devtools_side');
+      if (savedSide === 'left' || savedSide === 'right') {
+        this.devToolsSide = savedSide;
+      }
+      const savedW = localStorage.getItem('consoleflow_emu_devtools_width');
+      if (savedW) {
+        const parsed = parseInt(savedW, 10);
+        if (!isNaN(parsed) && parsed >= 300) {
+          this.devToolsWidth = Math.min(Math.max(300, parsed), window.innerWidth - 300);
+        }
+      }
+    } catch {}
+  }
 
   ngAfterViewInit(): void {
     this.lucideService.refresh();
@@ -137,8 +183,13 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
     if (this.clockInterval) {
       clearInterval(this.clockInterval);
     }
+    if (this.devToolsFrame && this.devToolsFrame.parentNode) {
+      this.devToolsFrame.parentNode.removeChild(this.devToolsFrame);
+      this.devToolsFrame = null;
+    }
     if (this.appFrame && this.appFrame.parentNode) {
       this.appFrame.parentNode.removeChild(this.appFrame);
+      this.appFrame = null;
     }
   }
 
@@ -504,18 +555,173 @@ export class EmuladorViewportComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  toggleDevTools(currentlyOpen: boolean): boolean {
-    if (!this.appFrame) return false;
-    try {
-      if (currentlyOpen) {
-        this.appFrame.closeDevTools();
-        return false;
-      } else {
-        this.appFrame.openDevTools();
-        return true;
+  toggleDevTools(currentlyOpen?: boolean): boolean {
+    if (this.isDevToolsOpen) {
+      this.closeEmbeddedDevTools();
+      return false;
+    } else {
+      this.openEmbeddedDevTools();
+      return true;
+    }
+  }
+
+  async openEmbeddedDevTools(): Promise<void> {
+    if (!this.electronService.isElectron || !this.appFrame) {
+      this.toastError.emit('El DevTools embebido requiere que la aplicación se ejecute en Electron.');
+      return;
+    }
+
+    this.isDevToolsOpen = true;
+    this._isConsoleOpen = true;
+    this.consoleChange.emit(true);
+
+    this.ngZone.run(() => {
+      setTimeout(() => {
+        this.mountDevTools();
+        this.updateCentering();
+        this.lucideService.refresh();
+      }, 50);
+    });
+  }
+
+  async closeEmbeddedDevTools(): Promise<void> {
+    this.isDevToolsOpen = false;
+    this._isConsoleOpen = false;
+    this.consoleChange.emit(false);
+
+    if (this.appFrame && this.electronService.isElectron) {
+      try {
+        const inspectId = this.appFrame.getWebContentsId();
+        if (inspectId) {
+          await this.electronService.closeEmulatorDevTools(inspectId);
+        }
+      } catch (e) {
+        console.warn('Error al cerrar DevTools:', e);
       }
-    } catch {
-      return currentlyOpen;
+    }
+
+    this.ngZone.run(() => {
+      setTimeout(() => {
+        this.updateCentering();
+        this.lucideService.refresh();
+      }, 50);
+    });
+  }
+
+  async detachDevTools(): Promise<void> {
+    if (!this.appFrame || !this.electronService.isElectron) return;
+
+    try {
+      const inspectId = this.appFrame.getWebContentsId();
+      if (inspectId) {
+        await this.electronService.detachEmulatorDevTools(inspectId);
+      }
+    } catch (e) {
+      console.warn('Error al desacoplar DevTools a ventana flotante:', e);
+    }
+
+    this.isDevToolsOpen = false;
+    this._isConsoleOpen = true;
+    this.consoleChange.emit(true);
+
+    this.ngZone.run(() => {
+      setTimeout(() => {
+        this.updateCentering();
+        this.lucideService.refresh();
+      }, 50);
+    });
+  }
+
+  toggleDevToolsSide(): void {
+    this.devToolsSide = this.devToolsSide === 'left' ? 'right' : 'left';
+    try {
+      localStorage.setItem('consoleflow_emu_devtools_side', this.devToolsSide);
+    } catch {}
+
+    this.ngZone.run(() => {
+      setTimeout(() => {
+        this.updateCentering();
+        this.lucideService.refresh();
+      }, 50);
+    });
+  }
+
+  onStartResize(event: MouseEvent): void {
+    event.preventDefault();
+    this.isResizingDevTools = true;
+    this.resizeStartX = event.clientX;
+    this.resizeStartWidth = this.devToolsWidth;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      let delta = 0;
+      if (this.devToolsSide === 'right') {
+        delta = this.resizeStartX - moveEvent.clientX;
+      } else {
+        delta = moveEvent.clientX - this.resizeStartX;
+      }
+      const maxW = Math.max(380, window.innerWidth - 320);
+      this.devToolsWidth = Math.max(300, Math.min(maxW, this.resizeStartWidth + delta));
+      this.updateCentering();
+    };
+
+    const onMouseUp = () => {
+      this.isResizingDevTools = false;
+      try {
+        localStorage.setItem('consoleflow_emu_devtools_width', String(this.devToolsWidth));
+      } catch {}
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      setTimeout(() => this.updateCentering(), 50);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
+
+  private async mountDevTools(): Promise<void> {
+    const container = this.devToolsContainerRef?.nativeElement;
+    if (!container || !this.appFrame || !this.electronService.isElectron) return;
+
+    if (!this.devToolsFrame) {
+      this.devToolsFrame = document.createElement('webview');
+      this.devToolsFrame.setAttribute('allowpopups', 'true');
+      this.devToolsFrame.setAttribute('src', 'about:blank');
+      this.devToolsFrame.id = 'emulatorDevToolsFrame';
+      this.devToolsFrame.className = 'w-full h-full border-0 bg-[#202124]';
+      container.appendChild(this.devToolsFrame);
+
+      const doAttach = async () => {
+        if (this.isDevToolsAttaching) return;
+        this.isDevToolsAttaching = true;
+        try {
+          const inspectId = this.appFrame.getWebContentsId();
+          const devToolsId = this.devToolsFrame.getWebContentsId();
+          if (inspectId && devToolsId) {
+            await this.electronService.attachEmulatorDevTools(inspectId, devToolsId);
+          }
+        } catch (e) {
+          console.warn('Error adjuntando DevTools embebido:', e);
+        } finally {
+          this.isDevToolsAttaching = false;
+        }
+      };
+
+      this.devToolsFrame.addEventListener('dom-ready', () => {
+        doAttach();
+      });
+    } else {
+      if (this.devToolsFrame.parentNode !== container) {
+        container.appendChild(this.devToolsFrame);
+      }
+      try {
+        const inspectId = this.appFrame.getWebContentsId();
+        const devToolsId = this.devToolsFrame.getWebContentsId();
+        if (inspectId && devToolsId) {
+          await this.electronService.attachEmulatorDevTools(inspectId, devToolsId);
+        }
+      } catch (e) {
+        console.warn('Error re-adjuntando DevTools embebido:', e);
+      }
     }
   }
 

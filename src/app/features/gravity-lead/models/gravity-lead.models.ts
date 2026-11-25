@@ -1,4 +1,33 @@
-export type BranchLifecycleState = 'En desarrollo' | 'QA' | 'Certificada';
+export type BranchLifecycleState = 'En desarrollo' | 'QA' | 'Certificada' | string;
+
+export type StatusColorType =
+  | 'indigo'
+  | 'amber'
+  | 'emerald'
+  | 'purple'
+  | 'rose'
+  | 'cyan'
+  | 'blue'
+  | 'orange'
+  | 'slate'
+  | 'violet'
+  | 'fuchsia'
+  | 'pink'
+  | 'red'
+  | 'teal'
+  | 'green'
+  | 'lime'
+  | 'yellow'
+  | 'sky'
+  | 'zinc'
+  | string;
+
+export interface CustomStatusConfig {
+  id: string;
+  name: string;
+  color: StatusColorType;
+  isDefault?: boolean;
+}
 
 export interface SubBranchContext {
   id: string;
@@ -28,6 +57,8 @@ export interface TrackedBranch {
   subBranches: SubBranchContext[];
   buildFolderUrl?: string; // Carpeta o enlace principal de la nube para compilados
   folderLinks?: BranchFolderLink[]; // Lista de enlaces o carpetas guardadas
+  releaseTag?: string; // ej. "release/v7.3.0" o versión de release destino
+  releaseTags?: string[]; // Historial o múltiples releases asociados
   createdAt: string;
   updatedAt: string;
 }
@@ -72,5 +103,7 @@ export interface GravityLeadWorkspace {
   availableFlows?: string[];
   savedEmailContacts?: ReleaseEmailContact[];
   excelDesign?: ExcelDesignConfig;
+  customStatuses?: CustomStatusConfig[];
+  availableReleaseTags?: string[];
 }
 

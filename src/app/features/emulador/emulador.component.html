@@ -4,8 +4,10 @@
     type="button"
     id="floatingConsoleBtn"
     (click)="onToggleConsole()"
-    class="absolute bottom-6 left-6 z-[60] bg-slate-800 text-slate-400 p-3.5 rounded-full shadow-lg border border-slate-700 hover:text-white group"
+    class="absolute bottom-6 z-[60] bg-slate-800 text-slate-400 p-3.5 rounded-full shadow-lg border border-slate-700 hover:text-white group transition-all"
+    [ngClass]="(isConsoleOpen && viewport?.devToolsSide === 'left') ? 'right-6 left-auto' : 'left-6'"
     [class.console-active-btn]="isConsoleOpen"
+    title="Abrir o cerrar DevTools embebido"
   >
     <i
       data-lucide="terminal-square"
@@ -104,6 +106,8 @@
     [currentZoom]="currentZoom"
     [appZoom]="appZoom"
     [isTouchEnabled]="isTouchEnabled"
+    [isConsoleOpen]="isConsoleOpen"
+    (consoleChange)="isConsoleOpen = $event"
     (zoomChange)="onViewportZoomChange($event)"
     (urlUpdated)="url = $event"
     (toastError)="showToast($event)"

@@ -91,5 +91,59 @@ export class ElectronService {
     }
     return false;
   }
+
+  async attachEmulatorDevTools(inspectId: number, devToolsId: number): Promise<boolean> {
+    try {
+      if (this.ipcRenderer) {
+        return await this.ipcRenderer.invoke('attach-emulator-devtools', { inspectId, devToolsId });
+      }
+      const win = window as any;
+      if (win.require) {
+        const electron = win.require('electron');
+        if (electron && electron.ipcRenderer) {
+          return await electron.ipcRenderer.invoke('attach-emulator-devtools', { inspectId, devToolsId });
+        }
+      }
+    } catch (e) {
+      console.warn('Error en attachEmulatorDevTools:', e);
+    }
+    return false;
+  }
+
+  async detachEmulatorDevTools(inspectId: number): Promise<boolean> {
+    try {
+      if (this.ipcRenderer) {
+        return await this.ipcRenderer.invoke('detach-emulator-devtools', { inspectId });
+      }
+      const win = window as any;
+      if (win.require) {
+        const electron = win.require('electron');
+        if (electron && electron.ipcRenderer) {
+          return await electron.ipcRenderer.invoke('detach-emulator-devtools', { inspectId });
+        }
+      }
+    } catch (e) {
+      console.warn('Error en detachEmulatorDevTools:', e);
+    }
+    return false;
+  }
+
+  async closeEmulatorDevTools(inspectId: number): Promise<boolean> {
+    try {
+      if (this.ipcRenderer) {
+        return await this.ipcRenderer.invoke('close-emulator-devtools', { inspectId });
+      }
+      const win = window as any;
+      if (win.require) {
+        const electron = win.require('electron');
+        if (electron && electron.ipcRenderer) {
+          return await electron.ipcRenderer.invoke('close-emulator-devtools', { inspectId });
+        }
+      }
+    } catch (e) {
+      console.warn('Error en closeEmulatorDevTools:', e);
+    }
+    return false;
+  }
 }
 

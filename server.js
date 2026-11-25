@@ -6,24 +6,29 @@ const path = require('path');
 const BASE_DIR = process.env.PORTABLE_EXECUTABLE_DIR || __dirname;
 
 // Cargar variables de entorno desde .env si existe
-const envPath = path.join(BASE_DIR, '.env');
-if (fs.existsSync(envPath)) {
-    try {
-        const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
-        for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith('#')) continue;
-            const eqIdx = trimmed.indexOf('=');
-            if (eqIdx > 0) {
-                const key = trimmed.substring(0, eqIdx).trim();
-                const val = trimmed.substring(eqIdx + 1).trim();
-                if (!process.env[key]) {
+const envCandidates = [
+    path.join(BASE_DIR, '.env'),
+    path.join(__dirname, '.env'),
+    path.join(process.cwd(), '.env')
+];
+for (const envPath of envCandidates) {
+    if (fs.existsSync(envPath)) {
+        try {
+            const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('#')) continue;
+                const eqIdx = trimmed.indexOf('=');
+                if (eqIdx > 0) {
+                    const key = trimmed.substring(0, eqIdx).trim();
+                    const val = trimmed.substring(eqIdx + 1).trim();
                     process.env[key] = val;
                 }
             }
+            break;
+        } catch (e) {
+            console.error('Error cargando .env:', e);
         }
-    } catch (e) {
-        console.error('Error cargando .env:', e);
     }
 }
 
